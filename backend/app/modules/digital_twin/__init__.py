@@ -1,0 +1,1 @@
+"""Modul digital twin: placeholder."""
