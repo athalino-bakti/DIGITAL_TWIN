@@ -2,6 +2,10 @@ from alembic import context
 
 from app.db.base import Base
 from app.db.session import engine
+from app.modules.data import models as data_models  # noqa: F401
+from app.modules.digital_twin import models as digital_twin_models  # noqa: F401
+from app.modules.evaluasi import models as evaluasi_models  # noqa: F401
+from app.modules.simulasi import models as simulasi_models  # noqa: F401
 
 # Import model milik modul di sini sebelum autogenerate saat model sudah tersedia.
 target_metadata = Base.metadata
