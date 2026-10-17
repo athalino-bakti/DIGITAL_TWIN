@@ -1,4 +1,5 @@
-import { FormEvent, useState } from 'react';
+import { useState } from 'react';
+import type { FormEvent } from 'react';
 import { apiGet, apiPost } from '../../shared/api/client';
 
 type SimulationRun = {

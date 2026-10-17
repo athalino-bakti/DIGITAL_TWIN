@@ -10,7 +10,15 @@ from fastapi import HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.modules.data.models import Assignment, DataUpload, Dependency, Project, Resource, Task, ValidationError
+from app.modules.data.models import (
+    Assignment,
+    DataUpload,
+    Dependency,
+    Project,
+    Resource,
+    Task,
+    ValidationError,
+)
 from app.modules.data.schemas import (
     ProjectItem,
     ResourceItem,
@@ -89,7 +97,9 @@ def _parse_csv(content: str) -> tuple[list[ParsedRow], list[tuple[int, str, str]
             duration_days = int(str(row.get("duration_days", "")).strip())
             priority = int(str(row.get("priority", "")).strip())
             resource_name = _sanitize_text(str(row.get("resource_name", "")), "resource_name")
-            resource_role = _sanitize_text(str(row.get("resource_role", "General")), "resource_role")
+            resource_role = _sanitize_text(
+                str(row.get("resource_role", "General")), "resource_role"
+            )
             allocation_percent = float(str(row.get("allocation_percent", "")).strip())
 
             predecessor_task_raw = str(row.get("predecessor_task", "")).strip()
@@ -131,18 +141,26 @@ def _parse_csv(content: str) -> tuple[list[ParsedRow], list[tuple[int, str, str]
 
 def create_upload(db: Session, upload_file: UploadFile) -> UploadSummary:
     if not upload_file.filename:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Nama file tidak tersedia")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Nama file tidak tersedia"
+        )
     if not upload_file.filename.lower().endswith(".csv"):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File harus berformat CSV")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="File harus berformat CSV"
+        )
 
     content_bytes = upload_file.file.read(MAX_UPLOAD_BYTES + 1)
     if len(content_bytes) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Ukuran file melebihi 2MB")
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Ukuran file melebihi 2MB"
+        )
 
     try:
         content = content_bytes.decode("utf-8-sig")
     except UnicodeDecodeError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File harus UTF-8") from exc
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="File harus UTF-8"
+        ) from exc
 
     upload = DataUpload(source_filename=upload_file.filename, status="processing")
     db.add(upload)
@@ -236,7 +254,9 @@ def create_upload(db: Session, upload_file: UploadFile) -> UploadSummary:
         )
 
         if predecessor is None or successor is None or predecessor.id == successor.id:
-            errors.append((row.row_number, "Dependency task tidak valid", row.predecessor_task or ""))
+            errors.append(
+                (row.row_number, "Dependency task tidak valid", row.predecessor_task or "")
+            )
             continue
 
         dependency = db.scalar(

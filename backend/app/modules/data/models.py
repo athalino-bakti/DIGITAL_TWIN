@@ -85,7 +85,9 @@ class Task(Base):
 
 class Assignment(Base):
     __tablename__ = "assignments"
-    __table_args__ = (UniqueConstraint("task_id", "resource_id", name="uq_assignment_task_resource"),)
+    __table_args__ = (
+        UniqueConstraint("task_id", "resource_id", name="uq_assignment_task_resource"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"))

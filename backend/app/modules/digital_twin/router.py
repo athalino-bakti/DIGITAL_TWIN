@@ -11,7 +11,12 @@ from app.modules.digital_twin.schemas import (
     ResourceLoadItem,
     TimelineItem,
 )
-from app.modules.digital_twin.service import create_baseline, get_dependencies, get_resource_load, get_timeline
+from app.modules.digital_twin.service import (
+    create_baseline,
+    get_dependencies,
+    get_resource_load,
+    get_timeline,
+)
 
 router = APIRouter(prefix="/digital-twin", tags=["Digital Twin"])
 

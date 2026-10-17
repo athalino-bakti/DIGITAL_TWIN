@@ -4,8 +4,20 @@ from fastapi import APIRouter, Depends, File, UploadFile
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.modules.data.schemas import ProjectItem, ResourceItem, TaskItem, UploadDetail, UploadSummary
-from app.modules.data.service import create_upload, get_upload_detail, list_projects, list_resources, list_tasks
+from app.modules.data.schemas import (
+    ProjectItem,
+    ResourceItem,
+    TaskItem,
+    UploadDetail,
+    UploadSummary,
+)
+from app.modules.data.service import (
+    create_upload,
+    get_upload_detail,
+    list_projects,
+    list_resources,
+    list_tasks,
+)
 
 router = APIRouter(prefix="/data", tags=["Data"])
 

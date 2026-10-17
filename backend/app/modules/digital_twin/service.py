@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
-from sqlalchemy.orm import aliased
+from sqlalchemy.orm import Session, aliased
 
 from app.modules.data.models import Assignment, Dependency, Project, Resource, Task
 from app.modules.digital_twin.models import Baseline
@@ -38,7 +37,9 @@ def create_baseline(db: Session, payload: BaselineCreateRequest) -> BaselineResp
 def get_timeline(db: Session, baseline_id: int) -> list[TimelineItem]:
     baseline = db.get(Baseline, baseline_id)
     if baseline is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Baseline tidak ditemukan")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Baseline tidak ditemukan"
+        )
 
     tasks = db.scalars(
         select(Task)
@@ -61,7 +62,9 @@ def get_timeline(db: Session, baseline_id: int) -> list[TimelineItem]:
 def get_resource_load(db: Session, baseline_id: int) -> list[ResourceLoadItem]:
     baseline = db.get(Baseline, baseline_id)
     if baseline is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Baseline tidak ditemukan")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Baseline tidak ditemukan"
+        )
 
     rows = db.execute(
         select(
@@ -91,7 +94,9 @@ def get_resource_load(db: Session, baseline_id: int) -> list[ResourceLoadItem]:
 def get_dependencies(db: Session, baseline_id: int) -> list[DependencyItem]:
     baseline = db.get(Baseline, baseline_id)
     if baseline is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Baseline tidak ditemukan")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Baseline tidak ditemukan"
+        )
 
     predecessor_task = aliased(Task)
     successor_task = aliased(Task)

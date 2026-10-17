@@ -25,11 +25,15 @@ def create_evaluation(
 ) -> EvaluationResponse:
     baseline = db.get(Baseline, payload.baseline_id)
     if baseline is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Baseline tidak ditemukan")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Baseline tidak ditemukan"
+        )
 
     run = db.get(SimulationRun, payload.run_id)
     if run is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run simulasi tidak ditemukan")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Run simulasi tidak ditemukan"
+        )
 
     if run.baseline_id != baseline.id:
         raise HTTPException(
@@ -65,11 +69,14 @@ def process_evaluation(report_id: int) -> None:
             db.commit()
             return
 
-        baseline_duration = db.scalar(
-            select(func.coalesce(func.sum(Task.duration_days), 0)).where(
-                Task.project_id == baseline.project_id
+        baseline_duration = (
+            db.scalar(
+                select(func.coalesce(func.sum(Task.duration_days), 0)).where(
+                    Task.project_id == baseline.project_id
+                )
             )
-        ) or 0
+            or 0
+        )
 
         simulation_metrics = db.scalars(
             select(SimulationResult).where(SimulationResult.run_id == run.id)
@@ -79,11 +86,14 @@ def process_evaluation(report_id: int) -> None:
         simulated_duration = metric_map.get("total_duration_days", float(baseline_duration))
         delay_days = simulated_duration - float(baseline_duration)
 
-        avg_utilization = db.scalar(
-            select(func.coalesce(func.avg(Assignment.allocation_percent), 0))
-            .join(Task, Task.id == Assignment.task_id)
-            .where(Task.project_id == baseline.project_id)
-        ) or 0
+        avg_utilization = (
+            db.scalar(
+                select(func.coalesce(func.avg(Assignment.allocation_percent), 0))
+                .join(Task, Task.id == Assignment.task_id)
+                .where(Task.project_id == baseline.project_id)
+            )
+            or 0
+        )
 
         overload_count = metric_map.get("overload_count", 0.0)
         ranking_score = max(0.0, 100.0 - max(0.0, delay_days) * 2.0 - overload_count * 5.0)

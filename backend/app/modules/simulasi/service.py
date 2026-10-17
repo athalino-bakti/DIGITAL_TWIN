@@ -28,7 +28,9 @@ def create_simulation_run(
 ) -> SimulationRunResponse:
     baseline = db.get(Baseline, payload.baseline_id)
     if baseline is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Baseline tidak ditemukan")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Baseline tidak ditemukan"
+        )
 
     run = SimulationRun(
         baseline_id=payload.baseline_id,
@@ -67,29 +69,39 @@ def process_simulation_run(run_id: int) -> None:
         duration_multiplier = float(run.scenario.get("duration_multiplier", 1.0))
         additional_allocation = float(run.scenario.get("additional_allocation_percent", 0.0))
 
-        total_duration = db.scalar(
-            select(func.coalesce(func.sum(Task.duration_days), 0)).where(
-                Task.project_id == baseline.project_id
+        total_duration = (
+            db.scalar(
+                select(func.coalesce(func.sum(Task.duration_days), 0)).where(
+                    Task.project_id == baseline.project_id
+                )
             )
-        ) or 0
+            or 0
+        )
 
         resource_load_rows = db.execute(
-            select(Assignment.resource_id, func.coalesce(func.sum(Assignment.allocation_percent), 0))
+            select(
+                Assignment.resource_id, func.coalesce(func.sum(Assignment.allocation_percent), 0)
+            )
             .join(Task, Task.id == Assignment.task_id)
             .where(Task.project_id == baseline.project_id)
             .group_by(Assignment.resource_id)
         ).all()
 
         overload_count = sum(
-            1 for _resource_id, load in resource_load_rows if float(load) + additional_allocation > 100
+            1
+            for _resource_id, load in resource_load_rows
+            if float(load) + additional_allocation > 100
         )
 
-        hard_dependency_count = db.scalar(
-            select(func.count(Dependency.id)).where(
-                Dependency.project_id == baseline.project_id,
-                Dependency.kind == "hard",
+        hard_dependency_count = (
+            db.scalar(
+                select(func.count(Dependency.id)).where(
+                    Dependency.project_id == baseline.project_id,
+                    Dependency.kind == "hard",
+                )
             )
-        ) or 0
+            or 0
+        )
 
         adjusted_duration = float(total_duration) * duration_multiplier
 
@@ -118,14 +130,18 @@ def process_simulation_run(run_id: int) -> None:
 def get_simulation_run(db: Session, run_id: int) -> SimulationRunResponse:
     run = db.get(SimulationRun, run_id)
     if run is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run simulasi tidak ditemukan")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Run simulasi tidak ditemukan"
+        )
     return _to_response(run)
 
 
 def get_simulation_results(db: Session, run_id: int) -> list[SimulationMetricItem]:
     run = db.get(SimulationRun, run_id)
     if run is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run simulasi tidak ditemukan")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Run simulasi tidak ditemukan"
+        )
 
     results = db.scalars(
         select(SimulationResult)

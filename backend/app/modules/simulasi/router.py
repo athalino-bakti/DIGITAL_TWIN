@@ -33,5 +33,7 @@ def get_run(run_id: int, db: Annotated[Session, Depends(get_db)]) -> SimulationR
 
 
 @router.get("/runs/{run_id}/results", response_model=list[SimulationMetricItem])
-def get_run_results(run_id: int, db: Annotated[Session, Depends(get_db)]) -> list[SimulationMetricItem]:
+def get_run_results(
+    run_id: int, db: Annotated[Session, Depends(get_db)]
+) -> list[SimulationMetricItem]:
     return get_simulation_results(db, run_id)

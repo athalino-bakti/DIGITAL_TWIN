@@ -1,4 +1,5 @@
-import { FormEvent, useState } from 'react';
+import { useState } from 'react';
+import type { FormEvent } from 'react';
 import { Navigate, NavLink, useParams } from 'react-router-dom';
 import { apiGet, apiPost } from '../../shared/api/client';
 
