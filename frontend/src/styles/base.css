@@ -1,0 +1,21 @@
+/* Reset dan dasar tipografi. Skala huruf: section Typography (1:161). */
+* { box-sizing: border-box; }
+:root { font: var(--text-body); color: var(--color-body); background: var(--color-bg); font-synthesis: none; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; }
+body { margin: 0; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; cursor: pointer; }
+button, a { -webkit-tap-highlight-color: transparent; }
+:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; border-radius: var(--radius-control); }
+
+h1, h2, h3 { color: var(--color-heading); margin: 0; }
+h1 { font: var(--text-h1); }
+h2 { font: var(--text-h2); }
+h3 { font: var(--text-h3); }
+p { margin: 0; }
+
+/* Utility tipografi — dipakai komponen yang tidak punya tag semantik sendiri. */
+.text-body-lg { font: var(--text-body-lg); }
+.text-body-sm { font: var(--text-body-sm); }
+.text-caption { font: var(--text-caption); color: var(--color-muted); }
+.text-label { font: var(--text-label); color: var(--color-heading); }
+.text-data { font: var(--text-data); color: var(--color-heading); }

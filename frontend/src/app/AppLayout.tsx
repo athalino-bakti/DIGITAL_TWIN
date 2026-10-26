@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { navigation } from './navigation';
+import { Icon } from '../shared/components/Icon';
 import { ServiceStatus } from '../shared/components/ServiceStatus';
 
 export function AppLayout() {
@@ -13,16 +14,16 @@ export function AppLayout() {
       <a className="skip-link" href="#main-content">Lewati ke konten</a>
       <aside id="sidebar" className={`sidebar ${menuOpen ? 'is-open' : ''}`}>
         <NavLink className="brand" to="/" onClick={() => setMenuOpen(false)}>
-          <span className="brand-mark">DT</span>
-          <span><strong>Digital Twin PuTI</strong><small>simulasi proyek</small></span>
+          <span className="brand-mark"><Icon name="folder-open-dot" /></span>
+          <span className="brand-text"><strong>Digital Twin PuTI</strong><small>Simulasi proyek</small></span>
         </NavLink>
         <div className="navigation-section">
           <p className="eyebrow">Halaman</p>
           <nav aria-label="Navigasi utama">
-            {navigation.map((item, index) => (
+            {navigation.map((item) => (
               <NavLink key={item.path} to={item.path} onClick={() => setMenuOpen(false)} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-                <span className="nav-symbol" aria-hidden="true">{item.symbol}</span>
-                <span>{item.label}</span><span className="nav-number">{index + 1}</span>
+                <Icon name={item.icon} />
+                <span>{item.label}</span>
               </NavLink>
             ))}
           </nav>
@@ -36,13 +37,16 @@ export function AppLayout() {
             <div><dt>Simulasi terakhir</dt><dd>—</dd></div>
           </dl>
         </div>
-        <div className="sidebar-footer"><span className="workspace-avatar">P</span><div><strong>Workspace PuTI</strong><small>Perencanaan & simulasi</small></div></div>
+        <div className="sidebar-footer"><span className="workspace-avatar">P</span><div><strong>Workspace PuTI</strong><small>Perencanaan &amp; simulasi</small></div></div>
       </aside>
       <div className="main-shell">
         <header className="topbar">
           <button type="button" className="menu-toggle" aria-controls="sidebar" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>Menu</button>
-          <div className="breadcrumb"><span>Digital Twin PuTI</span><span aria-hidden="true">/</span><strong>{current?.label ?? 'Halaman'}</strong></div>
-          <span className="dataset-badge"><span className="status-dot" />Belum ada dataset</span>
+          <div className="topbar-title"><strong>{current?.label ?? 'Digital Twin PuTI'}</strong><small>Workspace PuTI</small></div>
+          <div className="topbar-actions">
+            <span className="selector"><Icon name="calendar-days" size="sm" />Belum ada dataset<Icon name="chevron-down" size="sm" /></span>
+            <span className="topbar-avatar" title="Workspace PuTI"><Icon name="user" size="lg" /></span>
+          </div>
         </header>
         <main id="main-content" className="page-content" tabIndex={-1}>
           {current && <div className="page-heading"><p className="eyebrow">Workspace / PuTI</p><h1>{current.label}</h1><p>{current.description}</p></div>}

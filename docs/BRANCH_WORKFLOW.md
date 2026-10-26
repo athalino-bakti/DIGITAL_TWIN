@@ -4,12 +4,12 @@
 
 Untuk tahap awal, `main` hanya berisi fondasi bersama: layout, navigasi, halaman placeholder, API client, konfigurasi backend, router kosong, koneksi PostgreSQL, Alembic, dan dokumentasi. Implementasi modul dikerjakan pada branch fitur. Branch di bawah adalah rencana; scaffold tidak otomatis membuat branch, commit, atau push.
 
-| Branch | Frontend | Backend | Cakupan nanti |
-| --- | --- | --- | --- |
-| `feature/data` | `frontend/src/modules/data/` | `backend/app/modules/data/` | Import CSV, validasi, master data, model dasar |
-| `feature/digital-twin` | `frontend/src/modules/digital-twin/` | `backend/app/modules/digital_twin/` | Baseline, timeline, beban resource, dependency |
-| `feature/simulasi` | `frontend/src/modules/simulasi/` | `backend/app/modules/simulasi/` | Parameter, skenario, eksekusi simulasi |
-| `feature/evaluasi` | `frontend/src/modules/evaluasi/` | `backend/app/modules/evaluasi/` | Perbandingan baseline dan hasil, indikator evaluasi |
+| Branch                 | Frontend                             | Backend                             | Cakupan nanti                                       |
+| ---------------------- | ------------------------------------ | ----------------------------------- | --------------------------------------------------- |
+| `feature/data`         | `frontend/src/modules/data/`         | `backend/app/modules/data/`         | Import CSV, validasi, master data, model dasar      |
+| `feature/digital-twin` | `frontend/src/modules/digital-twin/` | `backend/app/modules/digital_twin/` | Baseline, timeline, beban resource, dependency      |
+| `feature/simulasi`     | `frontend/src/modules/simulasi/`     | `backend/app/modules/simulasi/`     | Parameter, skenario, eksekusi simulasi              |
+| `feature/evaluasi`     | `frontend/src/modules/evaluasi/`     | `backend/app/modules/evaluasi/`     | Perbandingan baseline dan hasil, indikator evaluasi |
 
 Nama modul mengikuti navigasi referensi HTML. Referensi memberikan detail Data dan Digital Twin; cakupan Simulasi dan Evaluasi masih garis besar untuk disepakati saat implementasi.
 

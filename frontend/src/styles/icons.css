@@ -1,0 +1,14 @@
+/* Ikon lucide hasil export dari frame Desktop (3:42). SVG dipakai sebagai mask
+   supaya warnanya mengikuti currentColor (nav aktif vs non-aktif). */
+.icon { display: inline-block; flex: none; width: var(--icon-size, 20px); height: var(--icon-size, 20px); background-color: currentColor; -webkit-mask: var(--icon-image) center / contain no-repeat; mask: var(--icon-image) center / contain no-repeat; }
+.icon-sm { --icon-size: 16px; }
+.icon-lg { --icon-size: 24px; }
+
+.icon-layout-dashboard { --icon-image: url('../assets/icons/layout-dashboard.svg'); }
+.icon-list-checks { --icon-image: url('../assets/icons/list-checks.svg'); }
+.icon-sliders-horizontal { --icon-image: url('../assets/icons/sliders-horizontal.svg'); }
+.icon-chart-column { --icon-image: url('../assets/icons/chart-column.svg'); }
+.icon-folder-open-dot { --icon-image: url('../assets/icons/folder-open-dot.svg'); }
+.icon-calendar-days { --icon-image: url('../assets/icons/calendar-days.svg'); }
+.icon-chevron-down { --icon-image: url('../assets/icons/chevron-down.svg'); }
+.icon-user { --icon-image: url('../assets/icons/user.svg'); }

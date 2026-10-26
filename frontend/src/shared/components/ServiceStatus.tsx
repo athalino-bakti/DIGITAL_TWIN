@@ -20,6 +20,6 @@ export function ServiceStatus() {
 
   return <div className={`service-status ${status}`}>
     <span role="status"><span className="status-dot" />{status === 'checking' ? 'Memeriksa API…' : status === 'online' ? 'API terhubung' : 'API belum terhubung'}</span>
-    {status === 'offline' && <button type="button" onClick={() => { setStatus('checking'); setAttempt(attempt + 1); }}>Coba lagi</button>}
+    {status === 'offline' && <button type="button" className="button button-ghost" onClick={() => { setStatus('checking'); setAttempt(attempt + 1); }}>Coba lagi</button>}
   </div>;
 }

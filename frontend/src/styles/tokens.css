@@ -1,0 +1,70 @@
+/* Design tokens — Figma "capstone (Copy)" / page "Design System" (node 0:1).
+   Figma Variables belum dibuat di file ini; nilai dibaca dari section Colors (1:2)
+   dan Typography (1:161). Perbarui di sini kalau Figma berubah. */
+:root {
+  /* Brand — section Colors / Brand (1:158) */
+  --color-primary: #217a67;
+  --color-primary-hover: #185f50;
+  --color-primary-light: #e6f3ee;
+
+  /* Neutrals — section Colors / Neutrals (1:159) */
+  --color-bg: #f7f9f8;
+  --color-surface: #ffffff;
+  --color-border: #e3e9e7;
+  --color-heading: #202d35;
+  --color-body: #536570;
+  --color-muted: #8998a1;
+
+  /* Status — section Colors / Status (1:160) */
+  --color-success: #278467;
+  --color-warning: #ad742a;
+  --color-danger: #be505a;
+  --color-info: #487db8;
+
+  /* Font families — section Typography (1:161) */
+  --font-heading: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* Type scale. Figma memakai leading "normal"; 1.25 adalah hasil ukur dari
+     frame heading, 1.5 dipakai untuk paragraf panjang yang tidak ada di Figma. */
+  --leading-heading: 1.25;
+  --leading-body: 1.5;
+  --text-h1: 700 32px/var(--leading-heading) var(--font-heading);
+  --text-h2: 600 24px/var(--leading-heading) var(--font-heading);
+  --text-h3: 600 18px/var(--leading-heading) var(--font-heading);
+  --text-title: 600 14px/1.3 var(--font-heading);
+  --text-body-lg: 400 16px/var(--leading-body) var(--font-body);
+  --text-body: 400 14px/var(--leading-body) var(--font-body);
+  --text-body-sm: 400 12px/var(--leading-body) var(--font-body);
+  --text-caption: 400 11px/1.3 var(--font-body);
+  --text-label: 500 13px/1.3 var(--font-body);
+  --text-nav: 500 14px/1.3 var(--font-body);
+  --text-button: 600 14px/1.2 var(--font-body);
+  --text-data: 500 13px/1.3 var(--font-mono);
+
+  /* Spacing — kelipatan 4 sesuai jarak di frame Desktop (3:42) */
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 8px;
+  --space-4: 12px;
+  --space-5: 16px;
+  --space-6: 20px;
+  --space-7: 24px;
+  --space-8: 32px;
+  --space-9: 48px;
+
+  /* Radius — nav/control 8px, card 12px, pill 999px */
+  --radius-control: 8px;
+  --radius-card: 12px;
+  --radius-pill: 999px;
+
+  /* Elevation — section Colors memakai 0 0 3px rgba(0,0,0,.15) pada swatch */
+  --shadow-card: 0 0 3px rgba(0, 0, 0, 0.06);
+  --shadow-raised: 0 0 3px rgba(0, 0, 0, 0.15);
+
+  /* Shell — frame Desktop (3:42) */
+  --sidebar-width: 240px;
+  --topbar-height: 64px;
+  --content-gutter: var(--space-8);
+}
