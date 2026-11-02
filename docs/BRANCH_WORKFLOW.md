@@ -41,6 +41,10 @@ Gunakan pola yang sama untuk `feature/simulasi` dan `feature/evaluasi`. Jangan m
 5. Tabel bisnis dibuat melalui Alembic. Import model ke `migrations/env.py` dan sertakan migrasi dalam branch pemilik model tersebut.
 6. Sepakati kontrak data antarmodul sebelum integrasi. Digital Twin memerlukan data dasar; Simulasi memerlukan baseline; Evaluasi memerlukan hasil simulasi. Jangan menggandakan model yang sama pada branch berbeda.
 7. Saat migrasi dari beberapa branch digabung, periksa `alembic heads`. Jika muncul beberapa head, review relasi migrasi lalu buat merge revision yang sesuai sebelum `upgrade head`.
-8. Jalankan build frontend, lint dan tes backend sebelum review. Tambahkan tes perilaku bisnis saat modulnya diimplementasikan.
+8. Jalankan build frontend, lint dan tes backend sebelum review. Tambahkan tes perilaku bisnis saat modulnya diimplementasikan. Workflow GitHub Actions `.github/workflows/ci.yml` menjalankan pemeriksaan yang sama pada setiap pull request dan push ke `main`:
+   - **Frontend**: `npm ci` lalu `npm run build` (typecheck `tsc --noEmit` + `vite build`) dengan Node.js 22.12.
+   - **Backend**: install dengan `constraints.txt`, `ruff check`, `ruff format --check`, dan `pytest` dengan Python 3.11.
+
+   Untuk mengulang pemeriksaan backend secara lokal: `ruff check . ; ruff format --check . ; python -m pytest -q` dari folder `backend`.
 
 Perubahan fondasi yang dibutuhkan beberapa modul sebaiknya dibuat terpisah dan diintegrasikan lebih dulu agar konflik pada router, konfigurasi, dan komponen bersama tetap kecil.
