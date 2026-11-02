@@ -1,5 +1,7 @@
 # Pengembangan per branch
 
+Aturan pull request, penamaan branch/commit, dan review ada di [`PR_REVIEW.md`](PR_REVIEW.md).
+
 ## Batas isi main
 
 Untuk tahap awal, `main` hanya berisi fondasi bersama: layout, navigasi, halaman placeholder, API client, konfigurasi backend, router kosong, koneksi PostgreSQL, Alembic, dan dokumentasi. Implementasi modul dikerjakan pada branch fitur. Branch di bawah adalah rencana; scaffold tidak otomatis membuat branch, commit, atau push.
