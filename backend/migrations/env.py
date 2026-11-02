@@ -19,15 +19,26 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
+def _run_with_connection(connection) -> None:
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        compare_type=True,
+    )
+    with context.begin_transaction():
+        context.run_migrations()
+
+
 def run_migrations_online() -> None:
+    # Tes migrasi mengirim koneksi sendiri lewat config.attributes agar tidak
+    # menyentuh database development dari DATABASE_URL.
+    connection = context.config.attributes.get("connection")
+    if connection is not None:
+        _run_with_connection(connection)
+        return
+
     with engine.connect() as connection:
-        context.configure(
-            connection=connection,
-            target_metadata=target_metadata,
-            compare_type=True,
-        )
-        with context.begin_transaction():
-            context.run_migrations()
+        _run_with_connection(connection)
     engine.dispose()
 
 

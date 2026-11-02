@@ -110,6 +110,29 @@ Tambahkan model pada folder modul dan import model tersebut di `backend/migratio
 
 Tidak ada model atau migrasi bisnis awal yang dipaksakan oleh scaffold ini. Detail pembagian pekerjaan: [alur branch](docs/BRANCH_WORKFLOW.md).
 
+### Tes migrasi naik dan turun
+
+`tests/test_migrations.py` menguji setiap migrasi terhadap PostgreSQL sungguhan:
+
+| Tes | Yang dicek |
+| --- | --- |
+| `test_only_one_head` | Hanya ada satu head migrasi |
+| `test_upgrade_downgrade_upgrade` | `upgrade head` → `downgrade base` → `upgrade head` berhasil, dan setelah downgrade tidak tersisa tabel, view, sequence, atau enum |
+| `test_each_revision_can_step_down_and_up` | Setiap revisi bisa naik, turun satu langkah, lalu naik lagi |
+| `test_models_match_migrations` | Model SQLAlchemy sama dengan skema hasil migrasi (`alembic check`) |
+
+Tes ini **menghapus seluruh isi** database tujuan, jadi hanya berjalan jika `MIGRATION_TEST_DATABASE_URL` diisi dan nama database berakhiran `_test`. Tanpa variabel itu, tes dilewati dan `pytest` biasa tetap tidak butuh database. Di GitHub Actions, job **Migrasi (alembic naik-turun)** menjalankannya otomatis dengan PostgreSQL 17.
+
+Menjalankan lokal dari `backend/` dengan container database aktif:
+
+```powershell
+docker compose exec db createdb -U puti digital_twin_test   # cukup sekali
+$env:MIGRATION_TEST_DATABASE_URL = "postgresql+psycopg://puti:puti_local@localhost:5432/digital_twin_test"
+.\.venv\Scripts\python.exe -m pytest -m migration -v
+```
+
+Saat menulis migrasi, pastikan `downgrade()` membalik `upgrade()` sepenuhnya, termasuk `DROP TYPE` untuk enum PostgreSQL (`sa.Enum(name="...").drop(op.get_bind())`).
+
 ## Build frontend
 
 `npm run build` menghasilkan `frontend/dist`. Hosting frontend perlu fallback ke `index.html` untuk deep link React Router. Proxy Vite hanya untuk development; saat deployment arahkan `/api` ke FastAPI melalui reverse proxy, atau set `VITE_API_BASE_URL` saat build dan sesuaikan `CORS_ORIGINS`. Compose saat ini hanya untuk database lokal.
