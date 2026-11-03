@@ -8,15 +8,18 @@ audit) tidak ditaruh di sini.
 from datetime import date
 from enum import StrEnum
 
-from sqlalchemy import CheckConstraint, Date, Double, String, Text, false
+from sqlalchemy import CheckConstraint, Date, Double, ForeignKey, String, Text, false
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.modules.data.enums import (
     COMPLEXITY_ID_PATTERN,
     PROJECT_ID_PATTERN,
+    RESOURCE_ID_PATTERN,
     ROLE_ID_PATTERN,
+    SECONDARY_ROLE_IDS_PATTERN,
     ProjectStatus,
+    Seniority,
 )
 
 
@@ -67,6 +70,33 @@ class Role(Base):
     role_name: Mapped[str] = mapped_column(String(100))
     capacity_reference: Mapped[float] = mapped_column(Double, server_default="3.0")
     description: Mapped[str | None] = mapped_column(Text)
+
+
+class Resource(Base):
+    """D-02 resources
+
+    secondary_role_ids tetap string berpemisah titik koma sesuai Data Dictionary.
+    PostgreSQL tidak bisa memasang FK pada isi string, jadi CHECK hanya menjaga
+    formatnya. Keberadaan setiap role_id diperiksa di service (DIG-100).
+    """
+
+    __tablename__ = "resources"
+    __table_args__ = (
+        CheckConstraint(matches("resource_id", RESOURCE_ID_PATTERN), name="resource_id_format"),
+        CheckConstraint(
+            matches("secondary_role_ids", SECONDARY_ROLE_IDS_PATTERN),
+            name="secondary_role_ids_format",
+        ),
+        CheckConstraint(one_of("seniority", Seniority), name="seniority_valid"),
+    )
+
+    resource_id: Mapped[str] = mapped_column(String(20), primary_key=True)
+    resource_name: Mapped[str] = mapped_column(String(200))
+    primary_role_id: Mapped[str] = mapped_column(ForeignKey("roles.role_id"), index=True)
+    secondary_role_ids: Mapped[str | None] = mapped_column(String(200))
+    cross_role_capable: Mapped[bool] = mapped_column(server_default=false())
+    join_date: Mapped[date] = mapped_column(Date)
+    seniority: Mapped[str] = mapped_column(String(10))
 
 
 class ComplexityLevel(Base):
