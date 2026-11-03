@@ -62,11 +62,68 @@ class DependencyType(StrEnum):
     SOFT = "soft"
 
 
+class WorkloadItemType(StrEnum):
+    """D-08 workload_items.item_type"""
+
+    OPERATIONAL = "operational"
+    TICKET = "ticket"
+
+
+class Severity(StrEnum):
+    """D-08 workload_items.severity"""
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
+class AbsenceType(StrEnum):
+    """D-09 availability.absence_type"""
+
+    PLANNED_LEAVE = "planned_leave"
+    SUDDEN_LEAVE = "sudden_leave"
+    MATERNITY_LEAVE = "maternity_leave"
+    ROTATION_OUT = "rotation_out"
+    ROTATION_IN = "rotation_in"
+
+
+class ChangeEventType(StrEnum):
+    """D-10 change_events.event_type"""
+
+    CHANGE_REQUEST = "change_request"
+    PRIORITY_CHANGE = "priority_change"
+    BLOCKER = "blocker"
+    OVERRUN = "overrun"
+    HOTFIX = "hotfix"
+
+
+class Decision(StrEnum):
+    """D-10 change_events.decision"""
+
+    ACCEPT_NOW = "accept_now"
+    DEFER_NEXT = "defer_next"
+    REJECT = "reject"
+
+
+class ResolutionMode(StrEnum):
+    """D-10 change_events.resolution_mode"""
+
+    SWAP_TASK = "swap_task"
+    EXTEND_DURATION = "extend_duration"
+    SCOPE_ADDITION = "scope_addition"
+    RESHUFFLE = "reshuffle"
+
+
 # Pola regex PostgreSQL untuk format ID pada Data Dictionary.
 PROJECT_ID_PATTERN = "^PRJ-[0-9]{3}$"
 RESOURCE_ID_PATTERN = "^RES-[0-9]{3}$"
 TASK_ID_PATTERN = "^TSK-[0-9]{4}$"
 DEPENDENCY_ID_PATTERN = "^DEP-[0-9]{3}$"
+ASSIGNMENT_ID_PATTERN = "^ASG-[0-9]{4}$"
+WORKLOAD_ITEM_ID_PATTERN = "^WLI-[0-9]{4}$"
+AVAILABILITY_ID_PATTERN = "^AVL-[0-9]{3}$"
+EVENT_ID_PATTERN = "^EVT-[0-9]{3}$"
 ROLE_ID_PATTERN = "^ROLE-[A-Z]+$"
 COMPLEXITY_ID_PATTERN = "^CX-[A-Z]+$"
 # secondary_role_ids: daftar role_id dipisah titik koma, contoh ROLE-DM;ROLE-FE.

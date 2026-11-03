@@ -22,18 +22,28 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.modules.data.enums import (
+    ASSIGNMENT_ID_PATTERN,
+    AVAILABILITY_ID_PATTERN,
     COMPLEXITY_ID_PATTERN,
     DEPENDENCY_ID_PATTERN,
+    EVENT_ID_PATTERN,
     PROJECT_ID_PATTERN,
     RESOURCE_ID_PATTERN,
     ROLE_ID_PATTERN,
     SECONDARY_ROLE_IDS_PATTERN,
     TASK_ID_PATTERN,
+    WORKLOAD_ITEM_ID_PATTERN,
+    AbsenceType,
+    ChangeEventType,
+    Decision,
     DependencyType,
     ProjectStatus,
+    ResolutionMode,
     Seniority,
+    Severity,
     TaskPhase,
     TaskStatus,
+    WorkloadItemType,
 )
 
 
@@ -199,6 +209,103 @@ class TaskDependency(Base):
     depends_on_task_id: Mapped[str] = mapped_column(ForeignKey("tasks.task_id"), index=True)
     dependency_type: Mapped[str] = mapped_column(String(10))
     propagation_factor: Mapped[float] = mapped_column(Double)
+
+
+class Assignment(Base):
+    """D-07 assignments
+
+    role_in_task bisa berbeda dari primary_role_id resource (peran rangkap atau
+    pengambilalihan lintas peran), sehingga ber-FK langsung ke roles.
+    """
+
+    __tablename__ = "assignments"
+    __table_args__ = (
+        CheckConstraint(
+            matches("assignment_id", ASSIGNMENT_ID_PATTERN), name="assignment_id_format"
+        ),
+        CheckConstraint("released_date >= assigned_date", name="released_after_assigned"),
+    )
+
+    assignment_id: Mapped[str] = mapped_column(String(20), primary_key=True)
+    task_id: Mapped[str] = mapped_column(ForeignKey("tasks.task_id"), index=True)
+    resource_id: Mapped[str] = mapped_column(ForeignKey("resources.resource_id"), index=True)
+    role_in_task: Mapped[str] = mapped_column(ForeignKey("roles.role_id"), index=True)
+    assigned_date: Mapped[date] = mapped_column(Date)
+    released_date: Mapped[date | None] = mapped_column(Date)
+    is_takeover: Mapped[bool] = mapped_column(server_default=false())
+
+
+class WorkloadItem(Base):
+    """D-08 workload_items (beban non-proyek: operasional dan tiket)"""
+
+    __tablename__ = "workload_items"
+    __table_args__ = (
+        CheckConstraint(matches("item_id", WORKLOAD_ITEM_ID_PATTERN), name="item_id_format"),
+        CheckConstraint(one_of("item_type", WorkloadItemType), name="item_type_valid"),
+        CheckConstraint(one_of("severity", Severity), name="severity_valid"),
+        CheckConstraint("started_date >= received_date", name="started_after_received"),
+        CheckConstraint("resolved_date >= received_date", name="resolved_after_received"),
+        CheckConstraint("resolved_date >= started_date", name="resolved_after_started"),
+    )
+
+    item_id: Mapped[str] = mapped_column(String(20), primary_key=True)
+    resource_id: Mapped[str] = mapped_column(ForeignKey("resources.resource_id"), index=True)
+    item_type: Mapped[str] = mapped_column(String(20))
+    related_project_id: Mapped[str | None] = mapped_column(
+        ForeignKey("projects.project_id"), index=True
+    )
+    received_date: Mapped[date] = mapped_column(Date)
+    started_date: Mapped[date | None] = mapped_column(Date)
+    resolved_date: Mapped[date | None] = mapped_column(Date)
+    severity: Mapped[str | None] = mapped_column(String(10))
+    is_hotfix: Mapped[bool] = mapped_column(server_default=false())
+
+
+class Availability(Base):
+    """D-09 availability (cuti dan rotasi; hari libur nasional ada di D-11)"""
+
+    __tablename__ = "availability"
+    __table_args__ = (
+        CheckConstraint(
+            matches("availability_id", AVAILABILITY_ID_PATTERN), name="availability_id_format"
+        ),
+        CheckConstraint(one_of("absence_type", AbsenceType), name="absence_type_valid"),
+        CheckConstraint("date_end >= date_start", name="date_end_after_start"),
+    )
+
+    availability_id: Mapped[str] = mapped_column(String(20), primary_key=True)
+    resource_id: Mapped[str] = mapped_column(ForeignKey("resources.resource_id"), index=True)
+    date_start: Mapped[date] = mapped_column(Date)
+    date_end: Mapped[date] = mapped_column(Date)
+    absence_type: Mapped[str] = mapped_column(String(20))
+    is_known_at_planning: Mapped[bool] = mapped_column(server_default=false())
+
+
+class ChangeEvent(Base):
+    """D-10 change_events
+
+    decision, resolution_mode, affected_task_id, dan extension_days boleh kosong
+    karena tidak semua event_type punya keputusan (misalnya blocker atau overrun).
+    """
+
+    __tablename__ = "change_events"
+    __table_args__ = (
+        CheckConstraint(matches("event_id", EVENT_ID_PATTERN), name="event_id_format"),
+        CheckConstraint(one_of("event_type", ChangeEventType), name="event_type_valid"),
+        CheckConstraint(one_of("decision", Decision), name="decision_valid"),
+        CheckConstraint(one_of("resolution_mode", ResolutionMode), name="resolution_mode_valid"),
+        CheckConstraint("extension_days > 0", name="extension_days_positive"),
+    )
+
+    event_id: Mapped[str] = mapped_column(String(20), primary_key=True)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.project_id"), index=True)
+    event_type: Mapped[str] = mapped_column(String(20))
+    event_date: Mapped[date] = mapped_column(Date)
+    requested_by: Mapped[str | None] = mapped_column(String(100))
+    decision: Mapped[str | None] = mapped_column(String(20))
+    resolution_mode: Mapped[str | None] = mapped_column(String(20))
+    affected_task_id: Mapped[str | None] = mapped_column(ForeignKey("tasks.task_id"), index=True)
+    extension_days: Mapped[float | None] = mapped_column(Double)
 
 
 class Holiday(Base):
