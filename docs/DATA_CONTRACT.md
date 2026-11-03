@@ -290,6 +290,8 @@ Tabel pada bagian ini tidak termasuk final sources. J&C dapat mengubah strukturn
 | Objek | Isi | Jira |
 |---|---|---|
 | View Resource Load Index | Nilai RLI per anggota per minggu dari bobot task, beban non-proyek, dan kapasitas peran | DIG-187, DIG-192 |
+| `resource_skills` | Tingkat penguasaan anggota per peran, termasuk lintas peran | DIG-63 |
+| `change_event_details` | Persetujuan CR dan waktu selesai blocker, overrun, hotfix | DIG-63 |
 
 ### 7.2 Tabel internal J&C
 
@@ -306,17 +308,55 @@ Tabel berikut hanya dipakai aplikasi J&C dan tidak dibaca tWinner.
 | `event_log` | Event log untuk *process mining* | DIG-164 |
 | `data_quality_result` | Hasil pemeriksaan kualitas data per aturan dan per sumber | DIG-145 |
 | `rejected_row` | Baris yang ditolak beserta alasannya | DIG-145 |
+| `audit_log` | Jejak perubahan data final sources: tabel, kunci, kolom, nilai lama, nilai baru, pengubah, waktu | DIG-63 |
 | Tabel pengguna dan izin aplikasi | Akun dan peran aplikasi (RBAC), terpisah dari D-03 `roles` | DIG-17, DIG-18 |
 
-## 8. Perubahan kontrak
+### 7.3 Struktur `resource_skills` dan `change_event_details`
+
+Kedua tabel ini menutup celah antara Data Dictionary dan kebutuhan fitur J&C (bagian 8). Keduanya menempel pada final sources lewat foreign key, sehingga isi D-02 dan D-10 tidak berubah.
+
+**`resource_skills`** mencatat tingkat penguasaan setiap anggota pada peran yang dapat dijalankannya, termasuk peran rangkap dan kemampuan lintas peran. Satu baris mewakili satu pasangan anggota dan peran.
+
+| Kolom | Tipe PostgreSQL | Wajib | Keterangan |
+|---|---|---|---|
+| `resource_id` (PK, FK → `resources.resource_id`) | VARCHAR(20) | Ya | Anggota tim |
+| `role_id` (PK, FK → `roles.role_id`) | VARCHAR(20) | Ya | Peran yang dikuasai |
+| `proficiency_level` | SMALLINT | Ya | 1 = dasar, masih membutuhkan pendampingan; 2 = mandiri; 3 = mahir, dapat mengambil alih task dan membimbing anggota lain |
+| `assessed_date` | DATE | Ya | Tanggal penilaian terakhir |
+
+Aturan: `proficiency_level` bernilai 1 sampai 3. `primary_role_id` dan `secondary_role_ids` pada D-02 tetap menjadi sumber resmi daftar peran anggota, sedangkan `resource_skills` menambahkan tingkat penguasaannya serta peran lintas yang dapat diambil alih.
+
+**`change_event_details`** melengkapi D-10 dengan persetujuan perubahan dan waktu selesai kejadian. Satu baris mewakili satu `event_id`.
+
+| Kolom | Tipe PostgreSQL | Wajib | Keterangan |
+|---|---|---|---|
+| `event_id` (PK, FK → `change_events.event_id`) | VARCHAR(20) | Ya | Kejadian yang dilengkapi |
+| `approved_by_resource_id` (FK → `resources.resource_id`) | VARCHAR(20) | Tidak | Anggota yang menyetujui CR atau perubahan prioritas |
+| `approved_date` | DATE | Tidak | Tanggal persetujuan |
+| `resolved_date` | DATE | Tidak | Tanggal blocker, overrun, atau hotfix dinyatakan selesai; kosong bila masih berlangsung |
+
+Aturan: `approved_date` dan `resolved_date` tidak boleh lebih awal dari `event_date` pada D-10. Karena kedua tanggal berada di tabel berbeda, aturan ini diperiksa oleh validator J&C.
+
+## 8. Penyelesaian celah skema
+
+Data Dictionary diterima apa adanya sebagai final sources bersama. Kebutuhan J&C yang belum tertampung di Data Dictionary diselesaikan dengan tabel milik J&C berikut.
+
+| Celah | Kebutuhan | Penyelesaian |
+|---|---|---|
+| Keahlian dan proficiency | F1 Master Data mencatat skill dan proficiency anggota, termasuk lintas peran. tWinner membutuhkannya untuk rekomendasi pengganti berbasis kapasitas dan skill. | Tabel `resource_skills` milik J&C, dapat dibaca tWinner. Istilah "keahlian" pada proposal merujuk ke tabel ini. |
+| Waktu selesai blocker | D-10 hanya mencatat `event_date`, sehingga durasi blocker, overrun, dan hotfix tidak dapat dihitung. | Kolom `resolved_date` pada tabel `change_event_details`, dapat dibaca tWinner. |
+| Approver CR | Berdasarkan wawancara dengan Tim DEVTI PuTI, CR dan perubahan prioritas disetujui Kaur atau Asisten Manajer setelah berdiskusi dengan System Analyst. D-10 hanya mencatat `requested_by` dan `decision`. | Kolom `approved_by_resource_id` dan `approved_date` pada tabel `change_event_details`. |
+| Kolom audit | Jejak perubahan data dibutuhkan untuk karakteristik *traceability* ISO/IEC 25012. | Tabel `audit_log` internal J&C. D-01 sampai D-11 tidak mendapat kolom audit tambahan. |
+
+## 9. Perubahan kontrak
 
 1. Perubahan pada D-01 sampai D-11, termasuk penambahan kolom, nilai enum, atau format ID, dibuat melalui pull request yang berisi migrasi Alembic dan pembaruan dokumen ini. Pull request tersebut membutuhkan persetujuan perwakilan J&C dan tWinner.
 2. Perubahan pada tabel bagian 7.1 yang dibaca tWinner mengikuti prosedur yang sama.
 3. Tabel internal J&C pada bagian 7.2 dapat diubah J&C tanpa persetujuan tWinner.
 4. Setiap perubahan menaikkan nomor versi dan dicatat di riwayat versi.
 
-## 9. Riwayat versi
+## 10. Riwayat versi
 
 | Versi | Perubahan |
 |---|---|
-| 1.0 | Versi awal: salinan Data Dictionary D-01 sampai D-11 sesuai migrasi DIG-15, pemilik dan hak akses, frekuensi pembaruan, aturan format, tabel pendukung J&C |
+| 1.0 | Versi awal: salinan Data Dictionary D-01 sampai D-11 sesuai migrasi DIG-15, pemilik dan hak akses, frekuensi pembaruan, aturan format, tabel pendukung J&C, penyelesaian celah skema (`resource_skills`, `change_event_details`, `audit_log`) |
