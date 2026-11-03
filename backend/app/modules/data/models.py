@@ -8,18 +8,32 @@ audit) tidak ditaruh di sini.
 from datetime import date
 from enum import StrEnum
 
-from sqlalchemy import CheckConstraint, Date, Double, ForeignKey, String, Text, false
+from sqlalchemy import (
+    CheckConstraint,
+    Date,
+    Double,
+    ForeignKey,
+    String,
+    Text,
+    UniqueConstraint,
+    false,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.modules.data.enums import (
     COMPLEXITY_ID_PATTERN,
+    DEPENDENCY_ID_PATTERN,
     PROJECT_ID_PATTERN,
     RESOURCE_ID_PATTERN,
     ROLE_ID_PATTERN,
     SECONDARY_ROLE_IDS_PATTERN,
+    TASK_ID_PATTERN,
+    DependencyType,
     ProjectStatus,
     Seniority,
+    TaskPhase,
+    TaskStatus,
 )
 
 
@@ -117,6 +131,74 @@ class ComplexityLevel(Base):
     min_days: Mapped[float] = mapped_column(Double)
     max_days: Mapped[float] = mapped_column(Double)
     load_weight: Mapped[float] = mapped_column(Double)
+
+
+class Task(Base):
+    """D-05 tasks"""
+
+    __tablename__ = "tasks"
+    __table_args__ = (
+        CheckConstraint(matches("task_id", TASK_ID_PATTERN), name="task_id_format"),
+        CheckConstraint(one_of("phase", TaskPhase), name="phase_valid"),
+        CheckConstraint(one_of("status", TaskStatus), name="status_valid"),
+        CheckConstraint("priority_rank >= 1", name="priority_rank_min"),
+        CheckConstraint("estimated_days > 0", name="estimated_days_positive"),
+        CheckConstraint("planned_finish >= planned_start", name="planned_finish_after_start"),
+        CheckConstraint("actual_finish >= actual_start", name="actual_finish_after_start"),
+        CheckConstraint(
+            "actual_finish IS NULL OR actual_start IS NOT NULL", name="actual_finish_needs_start"
+        ),
+        CheckConstraint("qa_reject_count >= 0", name="qa_reject_count_min"),
+    )
+
+    task_id: Mapped[str] = mapped_column(String(20), primary_key=True)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.project_id"), index=True)
+    feature_name: Mapped[str] = mapped_column(String(200))
+    task_name: Mapped[str] = mapped_column(String(300))
+    required_role_id: Mapped[str] = mapped_column(ForeignKey("roles.role_id"), index=True)
+    complexity_id: Mapped[str] = mapped_column(
+        ForeignKey("complexity_levels.complexity_id"), index=True
+    )
+    priority_rank: Mapped[int]
+    estimated_days: Mapped[float] = mapped_column(Double)
+    phase: Mapped[str] = mapped_column(String(20))
+    planned_start: Mapped[date] = mapped_column(Date)
+    planned_finish: Mapped[date] = mapped_column(Date)
+    actual_start: Mapped[date | None] = mapped_column(Date)
+    actual_finish: Mapped[date | None] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(String(20), server_default=TaskStatus.NOT_STARTED.value)
+    qa_reject_count: Mapped[int] = mapped_column(server_default="0")
+    dod_fulfilled: Mapped[bool] = mapped_column(server_default=false())
+
+
+class TaskDependency(Base):
+    """D-06 task_dependencies
+
+    propagation_factor 1.0 untuk hard; soft memakai nilai di bawah 1 (default 0.3
+    menurut Data Dictionary, diisi oleh pemanggil karena bergantung pada tipe).
+    """
+
+    __tablename__ = "task_dependencies"
+    __table_args__ = (
+        CheckConstraint(
+            matches("dependency_id", DEPENDENCY_ID_PATTERN), name="dependency_id_format"
+        ),
+        CheckConstraint(one_of("dependency_type", DependencyType), name="dependency_type_valid"),
+        CheckConstraint(
+            "propagation_factor > 0 AND propagation_factor <= 1", name="propagation_factor_range"
+        ),
+        CheckConstraint(
+            "dependency_type <> 'hard' OR propagation_factor = 1.0", name="hard_propagation_full"
+        ),
+        CheckConstraint("task_id <> depends_on_task_id", name="no_self_dependency"),
+        UniqueConstraint("task_id", "depends_on_task_id"),
+    )
+
+    dependency_id: Mapped[str] = mapped_column(String(20), primary_key=True)
+    task_id: Mapped[str] = mapped_column(ForeignKey("tasks.task_id"), index=True)
+    depends_on_task_id: Mapped[str] = mapped_column(ForeignKey("tasks.task_id"), index=True)
+    dependency_type: Mapped[str] = mapped_column(String(10))
+    propagation_factor: Mapped[float] = mapped_column(Double)
 
 
 class Holiday(Base):

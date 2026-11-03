@@ -27,9 +27,46 @@ class Seniority(StrEnum):
     SENIOR = "senior"
 
 
+class TaskPhase(StrEnum):
+    """D-05 tasks.phase"""
+
+    PLANNING = "planning"
+    UIUX = "uiux"
+    DM_DEV = "dm_dev"
+    BE_DEV = "be_dev"
+    FE_DEV = "fe_dev"
+    TESTING = "testing"
+    BUGFIX = "bugfix"
+    DOCUMENTATION = "documentation"
+
+
+class TaskStatus(StrEnum):
+    """D-05 tasks.status"""
+
+    NOT_STARTED = "not_started"
+    IN_PROGRESS = "in_progress"
+    BLOCKED = "blocked"
+    ON_HOLD = "on_hold"
+    IN_QA = "in_qa"
+    DONE = "done"
+    DROPPED = "dropped"
+
+
+class DependencyType(StrEnum):
+    """D-06 task_dependencies.dependency_type
+
+    hard: blokir total (BE menunggu DM). soft: pengerjaan parsial (FE membuat dummy).
+    """
+
+    HARD = "hard"
+    SOFT = "soft"
+
+
 # Pola regex PostgreSQL untuk format ID pada Data Dictionary.
 PROJECT_ID_PATTERN = "^PRJ-[0-9]{3}$"
 RESOURCE_ID_PATTERN = "^RES-[0-9]{3}$"
+TASK_ID_PATTERN = "^TSK-[0-9]{4}$"
+DEPENDENCY_ID_PATTERN = "^DEP-[0-9]{3}$"
 ROLE_ID_PATTERN = "^ROLE-[A-Z]+$"
 COMPLEXITY_ID_PATTERN = "^CX-[A-Z]+$"
 # secondary_role_ids: daftar role_id dipisah titik koma, contoh ROLE-DM;ROLE-FE.
