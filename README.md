@@ -9,7 +9,7 @@ Kerangka aplikasi dari referensi HTML Digital Twin PuTI. Branch `main` disiapkan
 - **PostgreSQL**: Docker Compose, koneksi SQLAlchemy + psycopg, session dependency, dan konfigurasi Alembic.
 - Tab Digital Twin: Timeline, Beban Resource, dan Dependency. Semua menampilkan keadaan kosong, tanpa angka dummy.
 
-Belum ada autentikasi, unggah CSV, CRUD, tabel bisnis, Gantt, kalkulasi beban, graf dependency, mesin simulasi, evaluasi, atau ekspor. Identitas workspace bukan pengguna yang sudah login. Router modul masih kosong dan belum muncul di Swagger.
+Belum ada autentikasi, unggah CSV, CRUD, Gantt, kalkulasi beban, graf dependency, mesin simulasi, evaluasi, atau ekspor. Identitas workspace bukan pengguna yang sudah login. Router modul masih kosong dan belum muncul di Swagger.
 
 ## Struktur
 
@@ -28,7 +28,7 @@ backend/
     core/                  # Konfigurasi environment
     db/                    # Base SQLAlchemy dan session
     modules/               # Router kosong per modul
-  migrations/              # Alembic, belum ada migrasi bisnis
+  migrations/              # Alembic: skema final sources D-01 s.d. D-11
   tests/
 docs/
   BRANCH_WORKFLOW.md
@@ -96,7 +96,7 @@ Dari `backend/`:
 .\.venv\Scripts\python.exe -m alembic heads
 ```
 
-Tes health memakai dependency override untuk menguji status sukses/gagal tanpa PostgreSQL. Setelah database aktif, periksa koneksi nyata dengan `Invoke-RestMethod http://localhost:8000/api/v1/health/ready`. `alembic heads` belum menampilkan revisi karena belum ada skema bisnis.
+Tes health memakai dependency override untuk menguji status sukses/gagal tanpa PostgreSQL. Setelah database aktif, periksa koneksi nyata dengan `Invoke-RestMethod http://localhost:8000/api/v1/health/ready`. `alembic heads` harus menampilkan tepat satu revisi.
 
 ## Migrasi saat modul mulai dibuat
 
@@ -108,7 +108,7 @@ Tambahkan model pada folder modul dan import model tersebut di `backend/migratio
 .\.venv\Scripts\python.exe -m alembic upgrade head
 ```
 
-Tidak ada model atau migrasi bisnis awal yang dipaksakan oleh scaffold ini. Detail pembagian pekerjaan: [alur branch](docs/BRANCH_WORKFLOW.md).
+Model final sources D-01 s.d. D-11 (Data Dictionary bersama tWinner) ada di `backend/app/modules/data/models.py`, dengan nilai enum dan format ID di `enums.py`. Enum disimpan sebagai VARCHAR + CHECK constraint, bukan tipe ENUM PostgreSQL. Nama constraint mengikuti konvensi di `app/db/base.py` (`pk_`, `fk_`, `ix_`, `uq_`, `ck_`). Detail pembagian pekerjaan: [alur branch](docs/BRANCH_WORKFLOW.md).
 
 ### Tes migrasi naik dan turun
 
