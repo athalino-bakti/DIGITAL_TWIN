@@ -3,6 +3,7 @@
 import csv
 import json
 import re
+from collections import Counter
 from datetime import date
 from pathlib import Path
 
@@ -10,6 +11,7 @@ import pytest
 
 from synthetic import reference as ref
 from synthetic.checks import find_problems, read_tables
+from synthetic.dirty import write_dirty
 from synthetic.final_sources import write_final_sources
 from synthetic.raw_sources import PLAN_HEADER, write_raw_sources
 from synthetic.world import build_world
@@ -27,6 +29,7 @@ def output(world, tmp_path_factory) -> Path:
     out = tmp_path_factory.mktemp("synthetic")
     write_final_sources(world, out / "final_sources")
     write_raw_sources(world, out / "raw")
+    write_dirty(world, out / "dirty")
     return out
 
 
@@ -126,3 +129,34 @@ def test_identity_map_differs_per_tool(world, output):
     assert [r["resource_id"] for r in rows] == [r.resource_id for r in world.resources]
     for row in rows:
         assert len({row["project_plan_pic"], row["trello_username"], row["git_author"]}) == 3
+
+
+def test_dirty_manifest_lists_every_defect_kind(output):
+    with (output / "dirty" / "manifest_cacat.csv").open(encoding="utf-8") as handle:
+        kinds = Counter(row["jenis"] for row in csv.DictReader(handle))
+    expected = {
+        "format_tanggal",
+        "alias_berbeda",
+        "duplikat",
+        "siklus_dependency",
+        "wajib_kosong",
+        "fk_tidak_dikenal",
+        "enum",
+        "format_id",
+        "urutan_tanggal",
+        "kode_task_hilang",
+    }
+    assert expected <= set(kinds)
+
+
+def test_dirty_final_sources_defects_are_detectable(output):
+    with (output / "dirty" / "manifest_cacat.csv").open(encoding="utf-8") as handle:
+        injected = {
+            row["jenis"] for row in csv.DictReader(handle) if row["sumber"] == "final_sources"
+        }
+    found = {kind for kind, _, _ in find_problems(output / "dirty" / "final_sources")}
+    assert injected <= found
+
+
+def test_clean_output_is_untouched_by_dirty_run(output):
+    assert find_problems(output / "final_sources") == []
