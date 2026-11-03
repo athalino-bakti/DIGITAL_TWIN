@@ -10,6 +10,7 @@ from datetime import date
 from pathlib import Path
 
 from synthetic.final_sources import write_final_sources
+from synthetic.raw_sources import write_raw_sources
 from synthetic.world import build_world
 
 
@@ -22,10 +23,12 @@ def main(argv: list[str] | None = None) -> int:
 
     world = build_world(args.seed, args.as_of)
     counts = write_final_sources(world, args.out / "final_sources")
+    raw = write_raw_sources(world, args.out / "raw")
     manifest = {
         "seed": args.seed,
         "as_of": args.as_of.isoformat(),
         "final_sources": counts,
+        "raw": raw,
         "scenario_notes": world.scenario_notes,
     }
     args.out.mkdir(parents=True, exist_ok=True)

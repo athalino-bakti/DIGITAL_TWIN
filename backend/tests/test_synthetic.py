@@ -1,6 +1,8 @@
 """Tes generator data sintetis DIG-16 (DIG-81, DIG-82, DIG-83)."""
 
 import csv
+import json
+import re
 from datetime import date
 from pathlib import Path
 
@@ -9,6 +11,7 @@ import pytest
 from synthetic import reference as ref
 from synthetic.checks import find_problems, read_tables
 from synthetic.final_sources import write_final_sources
+from synthetic.raw_sources import PLAN_HEADER, write_raw_sources
 from synthetic.world import build_world
 
 AS_OF = date(2026, 11, 6)
@@ -23,6 +26,7 @@ def world():
 def output(world, tmp_path_factory) -> Path:
     out = tmp_path_factory.mktemp("synthetic")
     write_final_sources(world, out / "final_sources")
+    write_raw_sources(world, out / "raw")
     return out
 
 
@@ -30,6 +34,7 @@ def test_same_seed_gives_identical_files(tmp_path):
     for name in ("a", "b"):
         generated = build_world(7, AS_OF)
         write_final_sources(generated, tmp_path / name / "final_sources")
+        write_raw_sources(generated, tmp_path / name / "raw")
     for file in sorted((tmp_path / "a").rglob("*.*")):
         twin = tmp_path / "b" / file.relative_to(tmp_path / "a")
         assert file.read_bytes() == twin.read_bytes(), file.name
@@ -91,3 +96,33 @@ def test_nothing_happens_after_as_of(output):
         for column in ("actual_start", "actual_finish"):
             assert row[column] == "" or date.fromisoformat(row[column]) <= AS_OF
     assert all(date.fromisoformat(r["event_date"]) <= AS_OF for r in t["change_events"])
+
+
+def test_raw_sources_cover_the_same_tasks(world, output):
+    raw = output / "raw"
+    visible = {t.task_id for t in world.tasks if t.min_start <= AS_OF}
+    plan_codes = set()
+    for file in sorted((raw / "project_plan").glob("*.csv")):
+        with file.open(encoding="utf-8") as handle:
+            reader = csv.reader(handle)
+            assert next(reader) == PLAN_HEADER
+            plan_codes |= {row[1] for row in reader}
+    assert plan_codes == visible
+
+    board = json.loads((raw / "trello" / "trello_board.json").read_text(encoding="utf-8"))
+    card_codes = {c["name"].split(" | ")[0] for c in board["cards"]}
+    assert {t.task_id for t in world.tasks if t.actual_start} <= card_codes
+    assert {a["type"] for a in board["actions"]} >= {"createCard", "updateCard", "addMemberToCard"}
+
+    codes = set()
+    for log in (raw / "git").glob("*.log"):
+        codes |= set(re.findall(r"\[(TSK-\d{4})\]", log.read_text(encoding="utf-8")))
+    assert codes and codes <= {t.task_id for t in world.tasks}
+
+
+def test_identity_map_differs_per_tool(world, output):
+    with (output / "ground_truth" / "identity_map.csv").open(encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    assert [r["resource_id"] for r in rows] == [r.resource_id for r in world.resources]
+    for row in rows:
+        assert len({row["project_plan_pic"], row["trello_username"], row["git_author"]}) == 3
