@@ -133,6 +133,15 @@ $env:MIGRATION_TEST_DATABASE_URL = "postgresql+psycopg://puti:puti_local@localho
 
 Saat menulis migrasi, pastikan `downgrade()` membalik `upgrade()` sepenuhnya, termasuk `DROP TYPE` untuk enum PostgreSQL (`sa.Enum(name="...").drop(op.get_bind())`).
 
+### Tes API dengan PostgreSQL
+
+Tes endpoint yang butuh database sungguhan (misalnya `tests/test_projects_api.py`) memakai marker `db` dan variabel `TEST_DATABASE_URL`, dengan aturan nama `_test` yang sama. Job **Migrasi (alembic naik-turun)** juga menjalankannya.
+
+```powershell
+$env:TEST_DATABASE_URL = "postgresql+psycopg://puti:puti_local@localhost:5432/digital_twin_test"
+.\.venv\Scripts\python.exe -m pytest -m db -v
+```
+
 ## Build frontend
 
 `npm run build` menghasilkan `frontend/dist`. Hosting frontend perlu fallback ke `index.html` untuk deep link React Router. Proxy Vite hanya untuk development; saat deployment arahkan `/api` ke FastAPI melalui reverse proxy, atau set `VITE_API_BASE_URL` saat build dan sesuaikan `CORS_ORIGINS`. Compose saat ini hanya untuk database lokal.
