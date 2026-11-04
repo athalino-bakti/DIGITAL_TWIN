@@ -46,6 +46,7 @@ Gunakan pola yang sama untuk `feature/simulasi` dan `feature/evaluasi`. Jangan m
 8. Jalankan build frontend, lint dan tes backend sebelum review. Tambahkan tes perilaku bisnis saat modulnya diimplementasikan. Workflow GitHub Actions `.github/workflows/ci.yml` menjalankan pemeriksaan yang sama pada setiap pull request dan push ke `main`:
    - **Frontend**: `npm ci` lalu `npm run build` (typecheck `tsc --noEmit` + `vite build`) dengan Node.js 22.12.
    - **Backend**: install dengan `constraints.txt`, `ruff check`, `ruff format --check`, dan `pytest` dengan Python 3.11.
+   - **Migrasi**: dengan service PostgreSQL 17, `pytest -m migration` menguji single head, upgrade/downgrade penuh, stairway per revisi, dan kesesuaian model dengan migrasi. Cara menjalankan lokal ada di README bagian *Tes migrasi naik dan turun*.
 
    Untuk mengulang pemeriksaan backend secara lokal: `ruff check . ; ruff format --check . ; python -m pytest -q` dari folder `backend`.
 

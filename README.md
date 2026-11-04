@@ -9,7 +9,7 @@ Kerangka aplikasi dari referensi HTML Digital Twin PuTI. Branch `main` disiapkan
 - **PostgreSQL**: Docker Compose, koneksi SQLAlchemy + psycopg, session dependency, dan konfigurasi Alembic.
 - Tab Digital Twin: Timeline, Beban Resource, dan Dependency. Semua menampilkan keadaan kosong, tanpa angka dummy.
 
-Belum ada autentikasi, unggah CSV, CRUD, tabel bisnis, Gantt, kalkulasi beban, graf dependency, mesin simulasi, evaluasi, atau ekspor. Identitas workspace bukan pengguna yang sudah login. Router modul masih kosong dan belum muncul di Swagger.
+Belum ada autentikasi, unggah CSV, CRUD, Gantt, kalkulasi beban, graf dependency, mesin simulasi, evaluasi, atau ekspor. Identitas workspace bukan pengguna yang sudah login. Router modul masih kosong dan belum muncul di Swagger.
 
 ## Struktur
 
@@ -28,7 +28,7 @@ backend/
     core/                  # Konfigurasi environment
     db/                    # Base SQLAlchemy dan session
     modules/               # Router kosong per modul
-  migrations/              # Alembic, belum ada migrasi bisnis
+  migrations/              # Alembic: skema final sources D-01 s.d. D-11
   tests/
 docs/
   BRANCH_WORKFLOW.md
@@ -96,7 +96,7 @@ Dari `backend/`:
 .\.venv\Scripts\python.exe -m alembic heads
 ```
 
-Tes health memakai dependency override untuk menguji status sukses/gagal tanpa PostgreSQL. Setelah database aktif, periksa koneksi nyata dengan `Invoke-RestMethod http://localhost:8000/api/v1/health/ready`. `alembic heads` belum menampilkan revisi karena belum ada skema bisnis.
+Tes health memakai dependency override untuk menguji status sukses/gagal tanpa PostgreSQL. Setelah database aktif, periksa koneksi nyata dengan `Invoke-RestMethod http://localhost:8000/api/v1/health/ready`. `alembic heads` harus menampilkan tepat satu revisi.
 
 ## Migrasi saat modul mulai dibuat
 
@@ -108,7 +108,30 @@ Tambahkan model pada folder modul dan import model tersebut di `backend/migratio
 .\.venv\Scripts\python.exe -m alembic upgrade head
 ```
 
-Tidak ada model atau migrasi bisnis awal yang dipaksakan oleh scaffold ini. Detail pembagian pekerjaan: [alur branch](docs/BRANCH_WORKFLOW.md).
+Model final sources D-01 s.d. D-11 (Data Dictionary bersama tWinner) ada di `backend/app/modules/data/models.py`, dengan nilai enum dan format ID di `enums.py`. Enum disimpan sebagai VARCHAR + CHECK constraint, bukan tipe ENUM PostgreSQL. Nama constraint mengikuti konvensi di `app/db/base.py` (`pk_`, `fk_`, `ix_`, `uq_`, `ck_`). Detail pembagian pekerjaan: [alur branch](docs/BRANCH_WORKFLOW.md).
+
+### Tes migrasi naik dan turun
+
+`tests/test_migrations.py` menguji setiap migrasi terhadap PostgreSQL sungguhan:
+
+| Tes | Yang dicek |
+| --- | --- |
+| `test_only_one_head` | Hanya ada satu head migrasi |
+| `test_upgrade_downgrade_upgrade` | `upgrade head` → `downgrade base` → `upgrade head` berhasil, dan setelah downgrade tidak tersisa tabel, view, sequence, atau enum |
+| `test_each_revision_can_step_down_and_up` | Setiap revisi bisa naik, turun satu langkah, lalu naik lagi |
+| `test_models_match_migrations` | Model SQLAlchemy sama dengan skema hasil migrasi (`alembic check`) |
+
+Tes ini **menghapus seluruh isi** database tujuan, jadi hanya berjalan jika `MIGRATION_TEST_DATABASE_URL` diisi dan nama database berakhiran `_test`. Tanpa variabel itu, tes dilewati dan `pytest` biasa tetap tidak butuh database. Di GitHub Actions, job **Migrasi (alembic naik-turun)** menjalankannya otomatis dengan PostgreSQL 17.
+
+Menjalankan lokal dari `backend/` dengan container database aktif:
+
+```powershell
+docker compose exec db createdb -U puti digital_twin_test   # cukup sekali
+$env:MIGRATION_TEST_DATABASE_URL = "postgresql+psycopg://puti:puti_local@localhost:5432/digital_twin_test"
+.\.venv\Scripts\python.exe -m pytest -m migration -v
+```
+
+Saat menulis migrasi, pastikan `downgrade()` membalik `upgrade()` sepenuhnya, termasuk `DROP TYPE` untuk enum PostgreSQL (`sa.Enum(name="...").drop(op.get_bind())`).
 
 ## Build frontend
 
