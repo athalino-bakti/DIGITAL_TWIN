@@ -66,7 +66,7 @@ ETL dijalankan paling sedikit satu kali per minggu selama iterasi analisis, sert
 | `secondary_role_ids` | Daftar `role_id` dipisah titik koma tanpa spasi, misalnya `ROLE-DM;ROLE-FE` |
 | CSV | UTF-8, pemisah koma, baris pertama berisi nama kolom |
 
-Aturan di basis data (CHECK constraint, foreign key, dan unique constraint) menolak baris yang melanggar format di atas. Data kotor dari sumber mentah disaring di tabel staging dan validator J&C sebelum dimuat ke final sources, sehingga tWinner hanya membaca baris yang lolos validasi.
+Aturan di basis data (CHECK constraint, foreign key, dan unique constraint) menolak baris yang melanggar format ID, nilai enum, kolom wajib, dan referensi antartabel. Format tanggal ditegakkan oleh validator dan importer J&C, bukan oleh constraint basis data, karena PostgreSQL menerima sebagian tanggal non-ISO (`14 Oct 2026`, `2026/09/10`, `01/12/2026`) dan dapat salah membacanya: `01/12/2026` tersimpan sebagai 2026-01-12. Data kotor dari sumber mentah disaring di tabel staging dan validator J&C sebelum dimuat ke final sources, sehingga tWinner hanya membaca baris yang lolos validasi.
 
 ## 6. Salinan Data Dictionary
 
