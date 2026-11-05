@@ -80,7 +80,7 @@ Identitas anggota sengaja berbeda di tiap tool, misalnya "Sari P." di Project Pl
 | `urutan_tanggal` | `date_end` lebih awal dari `date_start` |
 | `kode_task_hilang` | Kartu Trello tanpa kode task |
 
-Siklus dependency tidak dapat dicegah oleh constraint basis data, sehingga validator J&C (DIG-142) yang menangkapnya. Cacat lain pada final sources juga ditolak oleh constraint skema DIG-15.
+Dua jenis cacat pada final sources tidak dapat dicegah oleh constraint basis data, sehingga validator J&C yang menangkapnya: `siklus_dependency` (DIG-142) dan `format_tanggal` (DIG-141). PostgreSQL menerima sebagian tanggal non-ISO dan dapat salah membacanya, misalnya `01/12/2026` tersimpan sebagai 2026-01-12. Cacat lain pada final sources ditolak oleh constraint skema DIG-15.
 
 ## Asumsi
 
