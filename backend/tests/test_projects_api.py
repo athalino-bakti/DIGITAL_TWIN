@@ -237,6 +237,27 @@ def test_resuming_on_hold_project_rechecks_priority(client):
     assert response.status_code == 200
 
 
+def test_database_index_catches_priority_race(client, monkeypatch):
+    """Dua permintaan bersamaan sama-sama lolos cek service; index DB menolak yang kedua."""
+    from app.modules.data import service
+
+    monkeypatch.setattr(service, "ensure_unique_active_priority", lambda *args, **kwargs: None)
+    create(client, priority_rank=1)
+    response = client.post(BASE, json=project(priority_rank=1))
+    assert response.status_code == 409
+    assert error_fields(response) == ["priority_rank"]
+    assert len(client.get(BASE).json()) == 1
+
+
+def test_database_index_ignores_inactive_projects(client, monkeypatch):
+    from app.modules.data import service
+
+    monkeypatch.setattr(service, "ensure_unique_active_priority", lambda *args, **kwargs: None)
+    create(client, priority_rank=1, status="on_hold")
+    create(client, priority_rank=1, status="released", actual_launch_date="2026-12-01")
+    assert create(client, priority_rank=1)["priority_rank"] == 1
+
+
 @pytest.mark.parametrize("rank", [0, -3, 2_147_483_648])
 def test_priority_out_of_range_is_422(client, rank):
     assert client.post(BASE, json=project(priority_rank=rank)).status_code == 422

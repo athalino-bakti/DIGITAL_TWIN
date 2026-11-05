@@ -11,16 +11,11 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.modules.data.enums import ProjectStatus
-from app.modules.data.models import Project
+from app.modules.data.enums import ACTIVE_PROJECT_STATUSES, ProjectStatus
+from app.modules.data.models import ACTIVE_PRIORITY_INDEX, Project
 from app.modules.data.schemas import ProjectCreate, ProjectRead, ProjectUpdate
 
-# "Proyek aktif" pada DIG-20: proyek yang masih dikerjakan. Proyek released sudah
-# selesai dan proyek on_hold sedang ditunda, sehingga keduanya tidak ikut
-# berebut nomor prioritas. Saat proyek on_hold dilanjutkan, prioritasnya dicek ulang.
-ACTIVE_STATUSES = frozenset(
-    {ProjectStatus.PLANNING, ProjectStatus.DEVELOPMENT, ProjectStatus.TESTING}
-)
+ACTIVE_STATUSES = frozenset(ACTIVE_PROJECT_STATUSES)
 NOT_NULL_FIELDS = frozenset(
     {
         "project_name",
@@ -237,6 +232,13 @@ def commit(db: Session) -> None:
         db.commit()
     except IntegrityError as exc:
         db.rollback()
+        constraint = getattr(getattr(exc.orig, "diag", None), "constraint_name", None)
+        if constraint == ACTIVE_PRIORITY_INDEX:
+            raise ProjectConflictError(
+                "Prioritas ini baru saja dipakai proyek aktif lain. "
+                "Muat ulang daftar proyek lalu pilih prioritas lain.",
+                field="priority_rank",
+            ) from exc
         raise ProjectConflictError(
             "Data proyek ditolak basis data karena bentrok dengan data lain. "
             "Muat ulang daftar proyek lalu coba lagi."
