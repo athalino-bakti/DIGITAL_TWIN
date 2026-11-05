@@ -4,7 +4,14 @@ import re
 from datetime import date
 from typing import Annotated, Any
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    StringConstraints,
+)
 
 from app.modules.data.enums import PROJECT_ID_PATTERN, ProjectStatus
 
@@ -24,9 +31,22 @@ def parse_iso_date(value: Any) -> Any:
     return date.fromisoformat(value)
 
 
+def reject_nul(value: str) -> str:
+    """PostgreSQL tidak bisa menyimpan karakter NUL di kolom teks (psycopg menolaknya)."""
+    if "\x00" in value:
+        raise ValueError("Teks tidak boleh mengandung karakter NUL")
+    return value
+
+
 IsoDate = Annotated[date, BeforeValidator(parse_iso_date)]
-Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
-PriorityRank = Annotated[int, Field(strict=True, ge=1)]
+Name = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=200),
+    AfterValidator(reject_nul),
+]
+# Batas atas mengikuti kolom INTEGER PostgreSQL; di atasnya insert gagal dengan error 500.
+PG_INTEGER_MAX = 2_147_483_647
+PriorityRank = Annotated[int, Field(strict=True, ge=1, le=PG_INTEGER_MAX)]
 ProjectId = Annotated[str, StringConstraints(pattern=PROJECT_ID_PATTERN)]
 
 

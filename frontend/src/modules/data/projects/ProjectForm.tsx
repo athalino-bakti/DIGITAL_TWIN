@@ -20,6 +20,9 @@ type Values = {
   dor_fulfilled: boolean;
 };
 
+/** Batas kolom INTEGER PostgreSQL, sama dengan backend. */
+const PRIORITY_MAX = 2_147_483_647;
+
 type Errors = Partial<Record<keyof Values | 'form', string>>;
 
 function initialValues(project: Project | null): Values {
@@ -42,7 +45,7 @@ function validate(values: Values, isNew: boolean): Errors {
   if (isNew && values.project_id && !/^PRJ-\d{3}$/.test(values.project_id)) errors.project_id = 'Format PRJ-001, atau kosongkan agar diisi otomatis';
   if (!values.project_name.trim()) errors.project_name = 'Nama aplikasi wajib diisi';
   if (!values.process_owner.trim()) errors.process_owner = 'Pemilik proses wajib diisi';
-  if (!/^\d+$/.test(values.priority_rank) || Number(values.priority_rank) < 1) errors.priority_rank = 'Isi bilangan bulat mulai dari 1';
+  if (!/^\d+$/.test(values.priority_rank) || Number(values.priority_rank) < 1 || Number(values.priority_rank) > PRIORITY_MAX) errors.priority_rank = 'Isi bilangan bulat mulai dari 1';
   if (!values.start_date) errors.start_date = 'Tanggal mulai wajib diisi';
   if (!values.target_launch_date) errors.target_launch_date = 'Target launching wajib diisi';
   else if (values.start_date && values.target_launch_date < values.start_date) errors.target_launch_date = 'Tidak boleh lebih awal dari tanggal mulai';
@@ -137,7 +140,7 @@ export function ProjectForm({ project, onSubmit, onClose }: Props) {
             </label>}
             <label className="field" htmlFor="project-priority_rank">
               <span>Prioritas</span>
-              <input {...field('priority_rank')} type="number" min={1} step={1} inputMode="numeric" value={values.priority_rank} onChange={(e) => set('priority_rank', e.target.value)} />
+              <input {...field('priority_rank')} type="number" min={1} max={PRIORITY_MAX} step={1} inputMode="numeric" value={values.priority_rank} onChange={(e) => set('priority_rank', e.target.value)} />
               {message('priority_rank') ?? <span className="field-hint">1 = tertinggi, unik di antara proyek aktif</span>}
             </label>
             <label className="field" htmlFor="project-status">

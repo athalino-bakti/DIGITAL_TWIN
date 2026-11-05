@@ -237,9 +237,24 @@ def test_resuming_on_hold_project_rechecks_priority(client):
     assert response.status_code == 200
 
 
-@pytest.mark.parametrize("rank", [0, -3])
-def test_priority_below_one_is_422(client, rank):
+@pytest.mark.parametrize("rank", [0, -3, 2_147_483_648])
+def test_priority_out_of_range_is_422(client, rank):
     assert client.post(BASE, json=project(priority_rank=rank)).status_code == 422
+
+
+def test_nul_in_name_is_422_on_create_and_patch(client):
+    assert client.post(BASE, json=project(project_name="SIP\u0000")).status_code == 422
+    created = create(client)
+    response = client.patch(f"{BASE}/{created['project_id']}", json={"process_owner": "A\u0000"})
+    assert response.status_code == 422
+    assert error_fields(response) == ["process_owner"]
+
+
+def test_patch_priority_above_integer_max_is_422(client):
+    created = create(client)
+    response = client.patch(f"{BASE}/{created['project_id']}", json={"priority_rank": 2**31})
+    assert response.status_code == 422
+    assert error_fields(response) == ["priority_rank"]
 
 
 # --- Aturan actual_launch_date (DIG-99) ---

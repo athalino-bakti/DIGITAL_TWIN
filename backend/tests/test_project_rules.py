@@ -68,6 +68,20 @@ def test_priority_rank_starts_at_one(rank):
     assert info.value.errors()[0]["loc"] == ("priority_rank",)
 
 
+def test_priority_rank_fits_postgres_integer():
+    ProjectCreate.model_validate_json(_json(VALID | {"priority_rank": 2_147_483_647}))
+    with pytest.raises(ValidationError) as info:
+        ProjectCreate.model_validate_json(_json(VALID | {"priority_rank": 2_147_483_648}))
+    assert info.value.errors()[0]["loc"] == ("priority_rank",)
+
+
+@pytest.mark.parametrize("field", ["project_name", "process_owner"])
+def test_names_cannot_contain_nul(field):
+    with pytest.raises(ValidationError) as info:
+        ProjectCreate.model_validate_json(_json(VALID | {field: "SIP\u0000"}))
+    assert info.value.errors()[0]["loc"] == (field,)
+
+
 @pytest.mark.parametrize("rank", ["1", 1.5, True])
 def test_priority_rank_must_be_an_integer(rank):
     with pytest.raises(ValidationError):
