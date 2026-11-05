@@ -10,7 +10,13 @@ export const router = createBrowserRouter([
     element: <AppLayout />,
     children: [
       { index: true, element: <Navigate to="/digital-twin/timeline" replace /> },
-      { path: 'data', element: <DataPage /> },
+      {
+        path: 'data',
+        children: [
+          { index: true, element: <Navigate to="proyek" replace /> },
+          { path: ':view', element: <DataPage /> },
+        ],
+      },
       {
         path: 'digital-twin',
         children: [
