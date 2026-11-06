@@ -84,7 +84,7 @@ Dua jenis cacat pada final sources tidak dapat dicegah oleh constraint basis dat
 
 ## Asumsi
 
-1. Rentang hari dan bobot `complexity_levels` sama dengan seed DIG-78 dan masih berupa asumsi tim.
+1. Rentang hari dan bobot `complexity_levels` serta `capacity_reference` mengikuti dataset dummy dosbim (`puti_datasets.xlsx`), sama dengan seed migrasi 0007.
 2. Satu anggota mengerjakan satu task pada satu waktu. Beban paralel dicatat lewat `workload_items`.
 3. Durasi aktual berkisar 0,8 sampai 1,2 kali estimasi, dan sekitar 12% task mengalami overrun 1,5 sampai 2 kali estimasi.
 

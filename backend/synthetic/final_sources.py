@@ -54,7 +54,7 @@ def final_source_rows(world: World) -> dict[str, list[dict[str, object]]]:
         {
             "role_id": role_id,
             "role_name": name,
-            "capacity_reference": ref.CAPACITY_REFERENCE,
+            "capacity_reference": ref.CAPACITY_REFERENCE.get(role_id, ref.DEFAULT_CAPACITY),
             "description": description,
         }
         for role_id, name, description in ref.ROLES

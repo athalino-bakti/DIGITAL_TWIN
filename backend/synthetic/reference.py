@@ -119,17 +119,18 @@ TABLE_CODES = {
     "holidays": "D-11",
 }
 
+# Jumlah digit contoh Data Dictionary adalah jumlah digit minimal (migrasi 0006).
 ID_PATTERNS = {
-    "project_id": re.compile(r"^PRJ-[0-9]{3}$"),
-    "resource_id": re.compile(r"^RES-[0-9]{3}$"),
+    "project_id": re.compile(r"^PRJ-[0-9]{3,}$"),
+    "resource_id": re.compile(r"^RES-[0-9]{3,}$"),
     "role_id": re.compile(r"^ROLE-[A-Z]+$"),
     "complexity_id": re.compile(r"^CX-[A-Z]+$"),
-    "task_id": re.compile(r"^TSK-[0-9]{4}$"),
-    "dependency_id": re.compile(r"^DEP-[0-9]{3}$"),
-    "assignment_id": re.compile(r"^ASG-[0-9]{4}$"),
-    "item_id": re.compile(r"^WLI-[0-9]{4}$"),
-    "availability_id": re.compile(r"^AVL-[0-9]{3}$"),
-    "event_id": re.compile(r"^EVT-[0-9]{3}$"),
+    "task_id": re.compile(r"^TSK-[0-9]{4,}$"),
+    "dependency_id": re.compile(r"^DEP-[0-9]{3,}$"),
+    "assignment_id": re.compile(r"^ASG-[0-9]{4,}$"),
+    "item_id": re.compile(r"^WLI-[0-9]{4,}$"),
+    "availability_id": re.compile(r"^AVL-[0-9]{3,}$"),
+    "event_id": re.compile(r"^EVT-[0-9]{3,}$"),
 }
 
 ENUMS = {
@@ -222,14 +223,18 @@ ROLES = [
         "Merancang, membuat, dan mengelola struktur basis data utama aplikasi.",
     ),
 ]
-CAPACITY_REFERENCE = 3.0
+# capacity_reference per peran mengikuti dataset dummy dosbim (puti_datasets.xlsx),
+# sama dengan seed migrasi 0007. Peran yang tidak tercantum memakai default 3.0.
+CAPACITY_REFERENCE = {"ROLE-TW": 2.5}
+DEFAULT_CAPACITY = 3.0
 
-# D-04 complexity_levels: rentang hari dan bobot adalah ASUMSI TIM (sama dengan seed DIG-78).
+# D-04 complexity_levels: rentang hari dan bobot mengikuti dataset dummy dosbim,
+# sama dengan seed migrasi 0007.
 COMPLEXITY = {
-    "CX-VH": ("Very High", 10.0, 20.0, 2.0),
-    "CX-H": ("High", 5.0, 10.0, 1.5),
-    "CX-M": ("Medium", 2.0, 5.0, 1.0),
-    "CX-L": ("Low", 0.5, 2.0, 0.5),
+    "CX-VH": ("Very High", 8.0, 15.0, 1.5),
+    "CX-H": ("High", 5.0, 8.0, 1.2),
+    "CX-M": ("Medium", 3.0, 5.0, 0.9),
+    "CX-L": ("Low", 1.0, 3.0, 0.6),
 }
 COMPLEXITY_ORDER = ["CX-L", "CX-M", "CX-H", "CX-VH"]
 
