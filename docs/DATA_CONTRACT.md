@@ -350,7 +350,7 @@ J&C menerima Data Dictionary apa adanya sebagai final sources bersama. Kebutuhan
 
 ## 9. Perubahan kontrak
 
-1. Perubahan pada D-01 sampai D-11, termasuk penambahan kolom, nilai enum, atau format ID, dibuat melalui pull request yang berisi migrasi Alembic dan pembaruan dokumen ini. Pull request tersebut membutuhkan persetujuan perwakilan J&C dan tWinner.
+1. Perubahan pada D-01 sampai D-11, termasuk penambahan kolom, nilai enum, atau format ID, dibuat melalui pull request yang berisi migrasi Alembic dan pembaruan dokumen ini. Sebelum pull request di-merge, perwakilan tWinner memberi konfirmasi tertulis di grup WhatsApp koordinasi J&C dan tWinner. J&C menyimpan tangkapan layar konfirmasi itu, beserta tanggal dan nama yang menyetujui, di issue Jira terkait. Approval di GitHub cukup dari anggota J&C sesuai `docs/PR_REVIEW.md`, sehingga anggota tWinner tidak perlu menjadi collaborator repository.
 2. Perubahan pada tabel bagian 7.1 yang dibaca tWinner mengikuti prosedur yang sama.
 3. Tabel internal J&C pada bagian 7.2 dapat diubah J&C tanpa persetujuan tWinner.
 4. Setiap perubahan menaikkan nomor versi dan dicatat di riwayat versi.
@@ -359,4 +359,4 @@ J&C menerima Data Dictionary apa adanya sebagai final sources bersama. Kebutuhan
 
 | Versi | Perubahan |
 |---|---|
-| 1.0 | Versi awal: salinan Data Dictionary D-01 sampai D-11 sesuai migrasi DIG-15, pemilik dan hak akses, frekuensi pembaruan, aturan format, tabel pendukung J&C, penyelesaian celah skema (`resource_skills`, `change_event_details`, `audit_log`) |
+| 1.0 | Versi awal. Persetujuan tWinner atas versi ini dicatat lewat konfirmasi WhatsApp di DIG-12. Isi: salinan Data Dictionary D-01 sampai D-11 sesuai migrasi DIG-15, pemilik dan hak akses, frekuensi pembaruan, aturan format, tabel pendukung J&C, penyelesaian celah skema (`resource_skills`, `change_event_details`, `audit_log`) |
