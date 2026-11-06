@@ -7,14 +7,15 @@ Dokumen ini menjadi kesepakatan tentang data yang dibagi bersama oleh aplikasi D
 | Versi | 1.0 |
 | Jira | DIG-12 (DIG-62, DIG-63) |
 | Skema acuan | Sheet "Data Dictionary" pada berkas *Business Process DT untuk PuTI* |
-| Implementasi skema | `backend/app/modules/data/models.py` dan revisi Alembic `0001` sampai `0005` (DIG-15) |
+| Dataset baseline | Dataset dummy dari dosen pembimbing (`puti_datasets.xlsx`) |
+| Implementasi skema | `backend/app/modules/data/models.py` dan revisi Alembic `0001` sampai `0007` (DIG-15) |
 | Basis data | PostgreSQL bersama |
 
 ## 1. Ruang lingkup
 
 J&C mengolah data dari beberapa sumber (Project Plan, riwayat kartu Trello, dan riwayat commit TeamGit) menjadi final sources sesuai Data Dictionary. tWinner memakai final sources tersebut sebagai parameter kondisi aktual untuk skenario *what-if*, perhitungan KPI, dan rekomendasi. Kedua aplikasi bertukar data melalui basis data bersama tanpa pertukaran berkas manual.
 
-Selama pengembangan, J&C tidak menerima data sistem PuTI secara langsung. Seluruh isi tabel berasal dari simulasi mandiri dan generator data sintetis (DIG-16), dengan skenario kerja yang mengikuti hasil wawancara dengan Tim DEVTI PuTI. Data sintetis tidak memuat data pribadi sebenarnya sesuai UU No. 27 Tahun 2022 tentang Pelindungan Data Pribadi.
+Selama pengembangan, J&C tidak menerima data sistem PuTI secara langsung. Kedua tim memakai dataset dummy dari dosen pembimbing (`puti_datasets.xlsx`) sebagai baseline bersama. Seluruh 5.014 baris dataset tersebut dapat dimuat ke skema bagian 6 tanpa penolakan. Generator data sintetis J&C (DIG-16) melengkapinya dengan sumber mentah (Project Plan, riwayat Trello, dan git log) serta data kotor untuk menguji validasi, dengan skenario kerja yang mengikuti hasil wawancara dengan Tim DEVTI PuTI. Data sintetis tidak memuat data pribadi sebenarnya sesuai UU No. 27 Tahun 2022 tentang Pelindungan Data Pribadi.
 
 ## 2. Pihak dan tanggung jawab
 
@@ -31,8 +32,8 @@ J&C memiliki seluruh tabel di bawah, dan tWinner hanya mendapat hak baca. Kolom 
 |---|---|---|---|---|
 | D-01 `projects` | Formulir master data (F1) | Saat ada perubahan proyek atau status proyek | Baca-tulis | Baca |
 | D-02 `resources` | Formulir master data (F1) | Saat ada anggota baru, perubahan peran, atau rotasi | Baca-tulis | Baca |
-| D-03 `roles` | Seed migrasi, lalu formulir F1 | Saat nilai kapasitas atau deskripsi peran diubah | Baca-tulis | Baca |
-| D-04 `complexity_levels` | Seed migrasi, lalu formulir F1 | Saat rentang hari atau bobot diubah | Baca-tulis | Baca |
+| D-03 `roles` | Seed migrasi (kapasitas mengikuti dataset dosbim), lalu formulir F1 | Saat nilai kapasitas atau deskripsi peran diubah | Baca-tulis | Baca |
+| D-04 `complexity_levels` | Seed migrasi (nilai dataset dosbim), lalu formulir F1 | Saat rentang hari atau bobot diubah | Baca-tulis | Baca |
 | D-05 `tasks` | ETL Project Plan dan Trello (F2), pembaruan status (F3) | Setiap ETL dijalankan dan saat status task dicatat | Baca-tulis | Baca |
 | D-06 `task_dependencies` | ETL Project Plan (F2) | Setiap ETL dijalankan | Baca-tulis | Baca |
 | D-07 `assignments` | ETL Trello (F2), pengalihan task (F3) | Setiap ETL dijalankan dan saat pengalihan dicatat | Baca-tulis | Baca |
@@ -57,11 +58,12 @@ J&C menjalankan ETL paling sedikit satu kali per minggu selama iterasi analisis,
 | Aspek | Aturan |
 |---|---|
 | Nama tabel dan kolom | Sama persis dengan Data Dictionary, huruf kecil dengan garis bawah |
-| Format ID | `PRJ-001`, `RES-001`, `TSK-0001`, `DEP-001`, `ASG-0001`, `WLI-0001`, `AVL-001`, `EVT-001` dengan jumlah digit tetap; `ROLE-<KODE>` dan `CX-<KODE>` dengan kode huruf kapital |
+| Format ID | Prefiks dan jumlah digit minimal mengikuti contoh Data Dictionary: `PRJ-001`, `RES-001`, `TSK-0001`, `DEP-001`, `ASG-0001`, `WLI-0001`, `AVL-001`, `EVT-001`. ID yang lebih panjang tetap sah, misalnya `DEP-0001` dan `ASG-00001` pada dataset dosbim. `ROLE-<KODE>` dan `CX-<KODE>` memakai kode huruf kapital |
 | Nilai enum | Huruf kecil dengan garis bawah, sesuai daftar nilai pada bagian 6 |
 | Tanggal | Tipe `DATE`, format ISO 8601 `YYYY-MM-DD` pada CSV, tanpa komponen jam |
 | Boolean | `true` atau `false` |
 | Bilangan desimal | Tipe `DOUBLE PRECISION`, titik sebagai pemisah desimal pada CSV |
+| `extension_days` | Kosong atau 0 untuk kejadian tanpa perpanjangan durasi |
 | Nilai kosong | `NULL` di basis data dan sel kosong di CSV, hanya untuk kolom yang tidak wajib |
 | `secondary_role_ids` | Daftar `role_id` dipisah titik koma tanpa spasi, misalnya `ROLE-DM;ROLE-FE` |
 | CSV | UTF-8, pemisah koma, baris pertama berisi nama kolom |
@@ -90,7 +92,7 @@ Aturan di basis data:
 
 - `ck_projects_actual_after_start`: `actual_launch_date >= start_date`
 - `ck_projects_priority_rank_min`: `priority_rank >= 1`
-- `ck_projects_project_id_format`: `project_id ~ '^PRJ-[0-9]{3}$'`
+- `ck_projects_project_id_format`: `project_id ~ '^PRJ-[0-9]{3,}$'`
 - `ck_projects_status_valid`: `status IN ('planning', 'development', 'testing', 'released', 'on_hold')`
 - `ck_projects_target_after_start`: `target_launch_date >= start_date`
 
@@ -108,7 +110,7 @@ Aturan di basis data:
 
 Aturan di basis data:
 
-- `ck_resources_resource_id_format`: `resource_id ~ '^RES-[0-9]{3}$'`
+- `ck_resources_resource_id_format`: `resource_id ~ '^RES-[0-9]{3,}$'`
 - `ck_resources_secondary_role_ids_format`: `secondary_role_ids ~ '^ROLE-[A-Z]+(;ROLE-[A-Z]+)*$'`
 - `ck_resources_seniority_valid`: `seniority IN ('junior', 'mid', 'senior')`
 
@@ -174,7 +176,7 @@ Aturan di basis data:
 - `ck_tasks_priority_rank_min`: `priority_rank >= 1`
 - `ck_tasks_qa_reject_count_min`: `qa_reject_count >= 0`
 - `ck_tasks_status_valid`: `status IN ('not_started', 'in_progress', 'blocked', 'on_hold', 'in_qa', 'done', 'dropped')`
-- `ck_tasks_task_id_format`: `task_id ~ '^TSK-[0-9]{4}$'`
+- `ck_tasks_task_id_format`: `task_id ~ '^TSK-[0-9]{4,}$'`
 
 ### D-06 `task_dependencies`
 
@@ -188,7 +190,7 @@ Aturan di basis data:
 
 Aturan di basis data:
 
-- `ck_task_dependencies_dependency_id_format`: `dependency_id ~ '^DEP-[0-9]{3}$'`
+- `ck_task_dependencies_dependency_id_format`: `dependency_id ~ '^DEP-[0-9]{3,}$'`
 - `ck_task_dependencies_dependency_type_valid`: `dependency_type IN ('hard', 'soft')`
 - `ck_task_dependencies_hard_propagation_full`: `dependency_type <> 'hard' OR propagation_factor = 1.0`
 - `ck_task_dependencies_no_self_dependency`: `task_id <> depends_on_task_id`
@@ -209,7 +211,7 @@ Aturan di basis data:
 
 Aturan di basis data:
 
-- `ck_assignments_assignment_id_format`: `assignment_id ~ '^ASG-[0-9]{4}$'`
+- `ck_assignments_assignment_id_format`: `assignment_id ~ '^ASG-[0-9]{4,}$'`
 - `ck_assignments_released_after_assigned`: `released_date >= assigned_date`
 
 ### D-08 `workload_items`
@@ -228,7 +230,7 @@ Aturan di basis data:
 
 Aturan di basis data:
 
-- `ck_workload_items_item_id_format`: `item_id ~ '^WLI-[0-9]{4}$'`
+- `ck_workload_items_item_id_format`: `item_id ~ '^WLI-[0-9]{4,}$'`
 - `ck_workload_items_item_type_valid`: `item_type IN ('operational', 'ticket')`
 - `ck_workload_items_resolved_after_received`: `resolved_date >= received_date`
 - `ck_workload_items_resolved_after_started`: `resolved_date >= started_date`
@@ -249,7 +251,7 @@ Aturan di basis data:
 Aturan di basis data:
 
 - `ck_availability_absence_type_valid`: `absence_type IN ('planned_leave', 'sudden_leave', 'maternity_leave', 'rotation_out', 'rotation_in')`
-- `ck_availability_availability_id_format`: `availability_id ~ '^AVL-[0-9]{3}$'`
+- `ck_availability_availability_id_format`: `availability_id ~ '^AVL-[0-9]{3,}$'`
 - `ck_availability_date_end_after_start`: `date_end >= date_start`
 
 ### D-10 `change_events`
@@ -269,9 +271,9 @@ Aturan di basis data:
 Aturan di basis data:
 
 - `ck_change_events_decision_valid`: `decision IN ('accept_now', 'defer_next', 'reject')`
-- `ck_change_events_event_id_format`: `event_id ~ '^EVT-[0-9]{3}$'`
+- `ck_change_events_event_id_format`: `event_id ~ '^EVT-[0-9]{3,}$'`
 - `ck_change_events_event_type_valid`: `event_type IN ('change_request', 'priority_change', 'blocker', 'overrun', 'hotfix')`
-- `ck_change_events_extension_days_positive`: `extension_days > 0`
+- `ck_change_events_extension_days_min`: `extension_days >= 0`
 - `ck_change_events_resolution_mode_valid`: `resolution_mode IN ('swap_task', 'extend_duration', 'scope_addition', 'reshuffle')`
 
 ### D-11 `holidays`
@@ -359,4 +361,4 @@ J&C menerima Data Dictionary apa adanya sebagai final sources bersama. Kebutuhan
 
 | Versi | Perubahan |
 |---|---|
-| 1.0 | Versi awal. Persetujuan tWinner atas versi ini dicatat lewat konfirmasi WhatsApp di DIG-12. Isi: salinan Data Dictionary D-01 sampai D-11 sesuai migrasi DIG-15, pemilik dan hak akses, frekuensi pembaruan, aturan format, tabel pendukung J&C, penyelesaian celah skema (`resource_skills`, `change_event_details`, `audit_log`) |
+| 1.0 | Versi awal. Persetujuan tWinner atas versi ini dicatat lewat konfirmasi WhatsApp di DIG-12. Isi: salinan Data Dictionary D-01 sampai D-11 sesuai migrasi `0001` sampai `0007`, dataset dosbim sebagai baseline, pemilik dan hak akses, frekuensi pembaruan, aturan format, tabel pendukung J&C, penyelesaian celah skema (`resource_skills`, `change_event_details`, `audit_log`) |
