@@ -115,15 +115,17 @@ class ResolutionMode(StrEnum):
     RESHUFFLE = "reshuffle"
 
 
-# Pola regex PostgreSQL untuk format ID pada Data Dictionary.
-PROJECT_ID_PATTERN = "^PRJ-[0-9]{3}$"
-RESOURCE_ID_PATTERN = "^RES-[0-9]{3}$"
-TASK_ID_PATTERN = "^TSK-[0-9]{4}$"
-DEPENDENCY_ID_PATTERN = "^DEP-[0-9]{3}$"
-ASSIGNMENT_ID_PATTERN = "^ASG-[0-9]{4}$"
-WORKLOAD_ITEM_ID_PATTERN = "^WLI-[0-9]{4}$"
-AVAILABILITY_ID_PATTERN = "^AVL-[0-9]{3}$"
-EVENT_ID_PATTERN = "^EVT-[0-9]{3}$"
+# Pola regex PostgreSQL untuk format ID. Jumlah digit pada contoh Data Dictionary
+# (PRJ-001, TSK-0001, DEP-001, ...) menjadi jumlah digit minimal, sehingga format
+# dataset dummy dosbim (DEP-0001, ASG-00001, AVL-0001, EVT-0001) juga valid.
+PROJECT_ID_PATTERN = "^PRJ-[0-9]{3,}$"
+RESOURCE_ID_PATTERN = "^RES-[0-9]{3,}$"
+TASK_ID_PATTERN = "^TSK-[0-9]{4,}$"
+DEPENDENCY_ID_PATTERN = "^DEP-[0-9]{3,}$"
+ASSIGNMENT_ID_PATTERN = "^ASG-[0-9]{4,}$"
+WORKLOAD_ITEM_ID_PATTERN = "^WLI-[0-9]{4,}$"
+AVAILABILITY_ID_PATTERN = "^AVL-[0-9]{3,}$"
+EVENT_ID_PATTERN = "^EVT-[0-9]{3,}$"
 ROLE_ID_PATTERN = "^ROLE-[A-Z]+$"
 COMPLEXITY_ID_PATTERN = "^CX-[A-Z]+$"
 # secondary_role_ids: daftar role_id dipisah titik koma, contoh ROLE-DM;ROLE-FE.

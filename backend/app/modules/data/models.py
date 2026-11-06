@@ -286,6 +286,7 @@ class ChangeEvent(Base):
 
     decision, resolution_mode, affected_task_id, dan extension_days boleh kosong
     karena tidak semua event_type punya keputusan (misalnya blocker atau overrun).
+    extension_days boleh 0 untuk event tanpa perpanjangan, sesuai dataset dosbim.
     """
 
     __tablename__ = "change_events"
@@ -294,7 +295,7 @@ class ChangeEvent(Base):
         CheckConstraint(one_of("event_type", ChangeEventType), name="event_type_valid"),
         CheckConstraint(one_of("decision", Decision), name="decision_valid"),
         CheckConstraint(one_of("resolution_mode", ResolutionMode), name="resolution_mode_valid"),
-        CheckConstraint("extension_days > 0", name="extension_days_positive"),
+        CheckConstraint("extension_days >= 0", name="extension_days_min"),
     )
 
     event_id: Mapped[str] = mapped_column(String(20), primary_key=True)
