@@ -12,7 +12,7 @@ Dokumen ini menjadi kesepakatan tentang data yang dibagi bersama oleh aplikasi D
 
 ## 1. Ruang lingkup
 
-J&C mengolah data dari beberapa sumber (Project Plan, riwayat kartu Trello, dan riwayat commit TeamGit) menjadi final sources sesuai Data Dictionary. tWinner memakai final sources tersebut sebagai parameter kondisi aktual untuk skenario *what-if*, perhitungan KPI, dan rekomendasi. Kedua aplikasi terhubung melalui basis data bersama, bukan melalui pertukaran berkas manual.
+J&C mengolah data dari beberapa sumber (Project Plan, riwayat kartu Trello, dan riwayat commit TeamGit) menjadi final sources sesuai Data Dictionary. tWinner memakai final sources tersebut sebagai parameter kondisi aktual untuk skenario *what-if*, perhitungan KPI, dan rekomendasi. Kedua aplikasi bertukar data melalui basis data bersama tanpa pertukaran berkas manual.
 
 Selama pengembangan, J&C tidak menerima data sistem PuTI secara langsung. Seluruh isi tabel berasal dari simulasi mandiri dan generator data sintetis (DIG-16), dengan skenario kerja yang mengikuti hasil wawancara dengan Tim DEVTI PuTI. Data sintetis tidak memuat data pribadi sebenarnya sesuai UU No. 27 Tahun 2022 tentang Pelindungan Data Pribadi.
 
@@ -25,7 +25,7 @@ Selama pengembangan, J&C tidak menerima data sistem PuTI secara langsung. Seluru
 
 ## 3. Pemilik, hak akses, dan frekuensi pembaruan
 
-Seluruh tabel di bawah dimiliki J&C. tWinner hanya mendapat hak baca. Kolom "Sumber pengisian" menunjukkan fitur J&C yang menulis ke tabel tersebut.
+J&C memiliki seluruh tabel di bawah, dan tWinner hanya mendapat hak baca. Kolom "Sumber pengisian" menunjukkan fitur J&C yang menulis ke tabel tersebut.
 
 | Tabel | Sumber pengisian | Frekuensi pembaruan | Hak J&C | Hak tWinner |
 |---|---|---|---|---|
@@ -42,15 +42,15 @@ Seluruh tabel di bawah dimiliki J&C. tWinner hanya mendapat hak baca. Kolom "Sum
 | D-11 `holidays` | Formulir master data (F1) | Awal tahun dan saat ada penetapan cuti bersama | Baca-tulis | Baca |
 | View Resource Load Index | Dihitung dari D-02 sampai D-09 | Mengikuti data terbaru setelah setiap ETL | Baca | Baca |
 
-ETL dijalankan paling sedikit satu kali per minggu selama iterasi analisis, serta sebelum setiap evaluasi iterasi pada minggu 9 dan minggu 12. Formulir F1 dan F3 menulis langsung ke tabel sehingga perubahannya langsung terbaca oleh tWinner.
+J&C menjalankan ETL paling sedikit satu kali per minggu selama iterasi analisis, serta sebelum setiap evaluasi iterasi pada minggu 9 dan minggu 12. Formulir F1 dan F3 menulis ke tabel saat data disimpan, sehingga tWinner dapat membaca perubahannya tanpa menunggu ETL.
 
 ## 4. Mekanisme akses
 
-1. Kedua aplikasi memakai satu basis data PostgreSQL. Tabel J&C berada di schema `public`. Skenario dan hasil simulasi tWinner disimpan di schema `twinner` milik tWinner, dan J&C tidak menulis ke schema tersebut.
+1. Kedua aplikasi memakai satu basis data PostgreSQL. Tabel J&C berada di schema `public`. tWinner menyimpan skenario dan hasil simulasinya di schema `twinner` miliknya sendiri, dan J&C tidak menulis ke schema tersebut.
 2. Aplikasi tWinner terhubung dengan role basis data `twinner_reader`. Role ini hanya mendapat hak `SELECT` pada objek yang tercantum di bagian 3 dan bagian 7.1, tanpa hak `INSERT`, `UPDATE`, `DELETE`, maupun DDL.
-3. Aplikasi J&C memakai role `jc_app` untuk baca-tulis data. Perubahan struktur tabel hanya dilakukan lewat migrasi Alembic di repository `DIGITAL_TWIN`, bukan dengan perintah SQL manual.
+3. Aplikasi J&C memakai role `jc_app` untuk baca-tulis data. J&C mengubah struktur tabel hanya lewat migrasi Alembic di repository `DIGITAL_TWIN`, tanpa perintah SQL manual.
 4. Sebagai cadangan, J&C menyediakan ekspor 11 berkas CSV final sources dengan nama dan urutan kolom sesuai Data Dictionary (DIG-193).
-5. Kredensial koneksi dibagikan di luar repository dan tidak ditulis di kode, berkas `.env.example`, maupun dokumen ini.
+5. J&C membagikan kredensial koneksi di luar repository. Kredensial tidak ditulis di kode, berkas `.env.example`, maupun dokumen ini.
 
 ## 5. Aturan format data
 
@@ -66,7 +66,7 @@ ETL dijalankan paling sedikit satu kali per minggu selama iterasi analisis, sert
 | `secondary_role_ids` | Daftar `role_id` dipisah titik koma tanpa spasi, misalnya `ROLE-DM;ROLE-FE` |
 | CSV | UTF-8, pemisah koma, baris pertama berisi nama kolom |
 
-Aturan di basis data (CHECK constraint, foreign key, dan unique constraint) menolak baris yang melanggar format ID, nilai enum, kolom wajib, dan referensi antartabel. Format tanggal ditegakkan oleh validator dan importer J&C, bukan oleh constraint basis data, karena PostgreSQL menerima sebagian tanggal non-ISO (`14 Oct 2026`, `2026/09/10`, `01/12/2026`) dan dapat salah membacanya: `01/12/2026` tersimpan sebagai 2026-01-12. Data kotor dari sumber mentah disaring di tabel staging dan validator J&C sebelum dimuat ke final sources, sehingga tWinner hanya membaca baris yang lolos validasi.
+Aturan di basis data (CHECK constraint, foreign key, dan unique constraint) menolak baris yang melanggar format ID, nilai enum, kolom wajib, dan referensi antartabel. Validator dan importer J&C yang menegakkan format tanggal. Constraint basis data tidak dipakai untuk aturan ini karena PostgreSQL menerima sebagian tanggal non-ISO (`14 Oct 2026`, `2026/09/10`, `01/12/2026`) dan dapat salah membacanya: `01/12/2026` tersimpan sebagai 2026-01-12. Validator J&C menyaring data kotor dari sumber mentah di tabel staging sebelum memuatnya ke final sources, sehingga tWinner hanya membaca baris yang lolos validasi.
 
 ## 6. Salinan Data Dictionary
 
@@ -100,7 +100,7 @@ Aturan di basis data:
 |---|---|---|---|---|
 | `resource_id` (PK) | string | VARCHAR(20) | Ya | Format RES-001 |
 | `resource_name` | string | VARCHAR(200) | Ya | Nama anggota tim |
-| `primary_role_id` (FK → `roles.role_id`) | string | VARCHAR(20) | Ya | Referensi ke roles.csv |
+| `primary_role_id` (FK ke `roles.role_id`) | string | VARCHAR(20) | Ya | Referensi ke roles.csv |
 | `secondary_role_ids` | string | VARCHAR(200) | Tidak | Daftar role rangkap dipisah titik koma, contoh ROLE-DM;ROLE-FE |
 | `cross_role_capable` | boolean | BOOLEAN, default false | Ya | Penanda kemampuan mengambil alih task lintas peran |
 | `join_date` | date | DATE | Ya | Tanggal bergabung, menjadi dasar perhitungan masa onboarding |
@@ -148,11 +148,11 @@ Aturan di basis data:
 | Kolom | Tipe DD | Tipe PostgreSQL | Wajib | Keterangan |
 |---|---|---|---|---|
 | `task_id` (PK) | string | VARCHAR(20) | Ya | Format TSK-0001 |
-| `project_id` (FK → `projects.project_id`) | string | VARCHAR(20) | Ya | Referensi ke projects.csv |
+| `project_id` (FK ke `projects.project_id`) | string | VARCHAR(20) | Ya | Referensi ke projects.csv |
 | `feature_name` | string | VARCHAR(200) | Ya | Nama fitur induk sebelum breakdown |
 | `task_name` | string | VARCHAR(300) | Ya | Nama task hasil breakdown per role |
-| `required_role_id` (FK → `roles.role_id`) | string | VARCHAR(20) | Ya | Role yang dibutuhkan untuk mengerjakan task |
-| `complexity_id` (FK → `complexity_levels.complexity_id`) | string | VARCHAR(20) | Ya | Referensi ke complexity_levels.csv |
+| `required_role_id` (FK ke `roles.role_id`) | string | VARCHAR(20) | Ya | Role yang dibutuhkan untuk mengerjakan task |
+| `complexity_id` (FK ke `complexity_levels.complexity_id`) | string | VARCHAR(20) | Ya | Referensi ke complexity_levels.csv |
 | `priority_rank` | integer | INTEGER | Ya | Angka 1 adalah prioritas tertinggi dalam proyek |
 | `estimated_days` | float | DOUBLE PRECISION | Ya | Hasil kesepakatan estimasi bersama tim |
 | `phase` | enum | VARCHAR(20) | Ya | planning, uiux, dm_dev, be_dev, fe_dev, testing, bugfix, documentation |
@@ -181,8 +181,8 @@ Aturan di basis data:
 | Kolom | Tipe DD | Tipe PostgreSQL | Wajib | Keterangan |
 |---|---|---|---|---|
 | `dependency_id` (PK) | string | VARCHAR(20) | Ya | Format DEP-001 |
-| `task_id` (FK → `tasks.task_id`) | string | VARCHAR(20) | Ya | Task yang bergantung |
-| `depends_on_task_id` (FK → `tasks.task_id`) | string | VARCHAR(20) | Ya | Task prasyarat |
+| `task_id` (FK ke `tasks.task_id`) | string | VARCHAR(20) | Ya | Task yang bergantung |
+| `depends_on_task_id` (FK ke `tasks.task_id`) | string | VARCHAR(20) | Ya | Task prasyarat |
 | `dependency_type` | enum | VARCHAR(10) | Ya | hard untuk blokir total seperti BE menunggu DM, soft untuk pengerjaan parsial seperti FE membuat dummy tampilan |
 | `propagation_factor` | float | DOUBLE PRECISION | Ya | 1.0 untuk hard, default 0.3 untuk soft |
 
@@ -200,9 +200,9 @@ Aturan di basis data:
 | Kolom | Tipe DD | Tipe PostgreSQL | Wajib | Keterangan |
 |---|---|---|---|---|
 | `assignment_id` (PK) | string | VARCHAR(20) | Ya | Format ASG-0001 |
-| `task_id` (FK → `tasks.task_id`) | string | VARCHAR(20) | Ya | Task yang ditugaskan |
-| `resource_id` (FK → `resources.resource_id`) | string | VARCHAR(20) | Ya | Resource pelaksana |
-| `role_in_task` (FK → `roles.role_id`) | string | VARCHAR(20) | Ya | Role yang dijalankan pada task ini, dapat berbeda dari primary role |
+| `task_id` (FK ke `tasks.task_id`) | string | VARCHAR(20) | Ya | Task yang ditugaskan |
+| `resource_id` (FK ke `resources.resource_id`) | string | VARCHAR(20) | Ya | Resource pelaksana |
+| `role_in_task` (FK ke `roles.role_id`) | string | VARCHAR(20) | Ya | Role yang dijalankan pada task ini, dapat berbeda dari primary role |
 | `assigned_date` | date | DATE | Ya | Tanggal penugasan |
 | `released_date` | date | DATE | Tidak | Tanggal lepas tugas, kosong bila masih aktif |
 | `is_takeover` | boolean | BOOLEAN, default false | Ya | Penanda hasil pengalihan dari resource lain |
@@ -217,9 +217,9 @@ Aturan di basis data:
 | Kolom | Tipe DD | Tipe PostgreSQL | Wajib | Keterangan |
 |---|---|---|---|---|
 | `item_id` (PK) | string | VARCHAR(20) | Ya | Format WLI-0001 |
-| `resource_id` (FK → `resources.resource_id`) | string | VARCHAR(20) | Ya | Resource penanggung jawab |
+| `resource_id` (FK ke `resources.resource_id`) | string | VARCHAR(20) | Ya | Resource penanggung jawab |
 | `item_type` | enum | VARCHAR(20) | Ya | operational, ticket |
-| `related_project_id` (FK → `projects.project_id`) | string | VARCHAR(20) | Tidak | Aplikasi terkait, boleh kosong |
+| `related_project_id` (FK ke `projects.project_id`) | string | VARCHAR(20) | Tidak | Aplikasi terkait, boleh kosong |
 | `received_date` | date | DATE | Ya | Tanggal item masuk |
 | `started_date` | date | DATE | Tidak | Tanggal mulai dikerjakan, merefleksikan aturan penundaan tiket pada FR-02.9 |
 | `resolved_date` | date | DATE | Tidak | Tanggal selesai |
@@ -240,7 +240,7 @@ Aturan di basis data:
 | Kolom | Tipe DD | Tipe PostgreSQL | Wajib | Keterangan |
 |---|---|---|---|---|
 | `availability_id` (PK) | string | VARCHAR(20) | Ya | Format AVL-001 |
-| `resource_id` (FK → `resources.resource_id`) | string | VARCHAR(20) | Ya | Resource terkait |
+| `resource_id` (FK ke `resources.resource_id`) | string | VARCHAR(20) | Ya | Resource terkait |
 | `date_start` | date | DATE | Ya | Awal periode ketidakhadiran atau rotasi |
 | `date_end` | date | DATE | Ya | Akhir periode |
 | `absence_type` | enum | VARCHAR(20) | Ya | planned_leave, sudden_leave, maternity_leave, rotation_out, rotation_in |
@@ -257,13 +257,13 @@ Aturan di basis data:
 | Kolom | Tipe DD | Tipe PostgreSQL | Wajib | Keterangan |
 |---|---|---|---|---|
 | `event_id` (PK) | string | VARCHAR(20) | Ya | Format EVT-001 |
-| `project_id` (FK → `projects.project_id`) | string | VARCHAR(20) | Ya | Proyek terdampak |
+| `project_id` (FK ke `projects.project_id`) | string | VARCHAR(20) | Ya | Proyek terdampak |
 | `event_type` | enum | VARCHAR(20) | Ya | change_request, priority_change, blocker, overrun, hotfix |
 | `event_date` | date | DATE | Ya | Tanggal kejadian |
 | `requested_by` | string | VARCHAR(100) | Tidak | Pemilik proses, Kaur, Asisten Manajer, atau System Analyst |
 | `decision` | enum | VARCHAR(20) | Tidak | accept_now, defer_next, reject |
 | `resolution_mode` | enum | VARCHAR(20) | Tidak | swap_task, extend_duration, scope_addition, reshuffle |
-| `affected_task_id` (FK → `tasks.task_id`) | string | VARCHAR(20) | Tidak | Task yang di-drop, ditunda, atau ditambahkan |
+| `affected_task_id` (FK ke `tasks.task_id`) | string | VARCHAR(20) | Tidak | Task yang di-drop, ditunda, atau ditambahkan |
 | `extension_days` | float | DOUBLE PRECISION | Tidak | Tambahan hari bila mode resolusi berupa perpanjangan durasi |
 
 Aturan di basis data:
@@ -319,8 +319,8 @@ Kedua tabel ini menutup celah antara Data Dictionary dan kebutuhan fitur J&C (ba
 
 | Kolom | Tipe PostgreSQL | Wajib | Keterangan |
 |---|---|---|---|
-| `resource_id` (PK, FK → `resources.resource_id`) | VARCHAR(20) | Ya | Anggota tim |
-| `role_id` (PK, FK → `roles.role_id`) | VARCHAR(20) | Ya | Peran yang dikuasai |
+| `resource_id` (PK, FK ke `resources.resource_id`) | VARCHAR(20) | Ya | Anggota tim |
+| `role_id` (PK, FK ke `roles.role_id`) | VARCHAR(20) | Ya | Peran yang dikuasai |
 | `proficiency_level` | SMALLINT | Ya | 1 = dasar, masih membutuhkan pendampingan; 2 = mandiri; 3 = mahir, dapat mengambil alih task dan membimbing anggota lain |
 | `assessed_date` | DATE | Ya | Tanggal penilaian terakhir |
 
@@ -330,16 +330,16 @@ Aturan: `proficiency_level` bernilai 1 sampai 3. `primary_role_id` dan `secondar
 
 | Kolom | Tipe PostgreSQL | Wajib | Keterangan |
 |---|---|---|---|
-| `event_id` (PK, FK → `change_events.event_id`) | VARCHAR(20) | Ya | Kejadian yang dilengkapi |
-| `approved_by_resource_id` (FK → `resources.resource_id`) | VARCHAR(20) | Tidak | Anggota yang menyetujui CR atau perubahan prioritas |
+| `event_id` (PK, FK ke `change_events.event_id`) | VARCHAR(20) | Ya | Kejadian yang dilengkapi |
+| `approved_by_resource_id` (FK ke `resources.resource_id`) | VARCHAR(20) | Tidak | Anggota yang menyetujui CR atau perubahan prioritas |
 | `approved_date` | DATE | Tidak | Tanggal persetujuan |
 | `resolved_date` | DATE | Tidak | Tanggal blocker, overrun, atau hotfix dinyatakan selesai; kosong bila masih berlangsung |
 
-Aturan: `approved_date` dan `resolved_date` tidak boleh lebih awal dari `event_date` pada D-10. Karena kedua tanggal berada di tabel berbeda, aturan ini diperiksa oleh validator J&C.
+Aturan: `approved_date` dan `resolved_date` tidak boleh lebih awal dari `event_date` pada D-10. Validator J&C memeriksa aturan ini karena `event_date` berada di tabel lain.
 
 ## 8. Penyelesaian celah skema
 
-Data Dictionary diterima apa adanya sebagai final sources bersama. Kebutuhan J&C yang belum tertampung di Data Dictionary diselesaikan dengan tabel milik J&C berikut.
+J&C menerima Data Dictionary apa adanya sebagai final sources bersama. Kebutuhan J&C yang belum tertampung di Data Dictionary ditutup dengan tabel milik J&C berikut.
 
 | Celah | Kebutuhan | Penyelesaian |
 |---|---|---|
