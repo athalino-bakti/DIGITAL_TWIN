@@ -102,3 +102,29 @@ class ProjectRead(BaseModel):
     is_overdue: bool = Field(
         description="Proyek aktif yang target launching-nya sudah lewat dari hari ini"
     )
+
+
+# --- D-04 complexity_levels (DIG-22) ---
+
+# Hari dan bobot boleh desimal (misalnya 0,5 hari), tidak negatif, dan harus angka
+# biasa: string, boolean, NaN, dan tak hingga ditolak.
+NonNegative = Annotated[float, Field(strict=True, ge=0, allow_inf_nan=False)]
+
+
+class ComplexityUpdate(BaseModel):
+    """Body PATCH. ID dan nama level tetap; yang diatur hanya rentang hari dan bobot."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    min_days: NonNegative | None = None
+    max_days: NonNegative | None = None
+    load_weight: NonNegative | None = None
+
+
+class ComplexityRead(BaseModel):
+    complexity_id: str
+    complexity_name: str
+    min_days: float
+    max_days: float
+    load_weight: float
+    task_count: int = Field(description="Jumlah task yang memakai level ini")
