@@ -1,5 +1,6 @@
 from alembic import context
 
+import app.modules.auth.models  # noqa: F401  (mendaftarkan app_user ke metadata)
 import app.modules.data.models  # noqa: F401  (mendaftarkan D-01 s.d. D-11 ke metadata)
 from app.db.base import Base
 from app.db.session import engine

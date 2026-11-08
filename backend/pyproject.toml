@@ -14,6 +14,7 @@ dependencies = [
   "psycopg[binary]>=3.2,<4",
   "pydantic-settings>=2.7,<3",
   "alembic>=1.14,<2",
+  "PyJWT>=2.10,<3",
 ]
 
 [project.optional-dependencies]
@@ -26,6 +27,7 @@ include = ["app*"]
 testpaths = ["tests"]
 markers = [
   "migration: tes migrasi Alembic, butuh PostgreSQL di MIGRATION_TEST_DATABASE_URL",
+  "db: tes API terhadap PostgreSQL, butuh TEST_DATABASE_URL",
 ]
 
 [tool.ruff]
