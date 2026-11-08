@@ -57,7 +57,7 @@ def session_factory():
 def client(session_factory):
     """TestClient dengan tabel transaksi dikosongkan. Data referensi (seed) tetap ada."""
     with session_factory() as session:
-        session.execute(text("TRUNCATE projects CASCADE"))
+        session.execute(text("TRUNCATE projects, resources CASCADE"))
         session.commit()
 
     def override():
