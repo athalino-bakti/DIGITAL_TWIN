@@ -5,6 +5,7 @@ terakhir. Service memeriksa aturan yang sama lebih dulu supaya pengguna
 mendapat pesan per kolom, ditambah aturan DIG-20 yang tidak ada di skema D-01.
 """
 
+import re
 from datetime import date
 
 from sqlalchemy import func, select
@@ -12,13 +13,25 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.modules.data.enums import ACTIVE_PROJECT_STATUSES, ProjectStatus
-from app.modules.data.models import ACTIVE_PRIORITY_INDEX, ComplexityLevel, Project, Task
+from app.modules.data.models import (
+    ACTIVE_PRIORITY_INDEX,
+    ComplexityLevel,
+    Project,
+    Resource,
+    Role,
+    Task,
+)
 from app.modules.data.schemas import (
     ComplexityRead,
     ComplexityUpdate,
     ProjectCreate,
     ProjectRead,
     ProjectUpdate,
+    ResourceCreate,
+    ResourceRead,
+    ResourceUpdate,
+    RoleRead,
+    RoleUpdate,
 )
 
 ACTIVE_STATUSES = frozenset(ACTIVE_PROJECT_STATUSES)
@@ -55,7 +68,7 @@ class DataValidationError(Exception):
         self.errors = errors
 
 
-class ProjectConflictError(Exception):
+class ConflictError(Exception):
     """Bentrok dengan data lain (HTTP 409)."""
 
     def __init__(self, message: str, field: str | None = None) -> None:
@@ -76,6 +89,14 @@ class ProjectNotFoundError(NotFoundError):
 
 class ComplexityNotFoundError(NotFoundError):
     label = "Level kompleksitas"
+
+
+class ResourceNotFoundError(NotFoundError):
+    label = "Anggota"
+
+
+class RoleNotFoundError(NotFoundError):
+    label = "Peran"
 
 
 def is_active(status: str) -> bool:
@@ -147,7 +168,7 @@ def ensure_unique_active_priority(db: Session, values: dict, exclude_id: str | N
         query = query.where(Project.project_id != exclude_id)
     clash = db.execute(query.limit(1)).first()
     if clash is not None:
-        raise ProjectConflictError(
+        raise ConflictError(
             f"Prioritas {values['priority_rank']} sudah dipakai proyek aktif "
             f"{clash.project_id} ({clash.project_name})",
             field="priority_rank",
@@ -158,7 +179,7 @@ def next_project_id(db: Session) -> str:
     highest = db.scalar(select(func.max(Project.project_id)))
     number = int(highest.removeprefix("PRJ-")) + 1 if highest else 1
     if number > 999:
-        raise ProjectConflictError("Nomor proyek sudah mencapai PRJ-999", field="project_id")
+        raise ConflictError("Nomor proyek sudah mencapai PRJ-999", field="project_id")
     return f"PRJ-{number:03d}"
 
 
@@ -190,7 +211,7 @@ def create_project(db: Session, payload: ProjectCreate) -> ProjectRead:
     if values["project_id"] is None:
         values["project_id"] = next_project_id(db)
     elif db.get(Project, values["project_id"]) is not None:
-        raise ProjectConflictError(
+        raise ConflictError(
             f"ID {values['project_id']} sudah dipakai proyek lain", field="project_id"
         )
     ensure_unique_active_priority(db, values, exclude_id=None)
@@ -232,7 +253,7 @@ def delete_project(db: Session, project_id: str) -> None:
         db.commit()
     except IntegrityError as exc:
         db.rollback()
-        raise ProjectConflictError(
+        raise ConflictError(
             f"Proyek {project_id} masih dipakai task, beban non-proyek, atau change event, "
             "sehingga tidak bisa dihapus. Ubah statusnya menjadi on_hold bila proyek dihentikan."
         ) from exc
@@ -250,12 +271,12 @@ def commit(db: Session) -> None:
         db.rollback()
         constraint = getattr(getattr(exc.orig, "diag", None), "constraint_name", None)
         if constraint == ACTIVE_PRIORITY_INDEX:
-            raise ProjectConflictError(
+            raise ConflictError(
                 "Prioritas ini baru saja dipakai proyek aktif lain. "
                 "Muat ulang daftar proyek lalu pilih prioritas lain.",
                 field="priority_rank",
             ) from exc
-        raise ProjectConflictError(
+        raise ConflictError(
             "Data ditolak basis data karena bentrok dengan data lain. "
             "Muat ulang halaman lalu coba lagi."
         ) from exc
@@ -327,3 +348,203 @@ def update_complexity_level(
         select(func.count()).select_from(Task).where(Task.complexity_id == complexity_id)
     )
     return complexity_read(level, task_count or 0)
+
+
+# --- D-02 resources dan D-03 roles (DIG-21) ---
+
+# Asumsi tim sampai formula onboarding difinalkan bersama tWinner (DIG-186):
+# anggota yang bergabung kurang dari 90 hari dianggap masih masa onboarding.
+ONBOARDING_DAYS = 90
+RESOURCE_NOT_NULL = frozenset(
+    {"resource_name", "primary_role_id", "cross_role_capable", "join_date", "seniority"}
+)
+
+
+def split_role_ids(value: str | None) -> list[str]:
+    return [role_id for role_id in (value or "").split(";") if role_id]
+
+
+def join_role_ids(role_ids: list[str]) -> str | None:
+    """Simpan sebagai ROLE-A;ROLE-B (tanpa spasi), atau NULL bila kosong."""
+    return ";".join(role_ids) or None
+
+
+def resource_read(resource: Resource, today: date | None = None) -> ResourceRead:
+    today = today or date.today()
+    tenure = (today - resource.join_date).days
+    return ResourceRead(
+        resource_id=resource.resource_id,
+        resource_name=resource.resource_name,
+        primary_role_id=resource.primary_role_id,
+        secondary_role_ids=split_role_ids(resource.secondary_role_ids),
+        cross_role_capable=resource.cross_role_capable,
+        join_date=resource.join_date,
+        seniority=resource.seniority,
+        tenure_days=tenure,
+        is_onboarding=0 <= tenure < ONBOARDING_DAYS,
+    )
+
+
+def check_resource_roles(db: Session, primary: str, secondary: list[str]) -> list[FieldError]:
+    """Validasi FK peran: role utama dan setiap role rangkap harus ada di D-03."""
+    known = set(db.scalars(select(Role.role_id)))
+    errors: list[FieldError] = []
+    if primary not in known:
+        errors.append(
+            FieldError("primary_role_id", f"Peran {primary} tidak terdaftar", "role_not_found")
+        )
+    unknown = [role_id for role_id in secondary if role_id not in known]
+    if unknown:
+        errors.append(
+            FieldError(
+                "secondary_role_ids",
+                f"Peran {', '.join(unknown)} tidak terdaftar",
+                "role_not_found",
+            )
+        )
+    elif primary in secondary:
+        errors.append(
+            FieldError(
+                "secondary_role_ids",
+                f"{primary} sudah menjadi peran utama, tidak perlu dipilih sebagai peran rangkap",
+                "duplicate_primary_role",
+            )
+        )
+    elif len(set(secondary)) != len(secondary):
+        errors.append(
+            FieldError("secondary_role_ids", "Peran rangkap tidak boleh ganda", "duplicate_role")
+        )
+    return errors
+
+
+def next_id(existing: list[str], prefix: str, width: int = 3) -> str:
+    """ID berikutnya setelah angka terbesar, dihitung sebagai angka.
+
+    Format ID boleh lebih dari `width` digit (PRJ-1000), sehingga urutan teks
+    keliru: "RES-1000" < "RES-999".
+    """
+    pattern = re.compile(rf"{re.escape(prefix)}-(\d+)")
+    numbers = [int(m.group(1)) for value in existing if (m := pattern.fullmatch(value))]
+    return f"{prefix}-{max(numbers, default=0) + 1:0{width}d}"
+
+
+def next_resource_id(db: Session) -> str:
+    return next_id(list(db.scalars(select(Resource.resource_id))), "RES")
+
+
+def list_resources(db: Session) -> list[ResourceRead]:
+    today = date.today()
+    resources = db.scalars(select(Resource).order_by(Resource.resource_id))
+    return sorted(
+        (resource_read(resource, today) for resource in resources),
+        key=lambda r: int(r.resource_id.removeprefix("RES-")),
+    )
+
+
+def get_resource(db: Session, resource_id: str) -> Resource:
+    resource = db.get(Resource, resource_id)
+    if resource is None:
+        raise ResourceNotFoundError(resource_id)
+    return resource
+
+
+def create_resource(db: Session, payload: ResourceCreate) -> ResourceRead:
+    values = payload.model_dump()
+    errors = check_resource_roles(db, values["primary_role_id"], values["secondary_role_ids"])
+    if errors:
+        raise DataValidationError(errors)
+    if values["resource_id"] is None:
+        values["resource_id"] = next_resource_id(db)
+    elif db.get(Resource, values["resource_id"]) is not None:
+        raise ConflictError(
+            f"ID {values['resource_id']} sudah dipakai anggota lain", field="resource_id"
+        )
+    values["secondary_role_ids"] = join_role_ids(values["secondary_role_ids"])
+    resource = Resource(**values)
+    db.add(resource)
+    commit(db)
+    return resource_read(resource)
+
+
+def update_resource(db: Session, resource_id: str, payload: ResourceUpdate) -> ResourceRead:
+    resource = get_resource(db, resource_id)
+    changes = payload.model_dump(exclude_unset=True)
+    errors = [
+        FieldError(field, "Kolom ini wajib diisi", "missing")
+        for field, value in changes.items()
+        if value is None and field in RESOURCE_NOT_NULL
+    ]
+    if errors:
+        raise DataValidationError(errors)
+
+    if "secondary_role_ids" in changes:
+        changes["secondary_role_ids"] = changes["secondary_role_ids"] or []
+    primary = changes.get("primary_role_id", resource.primary_role_id)
+    secondary = changes.get("secondary_role_ids", split_role_ids(resource.secondary_role_ids))
+    if "primary_role_id" in changes or "secondary_role_ids" in changes:
+        errors = check_resource_roles(db, primary, secondary)
+        if errors:
+            raise DataValidationError(errors)
+
+    if "secondary_role_ids" in changes:
+        changes["secondary_role_ids"] = join_role_ids(changes["secondary_role_ids"])
+    for field, value in changes.items():
+        setattr(resource, field, value)
+    commit(db)
+    return resource_read(resource)
+
+
+def delete_resource(db: Session, resource_id: str) -> None:
+    resource = get_resource(db, resource_id)
+    db.delete(resource)
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise ConflictError(
+            f"Anggota {resource_id} masih tercatat di assignment, beban non-proyek, "
+            "atau ketersediaan, sehingga tidak bisa dihapus."
+        ) from exc
+
+
+def list_roles(db: Session) -> list[RoleRead]:
+    counts = dict(
+        db.execute(
+            select(Resource.primary_role_id, func.count()).group_by(Resource.primary_role_id)
+        ).all()
+    )
+    return [
+        role_read(role, counts.get(role.role_id, 0))
+        for role in db.scalars(select(Role).order_by(Role.role_id))
+    ]
+
+
+def role_read(role: Role, resource_count: int) -> RoleRead:
+    return RoleRead(
+        role_id=role.role_id,
+        role_name=role.role_name,
+        capacity_reference=role.capacity_reference,
+        description=role.description,
+        resource_count=resource_count,
+    )
+
+
+def update_role(db: Session, role_id: str, payload: RoleUpdate) -> RoleRead:
+    role = db.get(Role, role_id)
+    if role is None:
+        raise RoleNotFoundError(role_id)
+    changes = payload.model_dump(exclude_unset=True)
+    if "capacity_reference" in changes and changes["capacity_reference"] is None:
+        raise DataValidationError(
+            [FieldError("capacity_reference", "Kolom ini wajib diisi", "missing")]
+        )
+    if "description" in changes:
+        # Deskripsi kosong disimpan sebagai NULL.
+        changes["description"] = changes["description"] or None
+    for field, value in changes.items():
+        setattr(role, field, value)
+    commit(db)
+    count = db.scalar(
+        select(func.count()).select_from(Resource).where(Resource.primary_role_id == role_id)
+    )
+    return role_read(role, count or 0)
