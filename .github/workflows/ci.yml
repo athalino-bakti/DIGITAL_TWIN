@@ -89,6 +89,7 @@ jobs:
           --health-retries 10
     env:
       MIGRATION_TEST_DATABASE_URL: postgresql+psycopg://puti:puti_local@localhost:5432/digital_twin_test
+      TEST_DATABASE_URL: postgresql+psycopg://puti:puti_local@localhost:5432/digital_twin_test
     steps:
       - uses: actions/checkout@v4
 
@@ -105,3 +106,6 @@ jobs:
 
       - name: Tes migrasi (single head, upgrade/downgrade, stairway, model vs migrasi)
         run: python -m pytest -m migration -v
+
+      - name: Tes API dengan PostgreSQL
+        run: python -m pytest -m db -v
