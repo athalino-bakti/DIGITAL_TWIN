@@ -13,15 +13,21 @@ from sqlalchemy import (
     Date,
     Double,
     ForeignKey,
+    Index,
     String,
     Text,
     UniqueConstraint,
     false,
+    func,
+    literal,
+    text,
 )
+from sqlalchemy.dialects.postgresql import ExcludeConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.modules.data.enums import (
+    ACTIVE_PROJECT_STATUSES,
     ASSIGNMENT_ID_PATTERN,
     AVAILABILITY_ID_PATTERN,
     COMPLEXITY_ID_PATTERN,
@@ -46,6 +52,9 @@ from app.modules.data.enums import (
     WorkloadItemType,
 )
 
+ACTIVE_PRIORITY_INDEX = "uq_projects_active_priority"
+AVAILABILITY_OVERLAP_CONSTRAINT = "ex_availability_no_overlap"
+
 
 def one_of(column: str, values: type[StrEnum]) -> str:
     """Ekspresi CHECK `kolom IN (...)` dari sebuah StrEnum."""
@@ -68,6 +77,15 @@ class Project(Base):
         CheckConstraint("priority_rank >= 1", name="priority_rank_min"),
         CheckConstraint("target_launch_date >= start_date", name="target_after_start"),
         CheckConstraint("actual_launch_date >= start_date", name="actual_after_start"),
+        # DIG-20: prioritas unik di antara proyek aktif (migrasi 0006).
+        Index(
+            ACTIVE_PRIORITY_INDEX,
+            "priority_rank",
+            unique=True,
+            postgresql_where=text(
+                f"status IN ({', '.join(repr(s.value) for s in ACTIVE_PROJECT_STATUSES)})"
+            ),
+        ),
     )
 
     project_id: Mapped[str] = mapped_column(String(20), primary_key=True)
@@ -271,6 +289,15 @@ class Availability(Base):
         ),
         CheckConstraint(one_of("absence_type", AbsenceType), name="absence_type_valid"),
         CheckConstraint("date_end >= date_start", name="date_end_after_start"),
+        # DIG-106: ketidakhadiran satu anggota tidak boleh bertumpuk (migrasi 0017).
+        # rotation_in dikecualikan karena berarti anggota hadir.
+        ExcludeConstraint(
+            ("resource_id", "="),
+            (func.daterange(text("date_start"), text("date_end"), literal("[]")), "&&"),
+            name=AVAILABILITY_OVERLAP_CONSTRAINT,
+            using="gist",
+            where=text("absence_type <> 'rotation_in'"),
+        ),
     )
 
     availability_id: Mapped[str] = mapped_column(String(20), primary_key=True)
@@ -286,6 +313,7 @@ class ChangeEvent(Base):
 
     decision, resolution_mode, affected_task_id, dan extension_days boleh kosong
     karena tidak semua event_type punya keputusan (misalnya blocker atau overrun).
+    extension_days boleh 0 untuk event tanpa perpanjangan, sesuai dataset dosbim.
     """
 
     __tablename__ = "change_events"
@@ -294,7 +322,7 @@ class ChangeEvent(Base):
         CheckConstraint(one_of("event_type", ChangeEventType), name="event_type_valid"),
         CheckConstraint(one_of("decision", Decision), name="decision_valid"),
         CheckConstraint(one_of("resolution_mode", ResolutionMode), name="resolution_mode_valid"),
-        CheckConstraint("extension_days > 0", name="extension_days_positive"),
+        CheckConstraint("extension_days >= 0", name="extension_days_min"),
     )
 
     event_id: Mapped[str] = mapped_column(String(20), primary_key=True)
