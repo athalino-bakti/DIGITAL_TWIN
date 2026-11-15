@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { ApiError } from '../../../shared/api/client';
+import { useCan } from '../../../shared/auth/usePermission';
+import { PERM } from '../../../shared/auth/permissions';
 import { listComplexityLevels, updateComplexityLevel, type ComplexityInput, type ComplexityLevel } from './api';
 
 type Field = keyof ComplexityInput;
@@ -34,6 +36,7 @@ function validate(draft: Draft): Errors {
 
 export function ComplexityPanel() {
   const [load, setLoad] = useState<Load>({ state: 'loading' });
+  const canWrite = useCan(PERM.masterDataWrite);
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft>({ min_days: '', max_days: '', load_weight: '' });
   const [errors, setErrors] = useState<Errors>({});
@@ -162,9 +165,9 @@ export function ComplexityPanel() {
                   <td className="num text-data">{number.format(level.load_weight)}</td>
                   <td className="num text-data">{level.task_count}</td>
                   <td>
-                    <div className="row-actions">
+                    {canWrite && <div className="row-actions">
                       <button type="button" className="button button-ghost" disabled={editing !== null} onClick={() => startEdit(level)}>Ubah</button>
-                    </div>
+                    </div>}
                   </td>
                 </tr>
               ))}

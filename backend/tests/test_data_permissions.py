@@ -40,6 +40,11 @@ EXPECTED = {
     ("POST", "/availability"): Perm.AVAILABILITY_WRITE,
     ("PATCH", "/availability/{availability_id}"): Perm.AVAILABILITY_WRITE,
     ("DELETE", "/availability/{availability_id}"): Perm.AVAILABILITY_WRITE,
+    # Pengalihan task saat anggota tidak hadir (DIG-35): FR-06 dan DIG-19.
+    ("GET", "/availability/{availability_id}/affected-tasks"): Perm.WORKLOAD_READ_ALL,
+    ("GET", "/tasks/{task_id}/assignments"): Perm.WORKLOAD_READ_ALL,
+    ("GET", "/tasks/{task_id}/replacement-candidates"): Perm.WORKLOAD_READ_ALL,
+    ("POST", "/tasks/{task_id}/takeover"): Perm.AVAILABILITY_WRITE,
     ("GET", "/holidays"): Perm.MASTER_DATA_READ,
     ("POST", "/holidays"): Perm.MASTER_DATA_WRITE,
     ("PATCH", "/holidays/{holiday_date}"): Perm.MASTER_DATA_WRITE,
@@ -139,6 +144,15 @@ CASES = [
     ("admin_data", "post", "/availability", {}, False),
     ("kaur_asman", "post", "/availability", {}, True),
     ("system_analyst", "delete", "/availability/AVL-999", None, True),
+    # Pengalihan task (DIG-35).
+    ("anggota_tim", "get", "/tasks/TSK-9999/assignments", None, False),
+    ("system_analyst", "get", "/tasks/TSK-9999/assignments", None, True),
+    ("anggota_tim", "get", "/tasks/TSK-9999/replacement-candidates", None, False),
+    ("kaur_asman", "get", "/tasks/TSK-9999/replacement-candidates", None, True),
+    ("admin_data", "post", "/tasks/TSK-9999/takeover", {}, False),
+    ("kaur_asman", "post", "/tasks/TSK-9999/takeover", {}, True),
+    ("anggota_tim", "get", "/availability/AVL-999/affected-tasks", None, False),
+    ("system_analyst", "get", "/availability/AVL-999/affected-tasks", None, True),
     ("anggota_tim", "get", "/holidays", None, True),
     ("anggota_tim", "delete", "/holidays/2026-12-25", None, False),
     # D-05 status task (DIG-161).

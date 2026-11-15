@@ -227,6 +227,9 @@ fieldset.field legend { font: var(--text-label); color: var(--color-heading); ma
 .calendar-date { align-self: flex-start; display: grid; place-items: center; min-width: 26px; height: 26px; padding: 0 var(--space-2); font: var(--text-label); color: var(--color-heading); background: none; border: 0; border-radius: var(--radius-pill); cursor: pointer; }
 .calendar-date:hover { background: var(--color-primary-light); color: var(--color-primary); }
 .calendar-date:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+/* Tanpa izin mencatat ketidakhadiran: tanggal dan chip hanya untuk dibaca. */
+span.calendar-date, span.calendar-date:hover { cursor: default; background: none; color: var(--color-heading); }
+.absence-chip:disabled { cursor: default; }
 .calendar-day.is-today .calendar-date { background: var(--color-primary); color: var(--color-surface); }
 .calendar-holiday { overflow: hidden; font: var(--text-caption); font-weight: 500; color: var(--color-danger); white-space: nowrap; text-overflow: ellipsis; }
 .calendar-events { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
