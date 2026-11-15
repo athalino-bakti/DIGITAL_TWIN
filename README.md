@@ -163,6 +163,8 @@ python -m app.modules.auth.create_user --username bagas --full-name "Bagas Haris
 
 Password diminta lewat prompt, minimal 8 karakter, dan disimpan sebagai hash scrypt.
 
+Akun baru belum punya peran aplikasi, jadi belum bisa membuka endpoint yang dilindungi izin. Beri peran lewat `set_roles`, lihat bagian [Peran aplikasi dan izin (RBAC)](#peran-aplikasi-dan-izin-rbac).
+
 | Endpoint | Body / header | Respons |
 | --- | --- | --- |
 | `POST /api/v1/auth/login` | `{"username": "...", "password": "..."}` | `200` `{access_token, token_type: "bearer", expires_in, user}` · `401` username atau password salah · `422` body tidak valid |
@@ -176,21 +178,25 @@ Password diminta lewat prompt, minimal 8 karakter, dan disimpan sebagai hash scr
 
 ### Peran aplikasi dan izin (RBAC)
 
-Satu pengguna boleh punya banyak peran aplikasi; izinnya gabungan dari semua perannya. Peran ini terpisah dari D-03 `roles` (peran kerja di PuTI). Matriks di bawah adalah **usulan awal** dari proposal subbab II.2.10 dan Story DIG-19, dan dapat disesuaikan lewat migrasi baru setelah disepakati tim.
+Satu pengguna boleh punya banyak peran aplikasi; izinnya gabungan dari semua perannya. Peran ini terpisah dari D-03 `roles` (peran kerja di PuTI). Matriks di bawah mengikuti Tabel 2.1 dan 2.2 (FR-01 sampai FR-12) dokumen Rancangan Kebutuhan dan Arsitektur. Perubahan matriks dilakukan lewat migrasi baru.
 
-| Izin | `kaur_asman` | `system_analyst` | `anggota_tim` | `admin_data` |
-| --- | :-: | :-: | :-: | :-: |
-| `master_data:read` | ✓ | ✓ | ✓ | ✓ |
-| `master_data:write` |  |  |  | ✓ |
-| `import:run` |  |  |  | ✓ |
-| `data_quality:read` |  | ✓ |  | ✓ |
-| `work_event:write` | ✓ | ✓ |  |  |
-| `task_status:update_own` |  |  | ✓ |  |
-| `baseline:read` | ✓ | ✓ | ✓ |  |
-| `workload:read_all` | ✓ | ✓ |  |  |
-| `workload:read_own` | ✓ | ✓ | ✓ |  |
-| `event_log:export` |  | ✓ |  | ✓ |
-| `user:manage` |  |  |  | ✓ |
+| Izin | `kaur_asman` | `system_analyst` | `anggota_tim` | `admin_data` | `admin_it` |
+| --- | :-: | :-: | :-: | :-: | :-: |
+| `master_data:read` | ✓ | ✓ | ✓ | ✓ |  |
+| `master_data:write` |  |  |  | ✓ |  |
+| `import:run` |  |  |  | ✓ |  |
+| `data_quality:read` |  | ✓ |  | ✓ |  |
+| `change_event:write` (FR-05, semua task) | ✓ | ✓ |  |  |  |
+| `change_event:write_own` (FR-05, task miliknya) |  |  | ✓ |  |  |
+| `availability:write` (FR-06) | ✓ | ✓ |  |  |  |
+| `baseline:read` (FR-08 s.d. FR-11) | ✓ | ✓ |  |  |  |
+| `workload:read_all` | ✓ | ✓ |  |  |  |
+| `workload:read_own` | ✓ | ✓ | ✓ |  |  |
+| `event_log:export` (FR-07) |  |  |  | ✓ |  |
+| `user:manage` |  |  |  |  | ✓ |
+
+- System Analyst yang juga menjalankan tugas Administrator Data (Tabel 2.1) cukup diberi dua peran: `system_analyst` dan `admin_data`.
+- `change_event:write_own` dan `workload:read_own` hanya membuka endpoint; pembatasan ke task atau data milik pengguna sendiri dicek di endpoint tersebut.
 
 Mengatur peran dari folder `backend` (belum ada halaman kelola akun):
 

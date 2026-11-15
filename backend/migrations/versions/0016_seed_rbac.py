@@ -1,8 +1,12 @@
-"""Seed empat peran aplikasi dan matriks izin
+"""Seed lima peran aplikasi dan matriks izin
 
 Jira: DIG-90. Nilai ditulis langsung di migrasi (bukan diimpor dari kode aplikasi) agar
 riwayat migrasi tidak berubah saat kode berubah. Tes memastikan isinya sama dengan
 app/modules/auth/permissions.py.
+
+Downgrade melepas seluruh penugasan peran (user_app_role) karena peran yang masih dipakai
+tidak bisa dihapus (FK RESTRICT). Setelah upgrade lagi, peran pengguna perlu diatur ulang
+lewat set_roles.
 
 Revision ID: 0016
 Revises: 0015
@@ -27,10 +31,11 @@ PERMISSIONS = [
     ("import:run", "Menjalankan impor Project Plan, Trello, dan TeamGit (F2)"),
     ("data_quality:read", "Melihat laporan kualitas data dan baris yang ditolak"),
     (
-        "work_event:write",
-        "Mencatat CR, blocker, overrun, hotfix, ketidakhadiran, rotasi, dan pengalihan task (F3)",
+        "change_event:write",
+        "Mencatat kejadian perubahan (CR, blocker, overrun, hotfix) pada task mana pun (FR-05)",
     ),
-    ("task_status:update_own", "Memperbarui status task miliknya sendiri (F3)"),
+    ("change_event:write_own", "Mencatat kejadian perubahan pada task miliknya sendiri (FR-05)"),
+    ("availability:write", "Mencatat ketidakhadiran dan rotasi anggota (FR-06)"),
     (
         "baseline:read",
         "Melihat halaman baseline Digital Twin: ringkasan, timeline, dependency, "
@@ -46,7 +51,11 @@ PERMISSIONS = [
 ]
 
 ROLES = [
-    ("kaur_asman", "Kaur/Asman", "Memantau progres dan beban kerja seluruh proyek aktif"),
+    (
+        "kaur_asman",
+        "Kaur/Asman",
+        "Memantau progres dan beban kerja seluruh proyek aktif serta mencatat perubahan",
+    ),
     (
         "system_analyst",
         "System Analyst",
@@ -55,9 +64,14 @@ ROLES = [
     (
         "anggota_tim",
         "Anggota Tim Pengembang",
-        "Melihat task dan beban miliknya sendiri serta memperbarui status task",
+        "Melihat beban miliknya sendiri dan mencatat kejadian perubahan pada task miliknya",
     ),
-    ("admin_data", "Administrator Data", "Mengelola impor data, master data, dan akun pengguna"),
+    (
+        "admin_data",
+        "Administrator Data",
+        "Mengelola master data, impor, kualitas data, dan ekspor event log",
+    ),
+    ("admin_it", "Admin IT", "Mengelola akun pengguna dan peran aplikasinya"),
 ]
 
 MATRIX = {
@@ -66,22 +80,22 @@ MATRIX = {
         "baseline:read",
         "workload:read_all",
         "workload:read_own",
-        "work_event:write",
+        "change_event:write",
+        "availability:write",
     ],
     "system_analyst": [
         "master_data:read",
         "baseline:read",
         "workload:read_all",
         "workload:read_own",
-        "work_event:write",
+        "change_event:write",
+        "availability:write",
         "data_quality:read",
-        "event_log:export",
     ],
     "anggota_tim": [
         "master_data:read",
-        "baseline:read",
         "workload:read_own",
-        "task_status:update_own",
+        "change_event:write_own",
     ],
     "admin_data": [
         "master_data:read",
@@ -89,8 +103,8 @@ MATRIX = {
         "import:run",
         "data_quality:read",
         "event_log:export",
-        "user:manage",
     ],
+    "admin_it": ["user:manage"],
 }
 
 

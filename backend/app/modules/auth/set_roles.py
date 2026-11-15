@@ -37,6 +37,9 @@ def main(argv: list[str] | None = None) -> int:
         if not args.username or (not args.role and not args.clear):
             print("Isi --username dan --role (atau --clear)", file=sys.stderr)
             return 1
+        if args.clear and args.role:
+            print("Pilih salah satu: --role atau --clear", file=sys.stderr)
+            return 1
         unknown = sorted(set(args.role) - set(roles))
         if unknown:
             print(f"Peran tidak dikenal: {', '.join(unknown)}. Lihat --list", file=sys.stderr)

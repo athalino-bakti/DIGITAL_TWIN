@@ -3,19 +3,13 @@
 Butuh TEST_DATABASE_URL dengan nama basis data berakhiran `_test` (isinya dihapus).
 """
 
-import os
-from pathlib import Path
 from typing import Annotated
 
 import pytest
-from alembic import command
-from alembic.config import Config
 from fastapi import APIRouter, Depends, FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, delete, select, text
-from sqlalchemy.engine import make_url
+from sqlalchemy import delete, select, text
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import sessionmaker
 
 from app.db.session import get_db
 from app.modules.auth import security, set_roles
@@ -24,14 +18,9 @@ from app.modules.auth.models import AppUser
 from app.modules.auth.permissions import PERMISSION_DESCRIPTIONS, ROLES, Perm
 from app.modules.auth.rbac_models import AppRole, Permission, RolePermission, UserAppRole
 from app.modules.auth.router import router as auth_router
+from tests.conftest import REQUIRES_DB
 
-BACKEND_DIR = Path(__file__).resolve().parents[1]
-TEST_DB_URL = os.getenv("TEST_DATABASE_URL")
-
-pytestmark = [
-    pytest.mark.db,
-    pytest.mark.skipif(not TEST_DB_URL, reason="TEST_DATABASE_URL belum diisi"),
-]
+pytestmark = REQUIRES_DB
 
 PASSWORD = "rahasia-puti-2026"
 
@@ -60,6 +49,34 @@ def manage_users() -> dict:
     return {"ok": True}
 
 
+@probe.get("/baseline", dependencies=[Depends(require_permission(Perm.BASELINE_READ))])
+def read_baseline() -> dict:
+    return {"ok": True}
+
+
+@probe.post("/change-events", dependencies=[Depends(require_permission(Perm.CHANGE_EVENT_WRITE))])
+def write_any_change_event() -> dict:
+    return {"ok": True}
+
+
+@probe.post(
+    "/my-change-events",
+    dependencies=[Depends(require_permission(Perm.CHANGE_EVENT_WRITE_OWN))],
+)
+def write_own_change_event() -> dict:
+    return {"ok": True}
+
+
+@probe.post("/availability", dependencies=[Depends(require_permission(Perm.AVAILABILITY_WRITE))])
+def write_availability() -> dict:
+    return {"ok": True}
+
+
+@probe.get("/event-log", dependencies=[Depends(require_permission(Perm.EVENT_LOG_EXPORT))])
+def export_event_log() -> dict:
+    return {"ok": True}
+
+
 @probe.get("/whoami")
 def whoami(
     user: Annotated[AppUser, Depends(require_permission(Perm.BASELINE_READ))],
@@ -78,22 +95,7 @@ def needs_two_permissions() -> dict:
 # --- fixture ----------------------------------------------------------------------
 
 
-@pytest.fixture(scope="module")
-def session_factory():
-    url = make_url(TEST_DB_URL)
-    if not (url.database or "").endswith("_test"):
-        pytest.fail(f"Nama database tes harus berakhiran '_test' (sekarang: {url.database!r})")
-    engine = create_engine(url)
-    with engine.begin() as connection:
-        connection.execute(text("DROP SCHEMA IF EXISTS twinner CASCADE"))
-        connection.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
-        connection.execute(text("CREATE SCHEMA public"))
-        config = Config(str(BACKEND_DIR / "alembic.ini"))
-        config.set_main_option("script_location", str(BACKEND_DIR / "migrations"))
-        config.attributes["connection"] = connection
-        command.upgrade(config, "head")
-    yield sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
-    engine.dispose()
+# session_factory dipakai bersama dari conftest.py.
 
 
 @pytest.fixture(autouse=True)
@@ -151,8 +153,8 @@ def test_seed_matches_permission_matrix_in_code(db):
         str(k): v for k, v in PERMISSION_DESCRIPTIONS.items()
     }
 
-    assert {r.role_code: r.role_name for r in db.scalars(select(AppRole))} == {
-        code: name for code, (name, _, _) in ROLES.items()
+    assert {r.role_code: (r.role_name, r.description) for r in db.scalars(select(AppRole))} == {
+        code: (name, description) for code, (name, description, _) in ROLES.items()
     }
     matrix: dict[str, set[str]] = {}
     for row in db.scalars(select(RolePermission)):
@@ -216,15 +218,35 @@ ACCESS_CASES = [
     ("anggota_tim", "/probe/master-data", "post", False),
     ("anggota_tim", "/probe/workload-all", "get", False),
     ("anggota_tim", "/probe/users", "post", False),
+    # FR-08 sampai FR-11: baseline hanya untuk Kaur/Asman dan System Analyst.
+    ("anggota_tim", "/probe/baseline", "get", False),
+    # FR-05 dan Tabel 2.1: anggota hanya mencatat kejadian pada task miliknya.
+    ("anggota_tim", "/probe/my-change-events", "post", True),
+    ("anggota_tim", "/probe/change-events", "post", False),
+    # FR-06: ketidakhadiran dan rotasi hanya Kaur/Asman dan System Analyst.
+    ("anggota_tim", "/probe/availability", "post", False),
     ("kaur_asman", "/probe/workload-all", "get", True),
+    ("kaur_asman", "/probe/baseline", "get", True),
+    ("kaur_asman", "/probe/change-events", "post", True),
+    ("kaur_asman", "/probe/availability", "post", True),
     ("kaur_asman", "/probe/master-data", "post", False),
     ("kaur_asman", "/probe/users", "post", False),
     ("system_analyst", "/probe/workload-all", "get", True),
+    ("system_analyst", "/probe/change-events", "post", True),
+    ("system_analyst", "/probe/availability", "post", True),
     ("system_analyst", "/probe/master-data", "post", False),
+    # FR-07: ekspor event log hanya Administrator Data.
+    ("system_analyst", "/probe/event-log", "get", False),
+    ("admin_data", "/probe/event-log", "get", True),
     ("admin_data", "/probe/master-data", "post", True),
-    ("admin_data", "/probe/users", "post", True),
+    # Pengelolaan akun milik Admin IT, bukan Administrator Data.
+    ("admin_data", "/probe/users", "post", False),
     # Data beban seluruh anggota hanya untuk Kaur/Asman dan System Analyst (DIG-19).
     ("admin_data", "/probe/workload-all", "get", False),
+    ("admin_data", "/probe/change-events", "post", False),
+    ("admin_it", "/probe/users", "post", True),
+    ("admin_it", "/probe/master-data", "get", False),
+    ("admin_it", "/probe/workload-all", "get", False),
 ]
 
 
@@ -237,7 +259,7 @@ def test_access_per_role(client, db, role, path, method, allowed):
 
 def test_permissions_never_leak_between_users(client, db):
     """Izin admin tidak boleh ikut terbawa ke user lain yang login bersamaan."""
-    make_user(db, "admin", ["admin_data"])
+    make_user(db, "admin", ["admin_it"])
     make_user(db, "anggota", ["anggota_tim"])
     make_user(db, "kaur", ["kaur_asman"])
     admin, anggota, kaur = (token_for(client, u) for u in ("admin", "anggota", "kaur"))
@@ -359,6 +381,14 @@ def test_cli_rejects_unknown_role_and_user(db, cli_db, capsys):
     assert roles_of(db, "bagas") == ["anggota_tim"], "peran lama tidak boleh berubah"
     assert set_roles.main(["--username", "hantu", "--role", "admin_data"]) == 1
     assert "tidak dikenal" in capsys.readouterr().err
+
+
+def test_cli_rejects_clear_together_with_role(db, cli_db, capsys):
+    make_user(db, "bagas", ["anggota_tim"])
+
+    assert set_roles.main(["--username", "bagas", "--clear", "--role", "admin_data"]) == 1
+    assert roles_of(db, "bagas") == ["anggota_tim"], "peran lama tidak boleh berubah"
+    assert "salah satu" in capsys.readouterr().err
 
 
 def test_cli_lists_available_roles(db, cli_db, capsys):

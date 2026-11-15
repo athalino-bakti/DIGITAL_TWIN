@@ -1,9 +1,13 @@
 """Daftar izin dan matriks peran aplikasi (DIG-90).
 
-Diturunkan dari proposal subbab II.2.10 dan III.1 serta Story DIG-19:
-- Kaur/Asman dan System Analyst melihat beban kerja dan ketidakhadiran seluruh anggota.
-- Anggota tim pengembang hanya melihat task dan beban miliknya.
-- Administrator data mengelola impor, master data, dan akun pengguna.
+Diturunkan dari Tabel 2.1 dan 2.2 (FR-01 sampai FR-12) dokumen Rancangan Kebutuhan dan
+Arsitektur, proposal subbab II.2.10, serta Story DIG-19:
+- Kaur/Asman dan System Analyst melihat baseline, beban kerja, dan ketidakhadiran seluruh
+  anggota, serta mencatat kejadian perubahan (FR-05) dan ketidakhadiran/rotasi (FR-06).
+- Anggota tim pengembang melihat beban miliknya dan mencatat kejadian perubahan pada task
+  miliknya (FR-05, Tabel 2.1). Batas "miliknya" dicek di endpoint.
+- Administrator data mengelola master data, impor, kualitas data, dan ekspor event log (FR-07).
+- Admin IT mengelola akun pengguna dan peran aplikasinya.
 
 Prinsip least privilege: peran hanya mendapat izin yang dibutuhkan tugasnya. Nilai di sini
 harus sama dengan seed migrasi 0016; tes memastikan keduanya tidak berbeda.
@@ -17,8 +21,9 @@ class Perm(StrEnum):
     MASTER_DATA_WRITE = "master_data:write"
     IMPORT_RUN = "import:run"
     DATA_QUALITY_READ = "data_quality:read"
-    WORK_EVENT_WRITE = "work_event:write"
-    TASK_STATUS_UPDATE_OWN = "task_status:update_own"
+    CHANGE_EVENT_WRITE = "change_event:write"
+    CHANGE_EVENT_WRITE_OWN = "change_event:write_own"
+    AVAILABILITY_WRITE = "availability:write"
     BASELINE_READ = "baseline:read"
     WORKLOAD_READ_ALL = "workload:read_all"
     WORKLOAD_READ_OWN = "workload:read_own"
@@ -32,9 +37,10 @@ PERMISSION_DESCRIPTIONS: dict[Perm, str] = {
     Perm.MASTER_DATA_WRITE: "Menambah, mengubah, dan menghapus master data (F1)",
     Perm.IMPORT_RUN: "Menjalankan impor Project Plan, Trello, dan TeamGit (F2)",
     Perm.DATA_QUALITY_READ: "Melihat laporan kualitas data dan baris yang ditolak",
-    Perm.WORK_EVENT_WRITE: "Mencatat CR, blocker, overrun, hotfix, ketidakhadiran, rotasi, "
-    "dan pengalihan task (F3)",
-    Perm.TASK_STATUS_UPDATE_OWN: "Memperbarui status task miliknya sendiri (F3)",
+    Perm.CHANGE_EVENT_WRITE: "Mencatat kejadian perubahan (CR, blocker, overrun, hotfix) "
+    "pada task mana pun (FR-05)",
+    Perm.CHANGE_EVENT_WRITE_OWN: "Mencatat kejadian perubahan pada task miliknya sendiri (FR-05)",
+    Perm.AVAILABILITY_WRITE: "Mencatat ketidakhadiran dan rotasi anggota (FR-06)",
     Perm.BASELINE_READ: "Melihat halaman baseline Digital Twin: ringkasan, timeline, "
     "dependency, dan process map (F4)",
     Perm.WORKLOAD_READ_ALL: "Melihat beban kerja dan ketidakhadiran seluruh anggota "
@@ -48,14 +54,15 @@ PERMISSION_DESCRIPTIONS: dict[Perm, str] = {
 ROLES: dict[str, tuple[str, str, frozenset[Perm]]] = {
     "kaur_asman": (
         "Kaur/Asman",
-        "Memantau progres dan beban kerja seluruh proyek aktif",
+        "Memantau progres dan beban kerja seluruh proyek aktif serta mencatat perubahan",
         frozenset(
             {
                 Perm.MASTER_DATA_READ,
                 Perm.BASELINE_READ,
                 Perm.WORKLOAD_READ_ALL,
                 Perm.WORKLOAD_READ_OWN,
-                Perm.WORK_EVENT_WRITE,
+                Perm.CHANGE_EVENT_WRITE,
+                Perm.AVAILABILITY_WRITE,
             }
         ),
     ),
@@ -68,27 +75,26 @@ ROLES: dict[str, tuple[str, str, frozenset[Perm]]] = {
                 Perm.BASELINE_READ,
                 Perm.WORKLOAD_READ_ALL,
                 Perm.WORKLOAD_READ_OWN,
-                Perm.WORK_EVENT_WRITE,
+                Perm.CHANGE_EVENT_WRITE,
+                Perm.AVAILABILITY_WRITE,
                 Perm.DATA_QUALITY_READ,
-                Perm.EVENT_LOG_EXPORT,
             }
         ),
     ),
     "anggota_tim": (
         "Anggota Tim Pengembang",
-        "Melihat task dan beban miliknya sendiri serta memperbarui status task",
+        "Melihat beban miliknya sendiri dan mencatat kejadian perubahan pada task miliknya",
         frozenset(
             {
                 Perm.MASTER_DATA_READ,
-                Perm.BASELINE_READ,
                 Perm.WORKLOAD_READ_OWN,
-                Perm.TASK_STATUS_UPDATE_OWN,
+                Perm.CHANGE_EVENT_WRITE_OWN,
             }
         ),
     ),
     "admin_data": (
         "Administrator Data",
-        "Mengelola impor data, master data, dan akun pengguna",
+        "Mengelola master data, impor, kualitas data, dan ekspor event log",
         frozenset(
             {
                 Perm.MASTER_DATA_READ,
@@ -96,8 +102,12 @@ ROLES: dict[str, tuple[str, str, frozenset[Perm]]] = {
                 Perm.IMPORT_RUN,
                 Perm.DATA_QUALITY_READ,
                 Perm.EVENT_LOG_EXPORT,
-                Perm.USER_MANAGE,
             }
         ),
+    ),
+    "admin_it": (
+        "Admin IT",
+        "Mengelola akun pengguna dan peran aplikasinya",
+        frozenset({Perm.USER_MANAGE}),
     ),
 }
