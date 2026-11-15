@@ -7,7 +7,8 @@ di `app.modules.data.trello_staging`.
 
 Aturan:
 - Ekspor manual memuat semua jenis action, sedangkan konektor API sudah memfilter. Parser
-  memakai filter yang sama (`ACTION_FILTER`) agar kedua jalur menghasilkan baris yang sama.
+  memakai daftar jenis action yang sama (`ACTION_TYPES` dari konektor) agar kedua jalur
+  menghasilkan baris yang sama.
 - Urutan input tidak dipakai (ekspor terbaru lebih dulu, data kotor bisa berantakan); keluaran
   diurutkan menurut waktu action lalu id.
 - Satu action rusak tidak menghentikan parsing; action itu dilewati dan alasannya dicatat.
@@ -22,10 +23,9 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from app.integrations.trello.client import ACTION_FILTER, PAGE_LIMIT
+from app.integrations.trello.client import ACTION_TYPES, PAGE_LIMIT
 from app.modules.data.staging_models import TRELLO_ID_PATTERN
 
-ACTION_TYPES = frozenset(ACTION_FILTER.split(","))
 _TRELLO_ID = re.compile(TRELLO_ID_PATTERN)
 # Action yang hanya membawa `data.list`: list itu posisi asal kartu, bukan tujuannya.
 LIST_IS_BEFORE = frozenset({"deleteCard", "moveCardFromBoard"})
