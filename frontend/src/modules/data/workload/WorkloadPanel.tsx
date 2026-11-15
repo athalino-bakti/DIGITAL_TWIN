@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { ApiError } from '../../../shared/api/client';
+import { useCan } from '../../../shared/auth/usePermission';
+import { PERM } from '../../../shared/auth/permissions';
 import { listProjects, type Project } from '../projects/api';
 import { listResources, type Resource } from '../resources/api';
 import { WorkloadForm } from './WorkloadForm';
@@ -16,6 +18,8 @@ const formatDate = (value: string | null) => (value ? dateFormat.format(new Date
 export function WorkloadPanel() {
   const [filters, setFilters] = useState<Filters>({ resource_id: '', item_type: '', open_only: false });
   const [load, setLoad] = useState<Load>({ state: 'loading' });
+  const canWrite = useCan(PERM.masterDataWrite);
+  const canImport = useCan(PERM.importRun);
   const [editing, setEditing] = useState<WorkloadItem | 'new' | null>(null);
   const [importing, setImporting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -76,8 +80,8 @@ export function WorkloadPanel() {
           <p className="panel-subtitle">D-08 workload_items. Tiket dan pekerjaan operasional yang ikut menyita kapasitas anggota di luar task proyek.</p>
         </div>
         <div className="row-actions">
-          <button type="button" className="button button-ghost" disabled={!ready || resources.length === 0} onClick={() => { setNotice(null); setImporting(true); }}>Impor CSV</button>
-          <button type="button" className="button" disabled={!ready || resources.length === 0} onClick={() => { setNotice(null); setEditing('new'); }}>Tambah item</button>
+          {canImport && <button type="button" className="button button-ghost" disabled={!ready || resources.length === 0} onClick={() => { setNotice(null); setImporting(true); }}>Impor CSV</button>}
+          {canWrite && <button type="button" className="button" disabled={!ready || resources.length === 0} onClick={() => { setNotice(null); setEditing('new'); }}>Tambah item</button>}
         </div>
       </div>
 
@@ -157,7 +161,7 @@ export function WorkloadPanel() {
                   <td className="nowrap">{formatDate(item.resolved_date)}</td>
                   <td><span className={`status-pill workload-${item.status}`}>{STATUS_LABEL[item.status]}</span></td>
                   <td>
-                    <div className="row-actions">
+                    {canWrite && <div className="row-actions">
                       {confirmDelete === item.item_id ? (
                         <>
                           <span className="text-body-sm">Hapus?</span>
@@ -170,7 +174,7 @@ export function WorkloadPanel() {
                           <button type="button" className="button button-ghost" aria-label={`Hapus ${item.item_id}`} onClick={() => setConfirmDelete(item.item_id)}>Hapus</button>
                         </>
                       )}
-                    </div>
+                    </div>}
                   </td>
                 </tr>
               ))}

@@ -4,12 +4,14 @@ import { navigation } from './navigation';
 import { Icon } from '../shared/components/Icon';
 import { ServiceStatus } from '../shared/components/ServiceStatus';
 import { useAuth } from '../shared/auth/AuthProvider';
+import { allowed } from '../shared/auth/permissions';
 
 export function AppLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { user, signOut } = useAuth();
   const { pathname } = useLocation();
-  const current = navigation.find((item) => pathname === item.path || pathname.startsWith(`${item.path}/`));
+  const menu = allowed(navigation, user);
+  const current = menu.find((item) => pathname === item.path || pathname.startsWith(`${item.path}/`));
 
   return (
     <div className="app-shell">
@@ -22,7 +24,7 @@ export function AppLayout() {
         <div className="navigation-section">
           <p className="eyebrow">Halaman</p>
           <nav aria-label="Navigasi utama">
-            {navigation.map((item) => (
+            {menu.map((item) => (
               <NavLink key={item.path} to={item.path} onClick={() => setMenuOpen(false)} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
                 <Icon name={item.icon} />
                 <span>{item.label}</span>

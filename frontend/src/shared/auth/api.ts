@@ -7,6 +7,10 @@ export type AuthUser = {
   full_name: string;
   resource_id: string | null;
   last_login_at: string | null;
+  /** Kode peran aplikasi (RBAC). */
+  roles: string[];
+  /** Gabungan izin dari semua peran, untuk menyaring menu dan tombol. */
+  permissions: string[];
 };
 
 type TokenResponse = {
