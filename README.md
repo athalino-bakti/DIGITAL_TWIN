@@ -110,6 +110,10 @@ Jalankan di server yang akan menjalankan impor, dari `backend/`:
 
 Per tujuan diperiksa DNS, port 443, HTTPS (termasuk sertifikat TLS), lalu kredensial Trello bila `TRELLO_API_ENABLED=true`. Di belakang proxy, langkah DNS/TCP langsung dilewati dan HTTPS memakai proxy. Tujuan yang belum dikonfigurasi (misalnya `TEAMGIT_BASE_URL` kosong) ditandai "dilewati". Kode keluar `1` bila ada langkah yang gagal. Key dan token tidak pernah ditampilkan.
 
+### Impor terjadwal
+
+`python -m app.pipeline.run trello` menjalankan satu impor Trello dengan retry, mencatatnya di tabel `import_job`, dan mengirim notifikasi bila gagal. Contoh cron/systemd timer, konfigurasi, dan cara memantau ada di [docs/IMPORT_PIPELINE.md](docs/IMPORT_PIPELINE.md).
+
 ### Skema basis data vs Data Dictionary
 
 Dari `backend/`, setelah `alembic upgrade head`:
