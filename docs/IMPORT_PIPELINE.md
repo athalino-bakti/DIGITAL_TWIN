@@ -34,8 +34,10 @@ Dari folder `backend/`:
 2. Baris baru `running` dibuat. Index unik parsial `uq_import_job_one_running_per_source`
    menjamin hanya satu job per sumber yang berjalan, termasuk bila cron dan admin memicu
    bersamaan.
-3. Job dijalankan dalam satu transaksi. Bila gagal, transaksi di-rollback sehingga staging
-   tidak setengah terisi.
+3. Job dijalankan dalam satu transaksi dan menerima `job_id` baris tersebut (sama di setiap
+   percobaan), untuk diisikan ke kolom `import_job_id` di tabel staging (DIG-113). Bila gagal,
+   transaksi di-rollback sehingga staging tidak setengah terisi dan tidak ada baris staging
+   yang menunjuk job gagal.
 4. Error sementara (jaringan putus, timeout, Trello 429/5xx, koneksi basis data putus) dicoba
    ulang sampai `IMPORT_MAX_ATTEMPTS` kali dengan jeda `IMPORT_RETRY_DELAY_SECONDS`, lalu dua
    kali lipat di setiap percobaan berikutnya (60 s, 120 s, ...). Error permanen (kredensial

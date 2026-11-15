@@ -1,6 +1,9 @@
 """Isi job impor per sumber (DIG-127).
 
-Setiap job menerima satu Session, menulis ke staging, lalu commit sendiri. Bila job melempar
+Setiap job menerima satu Session, pengaturan, dan `job_id` baris import_job yang sedang
+berjalan, menulis ke staging, lalu commit sendiri. `job_id` disediakan untuk kolom
+`import_job_id` di tabel staging (DIG-113), supaya setiap baris staging bisa ditelusuri ke
+job yang menulisnya. Bila job melempar
 error, runner melakukan rollback dan memutuskan apakah dicoba ulang (`is_transient`).
 
 Saat ini baru sumber Trello lewat API. Project Plan (DIG-25) dan TeamGit (DIG-27) didaftarkan
@@ -52,6 +55,7 @@ def is_transient(exc: BaseException) -> bool:
 def import_trello(
     db: Session,
     settings: PipelineSettings,
+    job_id: int | None = None,
     trello_settings: TrelloSettings | None = None,
     transport: httpx.BaseTransport | None = None,
 ) -> JobOutcome:
@@ -83,5 +87,5 @@ def import_trello(
     return outcome
 
 
-JobFn = Callable[[Session, PipelineSettings], JobOutcome]
+JobFn = Callable[[Session, PipelineSettings, int], JobOutcome]
 JOBS: dict[str, JobFn] = {"trello": import_trello}

@@ -59,7 +59,7 @@ def scripted(*steps):
     """Job palsu: setiap langkah berupa exception (dilempar) atau JobOutcome (dikembalikan)."""
     steps = list(steps)
 
-    def job(db, settings):
+    def job(db, settings, job_id):
         db.execute(text("SELECT 1"))
         step = steps.pop(0)
         if isinstance(step, BaseException):
@@ -152,7 +152,7 @@ def test_job_fails_after_max_attempts(jobs_db, caplog):
 def test_failed_attempt_is_rolled_back(jobs_db):
     """Tulisan dari percobaan yang gagal tidak boleh tertinggal di staging."""
 
-    def job(db, settings):
+    def job(db, settings, job_id):
         db.execute(
             text(
                 "INSERT INTO trello_list_mapping (list_id, list_name)"
@@ -169,7 +169,7 @@ def test_failed_attempt_is_rolled_back(jobs_db):
 def test_second_job_for_same_source_is_refused_while_running(jobs_db):
     rec = Recorder()
 
-    def job(db, settings):
+    def job(db, settings, job_id):
         with pytest.raises(JobAlreadyRunning) as info:
             run(jobs_db, scripted(JobOutcome(0, 0)), rec)
         assert info.value.job_id is not None
@@ -225,6 +225,20 @@ def test_other_source_can_run_at_the_same_time(jobs_db):
     assert run(jobs_db, scripted(JobOutcome(0, 0)), Recorder()).status == "succeeded"
 
 
+def test_job_receives_its_own_job_id(jobs_db):
+    """job_id dipakai sebagai import_job_id di tabel staging (DIG-113)."""
+    seen = []
+
+    def job(db, settings, job_id):
+        seen.append(job_id)
+        if len(seen) == 1:
+            raise httpx.ConnectError("putus")
+        return JobOutcome(0, 0)
+
+    recorded = run(jobs_db, job, Recorder())
+    assert seen == [recorded.job_id, recorded.job_id]  # sama di setiap percobaan
+
+
 # --- tabel import_job (DIG-128) -----------------------------------------------------------
 
 
@@ -264,8 +278,8 @@ def test_trello_job_writes_staging(jobs_db, monkeypatch):
     monkeypatch.setattr(TrelloClient, "fetch_board_export", fake_export)
     trello = TrelloSettings(_env_file=None, api_enabled=True, api_key="k", api_token=SECRET)
 
-    def job(db, settings):
-        return import_trello(db, settings, trello_settings=trello)
+    def job(db, settings, job_id):
+        return import_trello(db, settings, job_id, trello_settings=trello)
 
     first = run(jobs_db, job, Recorder())
     second = run(jobs_db, job, Recorder())

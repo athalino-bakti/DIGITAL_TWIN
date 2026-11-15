@@ -114,7 +114,7 @@ def run_job(
     for attempt in range(1, settings.import_max_attempts + 1):
         with session_factory() as work:
             try:
-                outcome = job_fn(work, settings)
+                outcome = job_fn(work, settings, job.job_id)
                 break
             except Exception as exc:  # noqa: BLE001 - semua error dicatat di import_job
                 work.rollback()
