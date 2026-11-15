@@ -1,11 +1,13 @@
 """Layanan D-08 workload_items, beban non-proyek (DIG-30).
 
 Mencakup CRUD (DIG-136), impor CSV berformat Data Dictionary (DIG-136), serta aturan tanggal
-dan hotfix (DIG-138). Aturan dipakai bersama oleh formulir dan impor agar keduanya menolak
-data yang sama.
+(DIG-138). Aturan dipakai bersama oleh formulir dan impor agar keduanya menolak data yang sama.
 
-Aturan hotfix mengikuti DATA_CONTRACT D-08 ("penanda hotfix production") dan pola data
-sintetis DIG-16: hotfix adalah tiket untuk aplikasi yang sudah rilis di production.
+`is_hotfix` tidak dibatasi jenis item atau status rilis aplikasinya. Di dataset dosbim
+(`puti_datasets.xlsx`) hotfix juga muncul pada item operasional, tanpa aplikasi terkait, dan
+pada aplikasi yang belum rilis, sehingga aturan "hotfix = tiket aplikasi yang sudah rilis"
+menolak seluruh 27 baris hotfix di sana. Arti `related_project_id` untuk hotfix (aplikasi
+yang diperbaiki atau proyek yang terkena preemption) masih dikonfirmasi ke dosbim.
 """
 
 import csv
@@ -67,7 +69,7 @@ MAX_REPORTED_ERRORS = 500
 def check_workload_rules(
     values: Mapping[str, Any], launch_dates: Mapping[str, date | None]
 ) -> list[FieldError]:
-    """Aturan tanggal dan hotfix untuk satu item.
+    """Aturan tanggal dan proyek terkait untuk satu item.
 
     `launch_dates` memetakan setiap project_id yang terdaftar ke `actual_launch_date`-nya.
     Proyek yang tidak ada di peta dianggap tidak terdaftar.
@@ -104,32 +106,6 @@ def check_workload_rules(
                 "related_project_id", f"Proyek {project} tidak terdaftar", "project_not_found"
             )
         )
-    if not values["is_hotfix"]:
-        return errors
-
-    if values["item_type"] != WorkloadItemType.TICKET:
-        errors.append(
-            FieldError("is_hotfix", "Hotfix hanya untuk item berjenis tiket", "hotfix_needs_ticket")
-        )
-    if project is None:
-        errors.append(
-            FieldError(
-                "related_project_id",
-                "Hotfix wajib dikaitkan dengan aplikasi yang sudah rilis",
-                "hotfix_needs_project",
-            )
-        )
-    elif project in launch_dates:
-        launched = launch_dates[project]
-        if launched is None or launched > received:
-            when = "belum rilis" if launched is None else f"baru rilis {launched.isoformat()}"
-            errors.append(
-                FieldError(
-                    "related_project_id",
-                    f"Hotfix hanya untuk aplikasi yang sudah rilis di production; {project} {when}",
-                    "hotfix_needs_release",
-                )
-            )
     return errors
 
 

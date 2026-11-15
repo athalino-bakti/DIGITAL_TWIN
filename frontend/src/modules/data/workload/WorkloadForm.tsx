@@ -42,7 +42,7 @@ function initialValues(item: WorkloadItem | null): Values {
 }
 
 /** Aturan yang sama dengan backend (DIG-138), supaya pengguna langsung tahu sebelum menyimpan. */
-function validate(values: Values, isNew: boolean, projects: Project[]): Errors {
+function validate(values: Values, isNew: boolean): Errors {
   const errors: Errors = {};
   if (isNew && values.item_id && !/^WLI-\d{4,}$/.test(values.item_id)) errors.item_id = 'Format WLI-0001, atau kosongkan agar diisi otomatis';
   if (!values.resource_id) errors.resource_id = 'Pilih anggota';
@@ -50,12 +50,6 @@ function validate(values: Values, isNew: boolean, projects: Project[]): Errors {
   if (values.started_date && values.received_date && values.started_date < values.received_date) errors.started_date = 'Tidak boleh sebelum tanggal diterima';
   if (values.resolved_date && values.received_date && values.resolved_date < values.received_date) errors.resolved_date = 'Tidak boleh sebelum tanggal diterima';
   else if (values.resolved_date && values.started_date && values.resolved_date < values.started_date) errors.resolved_date = 'Tidak boleh sebelum tanggal mulai';
-  if (values.is_hotfix) {
-    if (values.item_type !== 'ticket') errors.is_hotfix = 'Hotfix hanya untuk tiket';
-    const project = projects.find((p) => p.project_id === values.related_project_id);
-    if (!project) errors.related_project_id = 'Hotfix wajib dikaitkan dengan aplikasi yang sudah rilis';
-    else if (!project.actual_launch_date || (values.received_date && project.actual_launch_date > values.received_date)) errors.related_project_id = 'Aplikasi ini belum rilis di production pada tanggal diterima';
-  }
   return errors;
 }
 
@@ -69,18 +63,13 @@ export function WorkloadForm({ item, resources, projects, onSubmit, onClose }: P
   useEffect(() => { dialog.current?.showModal(); }, []);
 
   function set<K extends keyof Values>(key: K, value: Values[K]) {
-    setValues((current) => {
-      const next = { ...current, [key]: value };
-      // Hotfix selalu tiket, jadi jenisnya ikut diubah saat hotfix dicentang.
-      if (key === 'is_hotfix' && value === true) next.item_type = 'ticket';
-      return next;
-    });
+    setValues((current) => ({ ...current, [key]: value }));
     setErrors((current) => ({ ...current, [key]: undefined, form: undefined }));
   }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    const found = validate(values, isNew, projects);
+    const found = validate(values, isNew);
     setErrors(found);
     if (Object.keys(found).length) return;
     const input: WorkloadInput = {
@@ -188,9 +177,9 @@ export function WorkloadForm({ item, resources, projects, onSubmit, onClose }: P
 
           <label className="checkbox" htmlFor="workload-is_hotfix">
             <input id="workload-is_hotfix" type="checkbox" checked={values.is_hotfix} aria-describedby="workload-is_hotfix-hint" onChange={(e) => set('is_hotfix', e.target.checked)} />
-            <span>Hotfix production</span>
+            <span>Hotfix</span>
           </label>
-          {errors.is_hotfix ? message('is_hotfix') : <span className="field-hint" id="workload-is_hotfix-hint">Tiket perbaikan darurat untuk aplikasi yang sudah rilis. Memicu preemption task proyek.</span>}
+          {errors.is_hotfix ? message('is_hotfix') : <span className="field-hint" id="workload-is_hotfix-hint">Item darurat yang memicu preemption task proyek.</span>}
         </div>
         <div className="dialog-actions">
           <button type="button" className="button button-ghost" onClick={onClose} disabled={saving}>Batal</button>

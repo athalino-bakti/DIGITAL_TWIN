@@ -1,4 +1,4 @@
-"""DIG-138: aturan tanggal dan hotfix D-08, serta pembacaan CSV impor. Tanpa basis data."""
+"""DIG-138: aturan tanggal D-08, hotfix, serta pembacaan CSV impor. Tanpa basis data."""
 
 from datetime import date
 
@@ -60,47 +60,27 @@ def test_unknown_project():
     assert fields(item(related_project_id="PRJ-404")) == ["related_project_id"]
 
 
-# --- aturan hotfix ---
+# --- hotfix: pola yang ada di dataset dosbim tetap diterima ---
 
 
-def test_hotfix_ticket_on_released_app_is_valid():
-    assert fields(item(is_hotfix=True, related_project_id="PRJ-001")) == []
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"related_project_id": "PRJ-001"},
+        {"item_type": "operational", "related_project_id": "PRJ-001"},
+        {},
+        {"related_project_id": "PRJ-002"},
+        {"related_project_id": "PRJ-001", "received_date": date(2026, 8, 31)},
+    ],
+    ids=["tiket-aplikasi-rilis", "operasional", "tanpa-aplikasi", "belum-rilis", "sebelum-rilis"],
+)
+def test_hotfix_patterns_from_dosbim_dataset_are_valid(overrides):
+    assert fields(item(is_hotfix=True, **overrides)) == []
 
 
-def test_hotfix_received_on_launch_day_is_valid():
-    values = item(is_hotfix=True, related_project_id="PRJ-001", received_date=date(2026, 9, 1))
-    assert fields(values) == []
-
-
-def test_hotfix_must_be_ticket():
-    values = item(is_hotfix=True, item_type="operational", related_project_id="PRJ-001")
-    assert fields(values) == ["is_hotfix"]
-
-
-def test_hotfix_needs_project():
-    assert fields(item(is_hotfix=True)) == ["related_project_id"]
-
-
-def test_hotfix_on_unreleased_app():
-    errors = check_workload_rules(item(is_hotfix=True, related_project_id="PRJ-002"), PROJECTS)
-    assert [(e.field, e.error_type) for e in errors] == [
-        ("related_project_id", "hotfix_needs_release")
-    ]
-    assert "belum rilis" in errors[0].message
-
-
-def test_hotfix_received_before_launch():
-    values = item(is_hotfix=True, related_project_id="PRJ-001", received_date=date(2026, 8, 31))
-    errors = check_workload_rules(values, PROJECTS)
-    assert [e.error_type for e in errors] == ["hotfix_needs_release"]
-    assert "2026-09-01" in errors[0].message
-
-
-def test_operational_hotfix_without_project_reports_both():
-    assert fields(item(is_hotfix=True, item_type="operational")) == [
-        "is_hotfix",
-        "related_project_id",
-    ]
+def test_hotfix_still_follows_date_and_project_rules():
+    values = item(is_hotfix=True, related_project_id="PRJ-404", started_date=date(2026, 10, 1))
+    assert fields(values) == ["started_date", "related_project_id"]
 
 
 def test_non_hotfix_ticket_may_reference_unreleased_project():

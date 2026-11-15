@@ -193,29 +193,28 @@ def test_hotfix_on_released_app(client, team):
 
 
 @pytest.mark.parametrize(
-    "overrides,expected",
+    "overrides",
     [
-        ({"item_type": "operational", "related_project_id": "released"}, ["is_hotfix"]),
-        ({}, ["related_project_id"]),
-        ({"related_project_id": "dev"}, ["related_project_id"]),
-        ({"related_project_id": "released", "received_date": "2026-08-31"}, ["related_project_id"]),
+        {"item_type": "operational", "related_project_id": "released"},
+        {},
+        {"related_project_id": "dev"},
+        {"related_project_id": "released", "received_date": "2026-08-31"},
     ],
+    ids=["operasional", "tanpa-aplikasi", "belum-rilis", "sebelum-rilis"],
 )
-def test_hotfix_rules(client, team, overrides, expected):
+def test_hotfix_patterns_from_dosbim_dataset_are_accepted(client, team, overrides):
     if "related_project_id" in overrides:
         overrides["related_project_id"] = team[overrides["related_project_id"]]
     response = client.post(BASE, json=body(team, is_hotfix=True, **overrides))
-    assert response.status_code == 422
-    assert error_fields(response) == expected
+    assert response.status_code == 201, response.text
+    assert response.json()["is_hotfix"] is True
 
 
-def test_patch_cannot_turn_operational_into_hotfix(client, team):
+def test_patch_can_mark_operational_item_as_hotfix(client, team):
     item_id = create(client, team, item_type="operational")["item_id"]
-    response = client.patch(
-        f"{BASE}/{item_id}", json={"is_hotfix": True, "related_project_id": team["released"]}
-    )
-    assert response.status_code == 422
-    assert error_fields(response) == ["is_hotfix"]
+    response = client.patch(f"{BASE}/{item_id}", json={"is_hotfix": True})
+    assert response.status_code == 200, response.text
+    assert response.json()["is_hotfix"] is True
 
 
 # --- impor CSV (DIG-136) ---
@@ -280,7 +279,7 @@ def test_import_with_any_error_saves_nothing(client, team, db):
         team,
         "WLI-0001,{sari},ticket,,2026-10-05,,,low,false",
         "WLI-0002,RES-999,ticket,,2026-10-05,,,low,false",
-        "WLI-0003,{sari},operational,{released},2026-10-05,,,low,true",
+        "WLI-0003,{sari},ticket,PRJ-404,2026-10-05,,,low,true",
         "WLI-0001,{budi},ticket,,2026-10-06,,,low,false",
         "WLI-0004,{sari},ticket,,2026-10-05,2026-10-01,,low,false",
     )
@@ -288,7 +287,7 @@ def test_import_with_any_error_saves_nothing(client, team, db):
     assert result["applied"] is False
     assert [(e["row"], e["field"]) for e in result["errors"]] == [
         (3, "resource_id"),
-        (4, "is_hotfix"),
+        (4, "related_project_id"),
         (5, "item_id"),
         (6, "started_date"),
     ]
