@@ -13,7 +13,7 @@ from app.integrations.trello.config import TrelloSettings
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ENV_EXAMPLE = REPO_ROOT / "backend" / ".env.example"
-SECRET_VARS = ("TRELLO_API_KEY", "TRELLO_API_TOKEN", "TEAMGIT_TOKEN")
+SECRET_VARS = ("TRELLO_API_KEY", "TRELLO_API_TOKEN", "TEAMGIT_TOKEN", "NOTIFY_WEBHOOK_URL")
 
 
 @pytest.fixture
