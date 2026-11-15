@@ -81,7 +81,7 @@ def parse_contract(markdown: str) -> dict[str, TableSpec]:
     """Tabel D-01 sampai D-11 dari bagian 6 DATA_CONTRACT.md.
 
     Aturan hanya diambil dari daftar di bawah "Aturan di basis data:". Aturan validator
-    aplikasi (misalnya hotfix D-08) ditulis di paragraf lain dan sengaja tidak ikut.
+    aplikasi yang ditulis di luar daftar itu sengaja tidak ikut, karena tidak ada di basis data.
     """
     tables: dict[str, TableSpec] = {}
     current: TableSpec | None = None

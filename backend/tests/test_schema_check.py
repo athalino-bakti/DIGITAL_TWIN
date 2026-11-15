@@ -62,12 +62,32 @@ def test_columns_keys_and_defaults_are_read_from_the_table():
 
 def test_only_database_rules_are_collected():
     specs = parse_contract(CONTRACT)
-    # Aturan hotfix D-08 adalah aturan validator aplikasi, bukan aturan basis data.
     assert all(rule.startswith(("ck_", "uq_", "ex_")) for rule in specs["workload_items"].rules)
     assert len(specs["workload_items"].rules) == 6
     assert "ex_availability_no_overlap" in specs["availability"].rules
     assert "uq_projects_active_priority" in specs["projects"].rules
     assert specs["holidays"].rules == set()
+
+
+def test_validator_rules_outside_the_database_list_are_ignored():
+    markdown = """
+## 6. Salinan Data Dictionary
+
+### D-01 `projects`
+
+| Kolom | Tipe DD | Tipe PostgreSQL | Wajib | Keterangan |
+|---|---|---|---|---|
+| `project_id` (PK) | string | VARCHAR(20) | Ya | Format PRJ-001 |
+
+Aturan di basis data:
+
+- `ck_projects_project_id_format`: `project_id ~ '^PRJ-[0-9]{3,}$'`
+
+Aturan validator J&C (bukan di basis data):
+
+- `ck_projects_validator_saja`: dicek di service
+"""
+    assert parse_contract(markdown)["projects"].rules == {"ck_projects_project_id_format"}
 
 
 def test_tables_outside_section_six_are_ignored():
