@@ -1,0 +1,73 @@
+# Menjalankan image produksi J&C di satu mesin (DIG-216): PostgreSQL, migrasi, API, dan
+# frontend nginx. Dipakai untuk uji di laptop dan di CI; konfigurasi server staging
+# (rahasia, domain, HTTPS) menyusul di DIG-204 s.d. DIG-206 dan DIG-217.
+#
+#   POSTGRES_PASSWORD=... JWT_SECRET_KEY=... docker compose -f compose.prod.yaml up -d --build
+#
+# Lalu buka http://localhost:8080. Penjelasan lengkap: docs/DEPLOYMENT.md.
+
+name: jc-prod
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-puti}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?isi POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-digital_twin}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [internal]
+    restart: unless-stopped
+
+  migrate:
+    image: jc-api:${IMAGE_TAG:-local}
+    build: ./backend
+    command: ["alembic", "upgrade", "head"]
+    environment: &api-env
+      APP_ENV: ${APP_ENV:-staging}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-puti}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-digital_twin}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?isi JWT_SECRET_KEY (minimal 32 karakter)}
+      CORS_ORIGINS: "[]"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [internal]
+    restart: "no"
+
+  api:
+    image: jc-api:${IMAGE_TAG:-local}
+    environment:
+      <<: *api-env
+      # Hanya nginx di jaringan internal yang dipercaya mengirim X-Forwarded-For.
+      FORWARDED_ALLOW_IPS: 172.30.0.0/24
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks: [internal]
+    restart: unless-stopped
+
+  web:
+    image: jc-web:${IMAGE_TAG:-local}
+    build: ./frontend
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [internal]
+    restart: unless-stopped
+
+networks:
+  internal:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+
+volumes:
+  postgres_data:

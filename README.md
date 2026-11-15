@@ -158,6 +158,10 @@ $env:TEST_DATABASE_URL = "postgresql+psycopg://puti:puti_local@localhost:5432/di
 
 `npm run build` menghasilkan `frontend/dist`. Hosting frontend perlu fallback ke `index.html` untuk deep link React Router. Proxy Vite hanya untuk development; saat deployment arahkan `/api` ke FastAPI melalui reverse proxy, atau set `VITE_API_BASE_URL` saat build dan sesuaikan `CORS_ORIGINS`. Compose saat ini hanya untuk database lokal.
 
+### Image produksi (Docker)
+
+`backend/Dockerfile`, `frontend/Dockerfile`, dan `compose.prod.yaml` mengemas API, frontend nginx, migrasi, dan PostgreSQL untuk staging. Cara menjalankan dan alasan desainnya: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
 ## Data sintetis
 
 Selama data PuTI belum tersedia, `python -m synthetic` dari folder `backend/` menghasilkan final sources D-01 s.d. D-11, sumber mentah (Project Plan, Trello, git log), dan data kotor untuk pengujian. Detail: [generator data sintetis](docs/SYNTHETIC_DATA.md).

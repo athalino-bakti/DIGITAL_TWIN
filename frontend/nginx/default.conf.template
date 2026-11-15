@@ -1,0 +1,44 @@
+# Konfigurasi nginx untuk build produksi frontend (DIG-216).
+# ${API_UPSTREAM} diisi dari environment saat container mulai; variabel nginx lain
+# (berawalan $ tanpa kurung kurawal) tidak disentuh.
+
+server {
+    listen 8080;
+    server_name _;
+    root /usr/share/nginx/html;
+    server_tokens off;
+
+    # Unggah file impor (Project Plan, workload) lewat API.
+    client_max_body_size 10m;
+
+    # Header dasar. CSP dan pemeriksaan lengkapnya di DIG-208.
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+
+    location /api/ {
+        proxy_pass http://${API_UPSTREAM};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        # Ditimpa, bukan ditambahkan, supaya klien tidak bisa memalsukan alamatnya untuk
+        # batas login per IP.
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 120s;
+    }
+
+    # Berkas hasil build bernama hash, jadi aman disimpan lama di browser.
+    location /assets/ {
+        expires 1y;
+        access_log off;
+    }
+
+    # Rute React Router: semua alamat lain dijawab index.html, yang selalu diperiksa ulang.
+    location / {
+        expires -1;
+        try_files $uri /index.html;
+    }
+}
