@@ -61,6 +61,34 @@ def test_next_id_follows_highest_existing_id(client):
     assert create(client, resource_name="Budi")["resource_id"] == "RES-042"
 
 
+def test_next_id_keeps_width_of_dataset_ids(client):
+    create(client, resource_id="RES-0007")
+    assert create(client, resource_name="Budi")["resource_id"] == "RES-0008"
+
+
+@pytest.mark.parametrize("taken,requested", [("RES-001", "RES-0001"), ("RES-0010", "RES-010")])
+def test_id_with_same_number_is_409(client, taken, requested):
+    create(client, resource_id=taken)
+    response = client.post(RESOURCES, json=member(resource_id=requested))
+    assert response.status_code == 409
+    assert error_fields(response) == ["resource_id"]
+    assert taken in response.json()["detail"]["msg"]
+
+
+def test_list_orders_mixed_width_ids_by_number(client):
+    for resource_id in ("RES-1000", "RES-999", "RES-0002", "RES-010"):
+        create(client, resource_id=resource_id, resource_name=resource_id)
+    ids = [r["resource_id"] for r in client.get(RESOURCES).json()]
+    assert ids == ["RES-0002", "RES-010", "RES-999", "RES-1000"]
+
+
+@pytest.mark.parametrize("resource_id", ["RES-" + "1" * 17, "RES-" + "9" * 5000])
+def test_too_long_resource_id_is_422(client, resource_id):
+    response = client.post(RESOURCES, json=member(resource_id=resource_id))
+    assert response.status_code == 422
+    assert error_fields(response) == ["resource_id"]
+
+
 def test_duplicate_resource_id_is_409(client):
     create(client, resource_id="RES-010")
     response = client.post(RESOURCES, json=member(resource_id="RES-010"))
