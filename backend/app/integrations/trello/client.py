@@ -26,22 +26,24 @@ from app.integrations.trello.config import TrelloSettings, get_trello_settings
 BOARD_ID_PATTERN = re.compile(r"^(?:[0-9a-fA-F]{24}|[A-Za-z0-9]{8})$")
 PAGE_LIMIT = 1000
 
-# Action yang dibutuhkan untuk menurunkan status, phase, pelaku, dan waktu kartu.
-ACTION_FILTER = ",".join(
-    [
-        "createCard",
-        "copyCard",
-        "convertToCardFromCheckItem",
-        "moveCardToBoard",
-        "moveCardFromBoard",
-        "updateCard",
-        "deleteCard",
-        "addMemberToCard",
-        "removeMemberFromCard",
-        "createList",
-        "updateList",
-    ]
+# Jenis action yang dibutuhkan untuk menurunkan status, phase, pelaku, dan waktu kartu.
+# Dipakai bersama oleh konektor API dan parser ekspor JSON agar kedua jalur memilih
+# action yang sama.
+ACTION_TYPES: tuple[str, ...] = (
+    "createCard",
+    "copyCard",
+    "convertToCardFromCheckItem",
+    "moveCardToBoard",
+    "moveCardFromBoard",
+    "updateCard",
+    "deleteCard",
+    "addMemberToCard",
+    "removeMemberFromCard",
+    "createList",
+    "updateList",
 )
+# Bentuk parameter `filter` untuk endpoint /boards/{id}/actions.
+ACTION_FILTER = ",".join(ACTION_TYPES)
 MEMBER_FIELDS = "fullName,username,initials"
 
 

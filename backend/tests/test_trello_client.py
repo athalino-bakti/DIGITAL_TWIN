@@ -7,6 +7,8 @@ import pytest
 
 from app.integrations.trello import fetch_board
 from app.integrations.trello.client import (
+    ACTION_FILTER,
+    ACTION_TYPES,
     PAGE_LIMIT,
     TrelloAuthError,
     TrelloClient,
@@ -56,7 +58,7 @@ class FakeTrello:
         path = request.url.path.removeprefix("/1")
         if path in (f"/boards/{BOARD_ID}", f"/boards/{SHORT_LINK}"):
             return httpx.Response(
-                200, json={"id": BOARD_ID, "name": "Papan PuTI", "shortLink": SHORT_LINK}
+                200, json={"id": BOARD_ID, "name": "Papan Uji", "shortLink": SHORT_LINK}
             )
         if path == f"/boards/{BOARD_ID}/lists":
             return httpx.Response(200, json=[{"id": "l1", "name": "To Do"}])
@@ -90,7 +92,7 @@ def test_board_export_has_same_shape_as_trello_json_export():
     board = make_client(fake).fetch_board_export(SHORT_LINK)
 
     assert board["id"] == BOARD_ID
-    assert board["name"] == "Papan PuTI"
+    assert board["name"] == "Papan Uji"
     for key in ("lists", "cards", "members", "labels", "actions"):
         assert isinstance(board[key], list) and board[key], key
     assert board["actions"][0]["memberCreator"]["username"] == "anggota"
@@ -102,6 +104,12 @@ def test_short_link_is_resolved_to_board_id_for_nested_requests():
 
     nested = [r.url.path for r in fake.requests[1:]]
     assert all(f"/boards/{BOARD_ID}/" in path for path in nested)
+
+
+def test_action_filter_is_built_from_action_types():
+    assert isinstance(ACTION_TYPES, tuple)
+    assert ACTION_FILTER.split(",") == list(ACTION_TYPES)
+    assert len(set(ACTION_TYPES)) == len(ACTION_TYPES), "jenis action tidak boleh ganda"
 
 
 def test_actions_request_filters_relevant_types_and_member_fields():
@@ -235,7 +243,7 @@ def test_enabled_with_credentials_builds_client():
     settings = TrelloSettings(_env_file=None, api_enabled=True, api_key=KEY, api_token=TOKEN)
     fake = FakeTrello()
     with client_from_settings(settings, transport=httpx.MockTransport(fake)) as client:
-        assert client.fetch_board_export(BOARD_ID)["name"] == "Papan PuTI"
+        assert client.fetch_board_export(BOARD_ID)["name"] == "Papan Uji"
 
 
 def test_settings_read_flag_from_environment(monkeypatch):
