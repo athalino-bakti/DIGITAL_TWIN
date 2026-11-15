@@ -33,5 +33,6 @@ def login(db: Db, payload: LoginRequest) -> TokenResponse:
 
 
 @router.get("/me", response_model=UserRead, responses=UNAUTHORIZED, summary="User yang login")
-def me(user: CurrentUser) -> UserRead:
-    return UserRead.model_validate(user)
+def me(db: Db, user: CurrentUser) -> UserRead:
+    """Data user beserta peran dan izinnya, dipakai frontend untuk menampilkan menu."""
+    return service.user_read(db, user)

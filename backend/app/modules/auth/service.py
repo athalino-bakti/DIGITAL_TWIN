@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.modules.auth import security
 from app.modules.auth.models import AppUser
+from app.modules.auth.rbac_models import RolePermission, UserAppRole
 from app.modules.auth.schemas import LoginRequest, TokenResponse, UserRead
 
 
@@ -31,8 +32,37 @@ def authenticate(db: Session, payload: LoginRequest) -> TokenResponse:
     return TokenResponse(
         access_token=security.create_access_token(user.user_id, user.username, minutes),
         expires_in=minutes * 60,
-        user=UserRead.model_validate(user),
+        user=user_read(db, user),
     )
+
+
+def get_user_roles(db: Session, user_id: int) -> list[str]:
+    return list(
+        db.scalars(
+            select(UserAppRole.role_code)
+            .where(UserAppRole.user_id == user_id)
+            .order_by(UserAppRole.role_code)
+        )
+    )
+
+
+def get_user_permissions(db: Session, user_id: int) -> set[str]:
+    """Gabungan izin dari semua peran aplikasi pengguna."""
+    return set(
+        db.scalars(
+            select(RolePermission.permission_code)
+            .join(UserAppRole, UserAppRole.role_code == RolePermission.role_code)
+            .where(UserAppRole.user_id == user_id)
+            .distinct()
+        )
+    )
+
+
+def user_read(db: Session, user: AppUser) -> UserRead:
+    data = UserRead.model_validate(user)
+    data.roles = get_user_roles(db, user.user_id)
+    data.permissions = sorted(get_user_permissions(db, user.user_id))
+    return data
 
 
 def get_active_user(db: Session, user_id: int) -> AppUser | None:

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 # Username dinormalisasi ke huruf kecil supaya "Bagas" dan "bagas" adalah akun yang sama.
 Username = Annotated[
@@ -26,6 +26,10 @@ class UserRead(BaseModel):
     full_name: str
     resource_id: str | None
     last_login_at: datetime | None
+    roles: list[str] = Field(default_factory=list, description="Kode peran aplikasi (RBAC)")
+    permissions: list[str] = Field(
+        default_factory=list, description="Gabungan izin dari semua peran, untuk menu frontend"
+    )
 
 
 class TokenResponse(BaseModel):
