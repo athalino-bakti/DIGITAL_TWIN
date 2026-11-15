@@ -76,7 +76,7 @@ def list_event_log(
 ) -> list[EventLogRead]:
     if date_from and date_to and date_from > date_to:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=[
                 {
                     "loc": ["query", "date_to"],
