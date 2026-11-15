@@ -1,9 +1,10 @@
 """DIG-35 (DIG-157, DIG-158, DIG-159): pengalihan task terhadap PostgreSQL sungguhan."""
 
+import threading
 from datetime import date
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app.modules.data.models import Assignment, Task
 from tests.conftest import REQUIRES_DB, error_fields
@@ -248,3 +249,71 @@ def test_affected_tasks_after_takeover_and_rotation_in(client, team):
     rotation = absence(client, team["budi"], "2026-03-09", "2026-03-10", "rotation_in")
     assert client.get(f"{DATA}/availability/{rotation}/affected-tasks").json() == []
     assert client.get(f"{DATA}/availability/AVL-999/affected-tasks").status_code == 404
+
+
+# --- review #25: task selesai, nomor bentrok, dan pengalihan bersamaan ---
+
+
+@pytest.mark.parametrize("status,word", [("done", "selesai"), ("dropped", "dibatalkan")])
+def test_takeover_rejects_closed_task(client, db, team, status, word):
+    db.execute(update(Task).where(Task.task_id == "TSK-0001").values(status=status))
+    db.commit()
+    response = take_over(client, team["budi"], frm=team["sari"])
+    assert response.status_code == 409, response.text
+    assert word in response.json()["detail"]["msg"]
+    assert active_assignee(db, "TSK-0001") == [team["sari"]]
+
+
+def test_takeover_id_collision_is_409_and_changes_nothing(client, db, team, monkeypatch):
+    from app.modules.data import takeover_service
+
+    # Seolah nomor dihitung sebelum ASG-0004 disimpan oleh permintaan lain.
+    monkeypatch.setattr(takeover_service, "next_assignment_id", lambda db: "ASG-0004")
+    response = take_over(client, team["budi"], frm=team["sari"])
+    assert response.status_code == 409, response.text
+    assert "coba lagi" in response.json()["detail"]["msg"]
+    assert active_assignee(db, "TSK-0001") == [team["sari"]]
+
+
+def test_concurrent_takeover_waits_for_the_first(client, db, team):
+    """Pengalihan kedua menunggu kunci task, lalu melihat penugasan lama sudah ditutup."""
+    db.execute(select(Task).where(Task.task_id == "TSK-0001").with_for_update())
+    results = {}
+    worker = threading.Thread(
+        target=lambda: results.update(response=take_over(client, team["citra"], frm=team["sari"]))
+    )
+    worker.start()
+    worker.join(timeout=1)
+    assert worker.is_alive(), "pengalihan harus menunggu kunci task"
+
+    # Pengalihan pertama (di sesi ini) selesai lebih dulu.
+    old = db.get(Assignment, "ASG-0001")
+    old.released_date = date(2026, 3, 9)
+    db.add(
+        Assignment(
+            assignment_id="ASG-0099",
+            task_id="TSK-0001",
+            resource_id=team["budi"],
+            role_in_task="ROLE-BE",
+            assigned_date=date(2026, 3, 9),
+            is_takeover=True,
+        )
+    )
+    db.commit()
+    worker.join(timeout=10)
+
+    response = results["response"]
+    assert response.status_code == 422, response.text
+    assert error_fields(response) == ["from_resource_id"]
+    assert active_assignee(db, "TSK-0001") == [team["budi"]]
+
+
+def active_assignee(db, task_id) -> list[str]:
+    db.expire_all()
+    return list(
+        db.scalars(
+            select(Assignment.resource_id).where(
+                Assignment.task_id == task_id, Assignment.released_date.is_(None)
+            )
+        )
+    )

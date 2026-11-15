@@ -17,6 +17,7 @@ untuk pengalihan baru lewat endpoint ini.
 from datetime import date
 
 from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.modules.data.enums import TaskStatus
@@ -24,6 +25,7 @@ from app.modules.data.models import Assignment, Availability, Project, Resource,
 from app.modules.data.service import (
     ABSENT_TYPES,
     AvailabilityNotFoundError,
+    ConflictError,
     DataValidationError,
     FieldError,
     NotFoundError,
@@ -157,7 +159,16 @@ def next_assignment_id(db: Session) -> str:
 
 
 def take_over(db: Session, task_id: str, request: TakeoverRequest) -> TakeoverResult:
-    task = get_task(db, task_id)
+    # Baris task dikunci sampai commit, jadi dua pengalihan task yang sama dijalankan berurutan:
+    # yang kedua membaca penugasan yang sudah ditutup yang pertama, bukan menutupnya lagi.
+    task = db.get(Task, task_id, with_for_update=True)
+    if task is None:
+        raise TaskNotFoundError(task_id)
+    if task.status in CLOSED_TASK_STATUSES:
+        state = "selesai" if task.status == TaskStatus.DONE else "dibatalkan"
+        raise ConflictError(
+            f"Task {task_id} sudah {state}, jadi tidak bisa dialihkan", field="task_id"
+        )
     day = request.takeover_date
     errors: list[FieldError] = []
 
@@ -240,7 +251,18 @@ def take_over(db: Session, task_id: str, request: TakeoverRequest) -> TakeoverRe
         is_takeover=True,
     )
     db.add(created)
-    commit(db)  # penutupan dan penugasan baru tersimpan bersama, atau tidak sama sekali
+    try:
+        # Penutupan dan penugasan baru tersimpan bersama, atau tidak sama sekali.
+        db.flush()
+    except IntegrityError as exc:
+        # Nomor ASG keburu dipakai penugasan lain yang disimpan bersamaan (task berbeda).
+        db.rollback()
+        raise ConflictError(
+            "Nomor penugasan baru keburu dipakai penugasan lain. Tidak ada yang berubah, "
+            "silakan coba lagi.",
+            field="to_resource_id",
+        ) from exc
+    commit(db)
     old_name = db.scalar(
         select(Resource.resource_name).where(Resource.resource_id == old.resource_id)
     )

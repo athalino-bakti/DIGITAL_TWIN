@@ -16,7 +16,11 @@ from app.modules.auth.permissions import Perm
 from app.modules.data import takeover_service as service
 from app.modules.data.enums import AVAILABILITY_ID_PATTERN, TASK_ID_PATTERN
 from app.modules.data.router import to_http
-from app.modules.data.service import AvailabilityNotFoundError, DataValidationError
+from app.modules.data.service import (
+    AvailabilityNotFoundError,
+    ConflictError,
+    DataValidationError,
+)
 from app.modules.data.takeover_schemas import (
     AffectedTask,
     AssignmentRead,
@@ -77,7 +81,8 @@ def replacement_candidates(
     "/tasks/{task_id}/takeover",
     dependencies=TAKEOVER_WRITE,
     response_model=TakeoverResult,
-    responses=TASK_NOT_FOUND,
+    responses=TASK_NOT_FOUND
+    | {status.HTTP_409_CONFLICT: {"description": "Task sudah selesai atau bentrok"}},
     summary="Alihkan task ke anggota lain",
 )
 def take_over(db: Db, task_id: TaskIdPath, payload: TakeoverRequest) -> TakeoverResult:
@@ -85,7 +90,7 @@ def take_over(db: Db, task_id: TaskIdPath, payload: TakeoverRequest) -> Takeover
     penugasan baru dibuat dengan is_takeover = true dan role_in_task = peran task."""
     try:
         return service.take_over(db, task_id, payload)
-    except (service.TaskNotFoundError, DataValidationError) as exc:
+    except (service.TaskNotFoundError, DataValidationError, ConflictError) as exc:
         raise to_http(exc) from exc
 
 
