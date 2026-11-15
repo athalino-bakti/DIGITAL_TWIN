@@ -5,8 +5,8 @@ tim. Dataset dummy dosbim (puti_datasets.xlsx) memberi nilai acuan yang dipakai 
 tim, jadi seed mengikuti nilai tersebut. Nama dan deskripsi peran tetap dari wawancara
 Tim DEVTI PuTI. Downgrade mengembalikan nilai revisi 0005.
 
-Revision ID: 0007
-Revises: 0006
+Revision ID: 0008
+Revises: 0007
 """
 
 from typing import Sequence, Union
@@ -14,8 +14,8 @@ from typing import Sequence, Union
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "0007"
-down_revision: Union[str, Sequence[str], None] = "0006"
+revision: str = "0008"
+down_revision: Union[str, Sequence[str], None] = "0007"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

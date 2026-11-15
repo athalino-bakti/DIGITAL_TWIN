@@ -6,16 +6,16 @@ digit pada contoh Data Dictionary kini menjadi jumlah digit minimal, sehingga fo
 Dictionary dan format dataset sama-sama valid. Downgrade gagal bila tabel sudah berisi ID
 yang lebih panjang dari format lama atau extension_days bernilai 0.
 
-Revision ID: 0006
-Revises: 0005
+Revision ID: 0007
+Revises: 0006
 """
 
 from typing import Sequence, Union
 
 from alembic import op
 
-revision: str = "0006"
-down_revision: Union[str, Sequence[str], None] = "0005"
+revision: str = "0007"
+down_revision: Union[str, Sequence[str], None] = "0006"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
