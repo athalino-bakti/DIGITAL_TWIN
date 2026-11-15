@@ -211,6 +211,54 @@ def test_unknown_board_raises_not_found():
         make_client(fake).fetch_board_export("ZzZz9999")
 
 
+def test_network_error_is_retried_then_wrapped():
+    calls = []
+
+    def unreachable(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        raise httpx.ConnectTimeout("timed out", request=request)
+
+    sleeps: list[float] = []
+    client = TrelloClient(
+        KEY, TOKEN, transport=httpx.MockTransport(unreachable), sleep=sleeps.append
+    )
+    with pytest.raises(TrelloError, match="ConnectTimeout") as exc_info:
+        client.fetch_board_export(BOARD_ID)
+    assert len(calls) == 5  # 1 percobaan + 4 ulang
+    assert len(sleeps) == 4
+    assert TOKEN not in str(exc_info.value)
+
+
+def test_network_error_recovers_on_retry():
+    fake = FakeTrello()
+    failures = [httpx.ConnectError("putus")]
+
+    def flaky(request: httpx.Request) -> httpx.Response:
+        if failures:
+            raise failures.pop()
+        return fake(request)
+
+    client = TrelloClient(KEY, TOKEN, transport=httpx.MockTransport(flaky), sleep=lambda _: None)
+    assert client.fetch_board_export(BOARD_ID)["name"] == "Papan Uji"
+
+
+@pytest.mark.parametrize("status", [409, 410, 422])
+def test_other_client_errors_raise_trello_error_without_retry(status):
+    fake = FakeTrello(script=[status])
+    with pytest.raises(TrelloError, match=str(status)):
+        make_client(fake).fetch_board_export(BOARD_ID)
+    assert len(fake.requests) == 1
+
+
+def test_non_json_response_raises_trello_error():
+    def html(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="<html>proxy</html>")
+
+    client = TrelloClient(KEY, TOKEN, transport=httpx.MockTransport(html), sleep=lambda _: None)
+    with pytest.raises(TrelloError, match="bukan JSON"):
+        client.fetch_board_export(BOARD_ID)
+
+
 @pytest.mark.parametrize(
     "board_id", ["", "abc", "../members/me", "AbCd1234?x=1", "5f1a2b3c4d5e6f7a8b9c0d1e/actions"]
 )
@@ -280,6 +328,21 @@ def test_cli_reports_disabled_connector(tmp_path, monkeypatch, capsys):
 
     assert fetch_board.main(["--board", SHORT_LINK, "--out", str(out)]) == 1
     assert "nonaktif" in capsys.readouterr().err
+    assert not out.exists()
+
+
+def test_cli_reports_network_error_without_traceback(tmp_path, monkeypatch, capsys):
+    def unreachable(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectTimeout("timed out", request=request)
+
+    client = TrelloClient(
+        KEY, TOKEN, transport=httpx.MockTransport(unreachable), sleep=lambda _: None
+    )
+    monkeypatch.setattr(fetch_board, "client_from_settings", lambda: client)
+    out = tmp_path / "board.json"
+
+    assert fetch_board.main(["--board", SHORT_LINK, "--out", str(out)]) == 1
+    assert "Tidak bisa menghubungi Trello" in capsys.readouterr().err
     assert not out.exists()
 
 

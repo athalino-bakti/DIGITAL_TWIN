@@ -6,7 +6,7 @@ sehingga impor ulang tidak menggandakan baris. trello_list_mapping memetakan lis
 (berdasarkan id list) ke status dan phase task; keduanya boleh kosong sampai dipetakan.
 
 Revision ID: 0010
-Revises: 0006
+Revises: 0008
 """
 
 from typing import Sequence, Union

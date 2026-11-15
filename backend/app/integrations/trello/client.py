@@ -106,7 +106,16 @@ class TrelloClient:
 
     def _get(self, path: str, params: dict[str, Any] | None = None) -> Any:
         for attempt in range(self._max_retries + 1):
-            response = self._http.get(path, params=params)
+            try:
+                response = self._http.get(path, params=params)
+            except httpx.TransportError as exc:
+                # Timeout atau koneksi putus diperlakukan seperti 5xx: dicoba ulang dulu.
+                if attempt == self._max_retries:
+                    raise TrelloError(
+                        f"Tidak bisa menghubungi Trello ({type(exc).__name__})"
+                    ) from exc
+                self._sleep(min(2.0 * 2**attempt, 30.0))
+                continue
             if response.status_code == 429 or response.status_code >= 500:
                 if attempt == self._max_retries:
                     if response.status_code == 429:
@@ -120,8 +129,12 @@ class TrelloClient:
                 )
             if response.status_code in (400, 404):
                 raise TrelloNotFoundError("Papan Trello tidak ditemukan")
-            response.raise_for_status()
-            return response.json()
+            if response.status_code >= 300:
+                raise TrelloError(f"Trello menolak request (status {response.status_code})")
+            try:
+                return response.json()
+            except ValueError as exc:
+                raise TrelloError("Respons Trello bukan JSON yang sah") from exc
         raise TrelloError("Gagal menghubungi Trello")  # tidak tercapai
 
     def fetch_actions(self, board_id: str) -> list[dict[str, Any]]:
