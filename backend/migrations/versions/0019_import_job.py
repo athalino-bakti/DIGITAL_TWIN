@@ -5,7 +5,7 @@ Satu baris per job impor (Trello, Project Plan, TeamGit): pemicu, status, waktu,
 dan pesan error. Index unik parsial menjamin paling banyak satu job berjalan per sumber.
 
 Revision ID: 0019
-Revises: 0012
+Revises: 0014
 """
 
 from typing import Sequence, Union
@@ -16,7 +16,7 @@ from sqlalchemy.dialects import postgresql
 
 revision: str = "0019"
 # Saat PR ini di-rebase setelah migrasi lain masuk ke main, ganti ke head terbaru.
-down_revision: Union[str, Sequence[str], None] = "0012"
+down_revision: Union[str, Sequence[str], None] = "0014"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
