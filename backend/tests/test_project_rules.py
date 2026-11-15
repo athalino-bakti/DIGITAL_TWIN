@@ -169,3 +169,24 @@ def test_complexity_update_accepts_ints_and_decimals():
 
     update = ComplexityUpdate.model_validate_json('{"min_days": 0, "max_days": 2.5}')
     assert (update.min_days, update.max_days) == (0.0, 2.5)
+
+
+# --- DIG-103: penyimpanan secondary_role_ids ---
+
+
+def test_split_and_join_role_ids():
+    from app.modules.data.service import join_role_ids, split_role_ids
+
+    assert split_role_ids("ROLE-DM;ROLE-FE") == ["ROLE-DM", "ROLE-FE"]
+    assert split_role_ids(None) == []
+    assert join_role_ids(["ROLE-DM", "ROLE-FE"]) == "ROLE-DM;ROLE-FE"
+    assert join_role_ids([]) is None
+
+
+def test_next_id_counts_numerically():
+    from app.modules.data.service import next_id
+
+    assert next_id([], "RES") == "RES-001"
+    assert next_id(["RES-009", "RES-010"], "RES") == "RES-011"
+    assert next_id(["RES-999", "RES-1000", "RES-0042"], "RES") == "RES-1001"
+    assert next_id(["PRJ-001", "bukan"], "PRJ") == "PRJ-002"

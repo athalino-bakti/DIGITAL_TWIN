@@ -13,7 +13,13 @@ from pydantic import (
     StringConstraints,
 )
 
-from app.modules.data.enums import PROJECT_ID_PATTERN, ProjectStatus
+from app.modules.data.enums import (
+    PROJECT_ID_PATTERN,
+    RESOURCE_ID_PATTERN,
+    ROLE_ID_PATTERN,
+    ProjectStatus,
+    Seniority,
+)
 
 ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 
@@ -128,3 +134,83 @@ class ComplexityRead(BaseModel):
     max_days: float
     load_weight: float
     task_count: int = Field(description="Jumlah task yang memakai level ini")
+
+
+# --- D-02 resources dan D-03 roles (DIG-21) ---
+
+RoleId = Annotated[str, StringConstraints(pattern=ROLE_ID_PATTERN)]
+ResourceId = Annotated[str, StringConstraints(pattern=RESOURCE_ID_PATTERN)]
+# Daftar role rangkap dikirim sebagai array (multi-select). Di basis data disimpan
+# sebagai string berpemisah titik koma sesuai Data Dictionary, misalnya ROLE-DM;ROLE-FE.
+RoleIdList = Annotated[list[RoleId], Field(max_length=8)]
+
+
+class ResourceFields(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    resource_name: Name
+    primary_role_id: RoleId
+    secondary_role_ids: RoleIdList = Field(default_factory=list)
+    cross_role_capable: bool = Field(default=False, strict=True)
+    join_date: IsoDate
+    seniority: Seniority
+
+
+class ResourceCreate(ResourceFields):
+    """Body POST. `resource_id` boleh dikosongkan; server mengisi RES-xxx berikutnya."""
+
+    resource_id: ResourceId | None = None
+
+
+class ResourceUpdate(BaseModel):
+    """Body PATCH. Hanya kolom yang dikirim yang diubah; `resource_id` tidak bisa diubah."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    resource_name: Name | None = None
+    primary_role_id: RoleId | None = None
+    secondary_role_ids: RoleIdList | None = None
+    cross_role_capable: bool | None = Field(default=None, strict=True)
+    join_date: IsoDate | None = None
+    seniority: Seniority | None = None
+
+
+class ResourceRead(BaseModel):
+    resource_id: str
+    resource_name: str
+    primary_role_id: str
+    secondary_role_ids: list[str]
+    cross_role_capable: bool
+    join_date: date
+    seniority: Seniority
+    tenure_days: int = Field(description="Lama bergabung dalam hari, dihitung dari join_date")
+    is_onboarding: bool = Field(
+        description="Bergabung kurang dari ONBOARDING_DAYS hari yang lalu (asumsi, lihat DIG-186)"
+    )
+
+
+Capacity = Annotated[float, Field(strict=True, gt=0, allow_inf_nan=False)]
+
+
+class RoleUpdate(BaseModel):
+    """Body PATCH. ID dan nama peran tetap; yang diatur kapasitas dan deskripsi."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    capacity_reference: Capacity | None = None
+    description: (
+        Annotated[
+            str,
+            StringConstraints(strip_whitespace=True, max_length=1000),
+            AfterValidator(reject_nul),
+        ]
+        | None
+    ) = None
+
+
+class RoleRead(BaseModel):
+    role_id: str
+    role_name: str
+    capacity_reference: float
+    description: str | None
+    resource_count: int = Field(description="Jumlah anggota dengan peran ini sebagai peran utama")
