@@ -3,7 +3,7 @@
 import pytest
 from fastapi.routing import APIRoute
 
-from app.api.router import api_router
+from app.main import app
 from app.modules.auth.permissions import Perm
 from tests.conftest import REQUIRES_DB, make_token
 
@@ -75,11 +75,11 @@ def walk(routes, prefix: str = "", inherited: frozenset = frozenset()):
 def data_routes() -> dict[tuple[str, str], set[Perm]]:
     """Semua endpoint berawalan /api/v1/data, dari router mana pun asalnya.
 
-    Ditelusuri dari router API utama, jadi router yang dipasang langsung di app/api/router.py
-    dengan prefix /data juga ikut diperiksa, bukan hanya yang di-include ke router data.
+    Ditelusuri dari aplikasi FastAPI itu sendiri, jadi router yang dipasang di app/main.py,
+    di app/api/router.py, atau di-include ke router data semuanya ikut diperiksa.
     """
     routes = {}
-    for path, route, inherited in walk(api_router.routes):
+    for path, route, inherited in walk(app.routes):
         if not path.startswith(DATA_PREFIX + "/"):
             continue
         for method in route.methods:
