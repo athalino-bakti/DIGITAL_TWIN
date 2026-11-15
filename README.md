@@ -100,6 +100,16 @@ Dari `backend/`:
 
 Tes health memakai dependency override untuk menguji status sukses/gagal tanpa PostgreSQL. Setelah database aktif, periksa koneksi nyata dengan `Invoke-RestMethod http://localhost:8000/api/v1/health/ready`. `alembic heads` harus menampilkan tepat satu revisi.
 
+### Konektivitas ke Trello dan TeamGit
+
+Jalankan di server yang akan menjalankan impor, dari `backend/`:
+
+```powershell
+.\.venv\Scripts\python.exe -m app.integrations.connectivity
+```
+
+Per tujuan diperiksa DNS, port 443, HTTPS (termasuk sertifikat TLS), lalu kredensial Trello bila `TRELLO_API_ENABLED=true`. Di belakang proxy, langkah DNS/TCP langsung dilewati dan HTTPS memakai proxy. Tujuan yang belum dikonfigurasi (misalnya `TEAMGIT_BASE_URL` kosong) ditandai "dilewati". Kode keluar `1` bila ada langkah yang gagal. Key dan token tidak pernah ditampilkan.
+
 ### Skema basis data vs Data Dictionary
 
 Dari `backend/`, setelah `alembic upgrade head`:
