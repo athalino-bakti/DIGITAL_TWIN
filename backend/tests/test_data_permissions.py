@@ -50,6 +50,9 @@ EXPECTED = {
     ("POST", "/workload-items/import"): Perm.IMPORT_RUN,
     ("PATCH", "/workload-items/{item_id}"): Perm.MASTER_DATA_WRITE,
     ("DELETE", "/workload-items/{item_id}"): Perm.MASTER_DATA_WRITE,
+    # Pemantauan job impor terjadwal (DIG-128).
+    ("GET", "/import-jobs"): Perm.DATA_QUALITY_READ,
+    ("GET", "/import-jobs/{job_id}"): Perm.DATA_QUALITY_READ,
 }
 
 
