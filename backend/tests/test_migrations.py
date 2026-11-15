@@ -56,7 +56,7 @@ def current_revision(engine: Engine) -> str | None:
 
 
 def leftover_objects(engine: Engine) -> dict[str, list[str]]:
-    """Objek di schema public selain tabel alembic_version.
+    """Objek di schema public selain tabel alembic_version, plus schema lain buatan migrasi.
 
     Enum, sequence, dan view yang lupa di-drop pada downgrade sering lolos karena
     tabelnya sudah hilang; tes mengeceknya satu per satu.
@@ -67,7 +67,18 @@ def leftover_objects(engine: Engine) -> dict[str, list[str]]:
         views = insp.get_view_names(schema="public")
         sequences = insp.get_sequence_names(schema="public")
         enums = [e["name"] for e in insp.get_enums(schema="public")]
-    found = {"tabel": tables, "view": views, "sequence": sequences, "enum": enums}
+        schemas = [
+            name
+            for name in insp.get_schema_names()
+            if name not in ("public", "information_schema") and not name.startswith("pg_")
+        ]
+    found = {
+        "tabel": tables,
+        "view": views,
+        "sequence": sequences,
+        "enum": enums,
+        "schema": schemas,
+    }
     return {kind: names for kind, names in found.items() if names}
 
 
@@ -87,6 +98,8 @@ def engine() -> Engine:
 @pytest.fixture(autouse=True)
 def empty_schema(engine: Engine) -> None:
     with engine.begin() as connection:
+        # Schema tambahan buatan migrasi (mis. twinner) ikut dikosongkan.
+        connection.execute(text("DROP SCHEMA IF EXISTS twinner CASCADE"))
         connection.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
         connection.execute(text("CREATE SCHEMA public"))
 
