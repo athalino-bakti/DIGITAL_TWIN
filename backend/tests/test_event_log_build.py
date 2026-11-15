@@ -14,21 +14,17 @@ from sqlalchemy import insert, text
 
 from app.db.base import Base
 from app.integrations.trello.parser import parse_board_export
-from app.modules.auth import security
-from app.modules.auth.models import AppUser
-from app.modules.auth.rbac_models import UserAppRole
 from app.modules.data.event_log import WIB, list_event_log, rebuild_event_log
 from app.modules.data.trello_staging import save_trello_import
 from synthetic.final_sources import final_source_rows
 from synthetic.raw_sources import trello_board
 from synthetic.world import build_world
-from tests.conftest import REQUIRES_DB
+from tests.conftest import REQUIRES_DB, make_token
 
 pytestmark = REQUIRES_DB
 
 AS_OF = date(2026, 11, 6)
 URL = "/api/v1/data/event-log"
-PASSWORD = "uji-event-log-2026"
 
 
 @pytest.fixture(scope="module")
@@ -210,31 +206,18 @@ def test_cards_without_task_code_are_reported(client, db, world, board):
 
 
 @pytest.fixture
-def login(client, db, monkeypatch):
-    monkeypatch.setattr(security, "SCRYPT_N", 2**12)
-    db.execute(text("TRUNCATE app_user RESTART IDENTITY CASCADE"))
-    db.commit()
+def login(client, db):
+    """Header untuk satu peran. Client bawaan memegang semua peran (conftest)."""
 
-    def as_role(role: str | None) -> dict:
-        user = AppUser(
-            username=f"uji{role or 'x'}".replace("_", ""),
-            full_name="Uji",
-            password_hash=security.hash_password(PASSWORD),
-        )
-        db.add(user)
-        db.flush()
-        if role:
-            db.add(UserAppRole(user_id=user.user_id, role_code=role))
-        db.commit()
-        response = client.post(
-            "/api/v1/auth/login", json={"username": user.username, "password": PASSWORD}
-        )
-        return {"Authorization": f"Bearer {response.json()['access_token']}"}
+    def as_role(role: str) -> dict:
+        token = make_token(db, f"uji{role}".replace("_", ""), [role])
+        return {"Authorization": f"Bearer {token}"}
 
     return as_role
 
 
 def test_endpoints_need_login(client):
+    del client.headers["Authorization"]
     assert client.post(f"{URL}/rebuild").status_code == 401
     assert client.get(URL).status_code == 401
 

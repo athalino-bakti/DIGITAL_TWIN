@@ -50,6 +50,9 @@ EXPECTED = {
     ("POST", "/workload-items/import"): Perm.IMPORT_RUN,
     ("PATCH", "/workload-items/{item_id}"): Perm.MASTER_DATA_WRITE,
     ("DELETE", "/workload-items/{item_id}"): Perm.MASTER_DATA_WRITE,
+    # Event log (DIG-37): membentuk ulang = pengolahan impor, membaca = ekspor (FR-07).
+    ("POST", "/event-log/rebuild"): Perm.IMPORT_RUN,
+    ("GET", "/event-log"): Perm.EVENT_LOG_EXPORT,
 }
 
 
