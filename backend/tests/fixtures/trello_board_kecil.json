@@ -1,0 +1,541 @@
+{
+  "id": "b23bc1d8493cd01609de8895",
+  "name": "Papan uji sintetis",
+  "dateLastActivity": "2026-11-07T08:00:00",
+  "labels": [],
+  "lists": [
+    {
+      "id": "f59ba79924d8cea5c33f4584",
+      "name": "Backlog",
+      "closed": false,
+      "pos": 1024
+    },
+    {
+      "id": "abf10ac25eb0452176688387",
+      "name": "To Do",
+      "closed": false,
+      "pos": 2048
+    },
+    {
+      "id": "18a61865cafedacfb2ccdfa7",
+      "name": "In Progress",
+      "closed": false,
+      "pos": 3072
+    },
+    {
+      "id": "7f8ec4c2994b7a5674043590",
+      "name": "Blocked",
+      "closed": false,
+      "pos": 4096
+    },
+    {
+      "id": "839aa6b004e77af59be6a8ea",
+      "name": "Hold",
+      "closed": false,
+      "pos": 5120
+    },
+    {
+      "id": "5f53f26c939d61dc6eb108e2",
+      "name": "QA",
+      "closed": false,
+      "pos": 6144
+    },
+    {
+      "id": "f275418cda2f966e9fdfe168",
+      "name": "Done",
+      "closed": false,
+      "pos": 7168
+    },
+    {
+      "id": "aaaaaaaaaaaaaaaaaaaaaaa1",
+      "name": "Code Review",
+      "closed": true,
+      "pos": 8192
+    }
+  ],
+  "members": [
+    {
+      "id": "c15c71bfe2f234308c072307",
+      "fullName": "Hendra Wiratama",
+      "username": "hendrawira"
+    },
+    {
+      "id": "d9d2f5ed0ec69d372d1aa9ea",
+      "fullName": "Yoga Pratama",
+      "username": "yogaprat"
+    },
+    {
+      "id": "fa6b594e98e335286308b85b",
+      "fullName": "Bayu Saputra",
+      "username": "bayusapu"
+    },
+    {
+      "id": "0fb87e07f120986b2fc6499d",
+      "fullName": "Aditya Kusuma",
+      "username": "adityakusu"
+    },
+    {
+      "id": "64d8f3636f1f16f1f362b708",
+      "fullName": "Sari Puspitasari",
+      "username": "saripusp"
+    },
+    {
+      "id": "ffffffffffffffffffffffff",
+      "fullName": "Sari",
+      "username": "saripusp2"
+    }
+  ],
+  "cards": [
+    {
+      "id": "ced69d2c469f214bccca8f03",
+      "name": "TSK-0052 | Pengembangan API rekap kehadiran bulanan",
+      "desc": "Proyek: Sistem Presensi Pegawai\nFitur: Rekap kehadiran bulanan",
+      "idList": "f275418cda2f966e9fdfe168",
+      "idLabels": [
+        "1a60e0339f9f243f85b25ac3"
+      ],
+      "idMembers": [
+        "0fb87e07f120986b2fc6499d"
+      ],
+      "closed": false,
+      "dateLastActivity": "2026-10-19T05:14:09.000Z"
+    },
+    {
+      "id": "6b5435fd3f85763804ee1a80",
+      "name": "WLI-0083 | Operasional: laporan tidak muncul",
+      "desc": "",
+      "idList": "18a61865cafedacfb2ccdfa7",
+      "idLabels": [
+        "9f6c6415d84481351816da59",
+        "2ab49ae170547e0bb37ee754"
+      ],
+      "idMembers": [
+        "fa6b594e98e335286308b85b"
+      ],
+      "closed": false,
+      "dateLastActivity": "2026-11-05T08:43:21.000Z"
+    },
+    {
+      "id": "d6dfa6b5e9df6bff9322a3d0",
+      "name": "TSK-0096 | Dokumentasi fitur penjadwalan wawancara",
+      "desc": "Proyek: Portal Rekrutmen Dosen\nFitur: Penjadwalan wawancara",
+      "idList": "f59ba79924d8cea5c33f4584",
+      "idLabels": [
+        "d0469667db0e5e65fcfcbc36"
+      ],
+      "idMembers": [],
+      "closed": true,
+      "dateLastActivity": "2026-09-21T04:22:40.000Z"
+    }
+  ],
+  "actions": [
+    {
+      "id": "0000000000000000000000e6",
+      "type": "createCard",
+      "date": "2026-11-07T08:00:00",
+      "idMemberCreator": "c15c71bfe2f234308c072307",
+      "data": {
+        "board": {
+          "id": "b23bc1d8493cd01609de8895"
+        },
+        "card": {
+          "id": "dddddddddddddddddddddddd",
+          "name": "Tanpa zona waktu"
+        }
+      }
+    },
+    {
+      "id": "bukan-id-trello",
+      "type": "createCard",
+      "date": "2026-11-07T07:00:00.000Z",
+      "data": {}
+    },
+    {
+      "id": "0000000000000000000000e5",
+      "type": "updateCard",
+      "date": "2026-11-07T06:00:00.000Z",
+      "idMemberCreator": "999999999999999999999999",
+      "data": {
+        "board": {
+          "id": "b23bc1d8493cd01609de8895"
+        },
+        "card": {
+          "id": "6b5435fd3f85763804ee1a80",
+          "name": "WLI-0083 | Operasional: laporan tidak muncul"
+        },
+        "old": {
+          "due": null
+        }
+      }
+    },
+    "bukan objek action",
+    {
+      "id": "0000000000000000000000e4",
+      "type": "commentCard",
+      "date": "2026-11-07T05:00:00.000Z",
+      "idMemberCreator": "c15c71bfe2f234308c072307",
+      "data": {
+        "board": {
+          "id": "b23bc1d8493cd01609de8895"
+        },
+        "card": {
+          "id": "ced69d2c469f214bccca8f03",
+          "name": "TSK-0052 | Pengembangan API rekap kehadiran bulanan"
+        },
+        "text": "cek ulang"
+      }
+    },
+    {
+      "id": "0000000000000000000000e3",
+      "type": "deleteCard",
+      "date": "2026-11-07T04:00:00.000Z",
+      "idMemberCreator": "c15c71bfe2f234308c072307",
+      "data": {
+        "board": {
+          "id": "b23bc1d8493cd01609de8895"
+        },
+        "card": {
+          "id": "cccccccccccccccccccccccc",
+          "idShort": 99
+        },
+        "list": {
+          "id": "f59ba79924d8cea5c33f4584"
+        }
+      }
+    },
+    {
+      "id": "0000000000000000000000e2",
+      "type": "updateList",
+      "date": "2026-11-07T03:00:00.000Z",
+      "idMemberCreator": "c15c71bfe2f234308c072307",
+      "data": {
+        "board": {
+          "id": "b23bc1d8493cd01609de8895"
+        },
+        "list": {
+          "id": "aaaaaaaaaaaaaaaaaaaaaaa1",
+          "name": "Code Review"
+        },
+        "old": {
+          "name": "Review"
+        }
+      }
+    },
+    {
+      "id": "0000000000000000000000e1",
+      "type": "createList",
+      "date": "2026-11-07T02:00:00.000Z",
+      "idMemberCreator": "c15c71bfe2f234308c072307",
+      "data": {
+        "board": {
+          "id": "b23bc1d8493cd01609de8895"
+        },
+        "list": {
+          "id": "aaaaaaaaaaaaaaaaaaaaaaa1",
+          "name": "Review"
+        }
+      },
+      "memberCreator": {
+        "id": "c15c71bfe2f234308c072307",
+        "username": "hendrawira",
+        "fullName": "Hendra Wiratama"
+      }
+    },
+    {
+      "id": "75047937d048a54dd3ab58f3",
+      "type": "updateCard",
+      "date": "2026-11-05T08:43:21.000Z",
+      "idMemberCreator": "fa6b594e98e335286308b85b",
+      "data": {
+        "card": {
+          "id": "6b5435fd3f85763804ee1a80",
+          "name": "WLI-0083 | Operasional: laporan tidak muncul"
+        },
+        "board": {
+          "id": "b23bc1d8493cd01609de8895"
+        },
+        "listBefore": {
+          "id": "abf10ac25eb0452176688387",
+          "name": "To Do"
+        },
+        "listAfter": {
+          "id": "18a61865cafedacfb2ccdfa7",
+          "name": "In Progress"
+        }
+      }
+    },
+    {
+      "id": "8490ee356ea3bd083c549251",
+      "type": "createCard",
+      "date": "2026-11-05T01:01:56.000Z",
+      "idMemberCreator": "c15c71bfe2f234308c072307",
+      "data": {
+        "card": {
+          "id": "6b5435fd3f85763804ee1a80",
+          "name": "WLI-0083 | Operasional: laporan tidak muncul"
+        },
+        "board": {
+          "id": "b23bc1d8493cd01609de8895"
+        },
+        "list": {
+          "id": "abf10ac25eb0452176688387",
+          "name": "To Do"
+        }
+      }
+    },
+    {
+      "id": "5de414e3b40488cb2477b848",
+      "type": "updateCard",
+      "date": "2026-10-20T01:15:29.000Z",
+      "idMemberCreator": "d9d2f5ed0ec69d372d1aa9ea",
+      "data": {
+        "card": {
+          "id": "865a9afbf69e7ca9c84b37ac",
+          "name": "TSK-0081 | Analisis kebutuhan dan breakdown task seleksi berkas"
+        },
+        "board": {
+          "id": "b23bc1d8493cd01609de8895"
+        },
+        "listBefore": {
+          "id": "18a61865cafedacfb2ccdfa7",
+          "name": "In Progress"
+        },
+        "listAfter": {
+          "id": "f275418cda2f966e9fdfe168",
+          "name": "Done"
+        }
+      }
+    },
+    {
+      "id": "a85a77255a50a378d3426697",
+      "type": "updateCard",
+      "date": "2026-10-19T05:14:09.000Z",
+      "idMemberCreator": "0fb87e07f120986b2fc6499d",
+      "data": {
+        "card": {
+          "id": "ced69d2c469f214bccca8f03",
+          "name": "TSK-0052 | Pengembangan API rekap kehadiran bulanan"
+        },
+        "board": {
+          "id": "b23bc1d8493cd01609de8895"
+        },
+        "listBefore": {
+          "id": "18a61865cafedacfb2ccdfa7",
+          "name": "In Progress"
+        },
+        "listAfter": {
+          "id": "f275418cda2f966e9fdfe168",
+          "name": "Done"
+        }
+      }
+    },
+    {
+      "id": "9f9cf62a7c0c631fbef01704",
+      "type": "addMemberToCard",
+      "date": "2026-10-13T07:41:55.000Z",
+      "idMemberCreator": "c15c71bfe2f234308c072307",
+      "data": {
+        "card": {
+          "id": "ced69d2c469f214bccca8f03",
+          "name": "TSK-0052 | Pengembangan API rekap kehadiran bulanan"
+        },
+        "board": {
+          "id": "b23bc1d8493cd01609de8895"
+        },
+        "idMember": "0fb87e07f120986b2fc6499d",
+        "member": {
+          "id": "0fb87e07f120986b2fc6499d",
+          "name": "Aditya Kusuma"
+        }
+      }
+    },
+    {
+      "id": "c96d65b4e703cb54b7e8ad03",
+      "type": "removeMemberFromCard",
+      "date": "2026-10-12T01:16:02.000Z",
+      "idMemberCreator": "c15c71bfe2f234308c072307",
+      "data": {
+        "card": {
+          "id": "ced69d2c469f214bccca8f03",
+          "name": "TSK-0052 | Pengembangan API rekap kehadiran bulanan"
+        },
+        "board": {
+          "id": "b23bc1d8493cd01609de8895"
+        },
+        "idMember": "10439bde607e2b462e8d0bb3",
+        "member": {
+          "id": "10439bde607e2b462e8d0bb3",
+          "name": "Galih Permana"
+        }
+      }
+    },
+    {
+      "id": "ddab7c3da4ff4a22acb055f9",
+      "type": "updateCard",
+      "date": "2026-10-08T06:52:41.000Z",
+      "idMemberCreator": "0fb87e07f120986b2fc6499d",
+      "data": {
+        "card": {
+          "id": "ced69d2c469f214bccca8f03",
+          "name": "TSK-0052 | Pengembangan API rekap kehadiran bulanan"
+        },
+        "board": {
+          "id": "b23bc1d8493cd01609de8895"
+        },
+        "listBefore": {
+          "id": "abf10ac25eb0452176688387",
+          "name": "To Do"
+        },
+        "listAfter": {
+          "id": "18a61865cafedacfb2ccdfa7",
+          "name": "In Progress"
+        }
+      }
+    },
+    {
+      "id": "53a5a73e3a37fae0c8d5f5b3",
+      "type": "addMemberToCard",
+      "date": "2026-09-28T04:23:04.000Z",
+      "idMemberCreator": "c15c71bfe2f234308c072307",
+      "data": {
+        "card": {
+          "id": "ced69d2c469f214bccca8f03",
+          "name": "TSK-0052 | Pengembangan API rekap kehadiran bulanan"
+        },
+        "board": {
+          "id": "b23bc1d8493cd01609de8895"
+        },
+        "idMember": "10439bde607e2b462e8d0bb3",
+        "member": {
+          "id": "10439bde607e2b462e8d0bb3",
+          "name": "Galih Permana"
+        }
+      }
+    },
+    {
+      "id": "18a0dcc373f8a10b072a2e40",
+      "type": "createCard",
+      "date": "2026-09-28T02:47:10.000Z",
+      "idMemberCreator": "c15c71bfe2f234308c072307",
+      "data": {
+        "card": {
+          "id": "ced69d2c469f214bccca8f03",
+          "name": "TSK-0052 | Pengembangan API rekap kehadiran bulanan"
+        },
+        "board": {
+          "id": "b23bc1d8493cd01609de8895"
+        },
+        "list": {
+          "id": "f59ba79924d8cea5c33f4584",
+          "name": "Backlog"
+        }
+      }
+    },
+    {
+      "id": "8da2bfa3d6f083f66be0559f",
+      "type": "updateCard",
+      "date": "2026-09-28T02:38:44.000Z",
+      "idMemberCreator": "c15c71bfe2f234308c072307",
+      "data": {
+        "card": {
+          "id": "ced69d2c469f214bccca8f03",
+          "name": "TSK-0052 | Pengembangan API rekap kehadiran bulanan"
+        },
+        "board": {
+          "id": "b23bc1d8493cd01609de8895"
+        },
+        "listBefore": {
+          "id": "f59ba79924d8cea5c33f4584",
+          "name": "Backlog"
+        },
+        "listAfter": {
+          "id": "abf10ac25eb0452176688387",
+          "name": "To Do"
+        }
+      }
+    },
+    {
+      "id": "03ef043aa83887a4d1fadad0",
+      "type": "updateCard",
+      "date": "2026-09-21T04:22:40.000Z",
+      "idMemberCreator": "c15c71bfe2f234308c072307",
+      "data": {
+        "card": {
+          "id": "d6dfa6b5e9df6bff9322a3d0",
+          "name": "TSK-0096 | Dokumentasi fitur penjadwalan wawancara"
+        },
+        "board": {
+          "id": "b23bc1d8493cd01609de8895"
+        },
+        "old": {
+          "closed": false
+        }
+      }
+    },
+    {
+      "id": "7e30cffd55e046c06d6dbc1a",
+      "type": "createCard",
+      "date": "2026-09-07T09:32:43.000Z",
+      "idMemberCreator": "c15c71bfe2f234308c072307",
+      "data": {
+        "card": {
+          "id": "d6dfa6b5e9df6bff9322a3d0",
+          "name": "TSK-0096 | Dokumentasi fitur penjadwalan wawancara"
+        },
+        "board": {
+          "id": "b23bc1d8493cd01609de8895"
+        },
+        "list": {
+          "id": "f59ba79924d8cea5c33f4584",
+          "name": "Backlog"
+        }
+      }
+    },
+    {
+      "id": "5de414e3b40488cb2477b848",
+      "type": "updateCard",
+      "date": "2026-10-20T01:15:29.000Z",
+      "idMemberCreator": "d9d2f5ed0ec69d372d1aa9ea",
+      "data": {
+        "card": {
+          "id": "865a9afbf69e7ca9c84b37ac",
+          "name": "TSK-0081 | Analisis kebutuhan dan breakdown task seleksi berkas"
+        },
+        "board": {
+          "id": "b23bc1d8493cd01609de8895"
+        },
+        "listBefore": {
+          "id": "18a61865cafedacfb2ccdfa7",
+          "name": "In Progress"
+        },
+        "listAfter": {
+          "id": "f275418cda2f966e9fdfe168",
+          "name": "Done"
+        }
+      }
+    },
+    {
+      "id": "5de414e3b40488cb2477b848",
+      "type": "updateCard",
+      "date": "2026-11-08T00:00:00.000Z",
+      "idMemberCreator": "d9d2f5ed0ec69d372d1aa9ea",
+      "data": {
+        "card": {
+          "id": "865a9afbf69e7ca9c84b37ac",
+          "name": "TSK-0081 | Analisis kebutuhan dan breakdown task seleksi berkas"
+        },
+        "board": {
+          "id": "b23bc1d8493cd01609de8895"
+        },
+        "listBefore": {
+          "id": "18a61865cafedacfb2ccdfa7",
+          "name": "In Progress"
+        },
+        "listAfter": {
+          "id": "f275418cda2f966e9fdfe168",
+          "name": "Done"
+        }
+      }
+    }
+  ]
+}
