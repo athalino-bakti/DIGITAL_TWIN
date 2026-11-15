@@ -4,11 +4,13 @@ import { ComplexityPanel } from './complexity/ComplexityPanel';
 import { ProjectsPanel } from './projects/ProjectsPanel';
 import { ResourcesPanel } from './resources/ResourcesPanel';
 import { RolesPanel } from './resources/RolesPanel';
+import { WorkloadPanel } from './workload/WorkloadPanel';
 
 const views = {
   proyek: { label: 'Proyek' },
   anggota: { label: 'Anggota' },
   peran: { label: 'Peran' },
+  beban: { label: 'Beban non-proyek' },
   kompleksitas: { label: 'Kompleksitas' },
   impor: { label: 'Impor dataset' },
 } as const;
@@ -23,6 +25,7 @@ export function DataPage() {
     {view === 'proyek' && <ProjectsPanel />}
     {view === 'anggota' && <ResourcesPanel />}
     {view === 'peran' && <RolesPanel />}
+    {view === 'beban' && <WorkloadPanel />}
     {view === 'kompleksitas' && <ComplexityPanel />}
     {view === 'impor' && <ModulePlaceholder title="Impor dataset" description="Unggah Project Plan, ekspor Trello, dan riwayat commit akan tersedia di sini." areas={['Unggah dataset CSV', 'Kualitas data', 'Baris ditolak']} />}
   </>;

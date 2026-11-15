@@ -182,6 +182,25 @@ fieldset.field legend { font: var(--text-label); color: var(--color-heading); ma
 .choice { padding: var(--space-3) var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-control); font-weight: 500; }
 .choice:has(input:checked) { border-color: var(--color-primary); background: var(--color-primary-light); }
 
+/* --- Beban non-proyek (DIG-30) --- */
+/* Judul dan tombol aksi turun ke baris berikutnya di layar sempit. */
+.panel-heading-wrap { flex-wrap: wrap; row-gap: var(--space-4); }
+.panel-heading-wrap > div:first-child { flex: 1 1 260px; }
+.workload-filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4) var(--space-5); }
+.workload-select { height: 36px; padding: 0 var(--space-4); font: var(--text-body); color: var(--color-heading); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-control); }
+.workload-select:focus { outline: 2px solid var(--color-primary); outline-offset: -1px; }
+.cell-title .status-pill { margin-left: var(--space-3); vertical-align: middle; }
+.status-pill.severity-critical { background: rgba(190, 80, 90, .12); color: var(--color-danger); }
+.status-pill.severity-high { background: rgba(173, 116, 42, .12); color: var(--color-warning); }
+.status-pill.severity-medium { background: rgba(72, 125, 184, .12); color: var(--color-info); }
+.status-pill.severity-low { background: var(--color-bg); color: var(--color-muted); }
+.status-pill.workload-waiting { background: rgba(173, 116, 42, .12); color: var(--color-warning); }
+.status-pill.workload-in_progress { background: var(--color-primary-light); color: var(--color-primary); }
+.status-pill.workload-resolved { background: rgba(39, 132, 103, .12); color: var(--color-success); }
+.import-summary { padding: var(--space-3) var(--space-4); font: var(--text-body-sm); color: var(--color-body); background: rgba(39, 132, 103, .08); border-radius: var(--radius-control); }
+.import-summary strong { color: var(--color-success); }
+.import-errors { max-height: 280px; overflow: auto; border: 1px solid var(--color-border); border-radius: var(--radius-control); }
+
 /* --- Footer --- */
 .main-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-5) var(--content-gutter); border-top: 1px solid var(--color-border); background: var(--color-surface); font: var(--text-body-sm); color: var(--color-muted); }
 .service-status { display: flex; align-items: center; gap: var(--space-4); }
