@@ -82,6 +82,13 @@ def test_list_orders_mixed_width_ids_by_number(client):
     assert ids == ["RES-0002", "RES-010", "RES-999", "RES-1000"]
 
 
+@pytest.mark.parametrize("resource_id", ["RES-" + "1" * 17, "RES-" + "9" * 5000])
+def test_too_long_resource_id_is_422(client, resource_id):
+    response = client.post(RESOURCES, json=member(resource_id=resource_id))
+    assert response.status_code == 422
+    assert error_fields(response) == ["resource_id"]
+
+
 def test_duplicate_resource_id_is_409(client):
     create(client, resource_id="RES-010")
     response = client.post(RESOURCES, json=member(resource_id="RES-010"))

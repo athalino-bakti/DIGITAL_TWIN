@@ -436,7 +436,10 @@ def find_same_id_number(db: Session, column, value: str) -> str | None:
     """
     prefix, digits = value.rsplit("-", 1)
     pattern = f"^{re.escape(prefix)}-0*{int(digits)}$"
-    return db.scalar(select(column).where(column.op("~")(pattern)).order_by(column).limit(1))
+    # Kecocokan persis didahulukan, supaya ID yang sudah ada dilaporkan "sudah dipakai"
+    # walaupun ID lain bernomor sama (PRJ-0001) terlanjur tersimpan.
+    query = select(column).where(column.op("~")(pattern)).order_by(column != value, column)
+    return db.scalar(query.limit(1))
 
 
 def ensure_id_free(db: Session, column, value: str, field: str, owner: str) -> None:

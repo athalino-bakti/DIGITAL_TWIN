@@ -53,7 +53,10 @@ Name = Annotated[
 # Batas atas mengikuti kolom INTEGER PostgreSQL; di atasnya insert gagal dengan error 500.
 PG_INTEGER_MAX = 2_147_483_647
 PriorityRank = Annotated[int, Field(strict=True, ge=1, le=PG_INTEGER_MAX)]
-ProjectId = Annotated[str, StringConstraints(pattern=PROJECT_ID_PATTERN)]
+# Kolom ID bertipe VARCHAR(20). Tanpa max_length, ID lebih panjang lolos validasi lalu gagal
+# di basis data atau di int() sebagai error 500.
+ID_MAX_LENGTH = 20
+ProjectId = Annotated[str, StringConstraints(pattern=PROJECT_ID_PATTERN, max_length=ID_MAX_LENGTH)]
 
 
 class ProjectFields(BaseModel):
@@ -139,7 +142,9 @@ class ComplexityRead(BaseModel):
 # --- D-02 resources dan D-03 roles (DIG-21) ---
 
 RoleId = Annotated[str, StringConstraints(pattern=ROLE_ID_PATTERN)]
-ResourceId = Annotated[str, StringConstraints(pattern=RESOURCE_ID_PATTERN)]
+ResourceId = Annotated[
+    str, StringConstraints(pattern=RESOURCE_ID_PATTERN, max_length=ID_MAX_LENGTH)
+]
 # Daftar role rangkap dikirim sebagai array (multi-select). Di basis data disimpan
 # sebagai string berpemisah titik koma sesuai Data Dictionary, misalnya ROLE-DM;ROLE-FE.
 RoleIdList = Annotated[list[RoleId], Field(max_length=8)]
