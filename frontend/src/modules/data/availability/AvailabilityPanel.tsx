@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { ApiError } from '../../../shared/api/client';
+import { useCan } from '../../../shared/auth/usePermission';
+import { PERM } from '../../../shared/auth/permissions';
 import { listResources, type Resource } from '../resources/api';
 import { AvailabilityForm } from './AvailabilityForm';
 import { ABSENCE_LABEL, ABSENCE_TYPES, createAvailability, deleteAvailability, listAvailability, listHolidays, updateAvailability, type Availability, type AvailabilityInput, type Holiday } from './api';
@@ -17,6 +19,7 @@ export function AvailabilityPanel() {
   const [month, setMonth] = useState<Month>(() => monthOf(today));
   const [resourceFilter, setResourceFilter] = useState('');
   const [load, setLoad] = useState<Load>({ state: 'loading' });
+  const canWrite = useCan(PERM.availabilityWrite);
   const [editing, setEditing] = useState<Editing>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null);
@@ -97,7 +100,7 @@ export function AvailabilityPanel() {
           <h2 id="availability-title">Ketersediaan</h2>
           <p className="panel-subtitle">D-09 availability. Cuti, izin mendadak, dan rotasi anggota, dibaca bersama hari libur D-11.</p>
         </div>
-        <button type="button" className="button" disabled={!ready || resources.length === 0} onClick={() => openNew()}>Catat ketidakhadiran</button>
+        {canWrite && <button type="button" className="button" disabled={!ready || resources.length === 0} onClick={() => openNew()}>Catat ketidakhadiran</button>}
       </div>
 
       <div className="panel-toolbar">
@@ -147,12 +150,14 @@ export function AvailabilityPanel() {
                 const label = [formatLong(day), holiday && `libur: ${holiday}`, dayItems.length && `${dayItems.length} catatan ketersediaan`].filter(Boolean).join(', ');
                 return (
                   <li key={day} className={classes}>
-                    <button type="button" className="calendar-date" aria-label={`${label}. Catat ketidakhadiran mulai tanggal ini`} onClick={() => openNew(day)}>{Number(day.slice(8))}</button>
+                    {canWrite
+                      ? <button type="button" className="calendar-date" aria-label={`${label}. Catat ketidakhadiran mulai tanggal ini`} onClick={() => openNew(day)}>{Number(day.slice(8))}</button>
+                      : <span className="calendar-date" aria-label={label}>{Number(day.slice(8))}</span>}
                     {holiday && <span className="calendar-holiday" title={holiday}>{holiday}</span>}
                     {dayItems.length > 0 && (
                       <span className="calendar-events">
                         {dayItems.slice(0, MAX_CHIPS).map((item) => (
-                          <button key={item.availability_id} type="button" className={`absence-chip absence-${item.absence_type}`} title={`${item.resource_name}: ${ABSENCE_LABEL[item.absence_type]}, ${formatRange(item.date_start, item.date_end)}`} onClick={() => { setNotice(null); setEditing({ item }); }}>
+                          <button key={item.availability_id} type="button" className={`absence-chip absence-${item.absence_type}`} title={`${item.resource_name}: ${ABSENCE_LABEL[item.absence_type]}, ${formatRange(item.date_start, item.date_end)}`} disabled={!canWrite} onClick={() => { setNotice(null); setEditing({ item }); }}>
                             {item.resource_name}
                           </button>
                         ))}
@@ -199,7 +204,7 @@ export function AvailabilityPanel() {
                       <td className="num">{item.absence_type === 'rotation_in' ? <span className="text-muted">Hadir</span> : item.working_days}</td>
                       <td>{item.is_known_at_planning ? 'Sudah diketahui' : 'Mendadak'}</td>
                       <td>
-                        <div className="row-actions">
+                        {canWrite && <div className="row-actions">
                           {confirmDelete === item.availability_id ? (
                             <>
                               <span className="text-body-sm">Hapus?</span>
@@ -212,7 +217,7 @@ export function AvailabilityPanel() {
                               <button type="button" className="button button-ghost" aria-label={`Hapus ${item.availability_id}`} onClick={() => setConfirmDelete(item.availability_id)}>Hapus</button>
                             </>
                           )}
-                        </div>
+                        </div>}
                       </td>
                     </tr>
                   ))}

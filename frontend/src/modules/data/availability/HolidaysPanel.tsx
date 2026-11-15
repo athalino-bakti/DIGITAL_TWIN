@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { ApiError } from '../../../shared/api/client';
+import { useCan } from '../../../shared/auth/usePermission';
+import { PERM } from '../../../shared/auth/permissions';
 import { createHoliday, deleteHoliday, listHolidays, updateHoliday, type Holiday } from './api';
 import { formatLong, isValidIso, todayIso } from './dates';
 
@@ -8,6 +10,7 @@ type Load = { state: 'loading' } | { state: 'error' } | { state: 'ready'; holida
 export function HolidaysPanel() {
   const [year, setYear] = useState(() => Number(todayIso().slice(0, 4)));
   const [load, setLoad] = useState<Load>({ state: 'loading' });
+  const canWrite = useCan(PERM.masterDataWrite);
   const [editing, setEditing] = useState<Holiday | 'new' | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null);
@@ -55,7 +58,7 @@ export function HolidaysPanel() {
           <h2 id="holidays-title">Hari libur</h2>
           <p className="panel-subtitle">D-11 holidays. Libur nasional dan cuti bersama, tidak dihitung sebagai hari kerja.</p>
         </div>
-        <button type="button" className="button" disabled={load.state !== 'ready'} onClick={() => { setNotice(null); setEditing('new'); }}>Tambah hari libur</button>
+        {canWrite && <button type="button" className="button" disabled={load.state !== 'ready'} onClick={() => { setNotice(null); setEditing('new'); }}>Tambah hari libur</button>}
       </div>
 
       <div className="panel-toolbar">
@@ -106,7 +109,7 @@ export function HolidaysPanel() {
                     {holiday.is_weekend && <span className="status-pill subtle-pill">Akhir pekan</span>}
                   </td>
                   <td>
-                    <div className="row-actions">
+                    {canWrite && <div className="row-actions">
                       {confirmDelete === holiday.holiday_date ? (
                         <>
                           <span className="text-body-sm">Hapus?</span>
@@ -119,7 +122,7 @@ export function HolidaysPanel() {
                           <button type="button" className="button button-ghost" aria-label={`Hapus ${holiday.holiday_name}`} onClick={() => setConfirmDelete(holiday.holiday_date)}>Hapus</button>
                         </>
                       )}
-                    </div>
+                    </div>}
                   </td>
                 </tr>
               ))}

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ApiError } from '../../../shared/api/client';
+import { useCan } from '../../../shared/auth/usePermission';
+import { PERM } from '../../../shared/auth/permissions';
 import { ResourceForm } from './ResourceForm';
 import { createResource, deleteResource, listResources, listRoles, SENIORITY_LABEL, updateResource, type Resource, type ResourceInput, type Role } from './api';
 
@@ -21,6 +23,7 @@ function formatTenure(days: number): string {
 
 export function ResourcesPanel() {
   const [load, setLoad] = useState<Load>({ state: 'loading' });
+  const canWrite = useCan(PERM.masterDataWrite);
   const [editing, setEditing] = useState<Resource | 'new' | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null);
@@ -68,7 +71,7 @@ export function ResourcesPanel() {
           <h2 id="resources-title">Anggota</h2>
           <p className="panel-subtitle">D-02 resources. Peran utama, peran rangkap, dan masa onboarding.</p>
         </div>
-        <button type="button" className="button" disabled={load.state !== 'ready'} onClick={() => { setNotice(null); setEditing('new'); }}>Tambah anggota</button>
+        {canWrite && <button type="button" className="button" disabled={load.state !== 'ready'} onClick={() => { setNotice(null); setEditing('new'); }}>Tambah anggota</button>}
       </div>
 
       {load.state === 'ready' && resources.length > 0 && (
@@ -129,7 +132,7 @@ export function ResourcesPanel() {
                   </td>
                   <td>{resource.cross_role_capable ? 'Ya' : 'Tidak'}</td>
                   <td>
-                    <div className="row-actions">
+                    {canWrite && <div className="row-actions">
                       {confirmDelete === resource.resource_id ? (
                         <>
                           <span className="text-body-sm">Hapus?</span>
@@ -142,7 +145,7 @@ export function ResourcesPanel() {
                           <button type="button" className="button button-ghost" aria-label={`Hapus ${resource.resource_id}`} onClick={() => setConfirmDelete(resource.resource_id)}>Hapus</button>
                         </>
                       )}
-                    </div>
+                    </div>}
                   </td>
                 </tr>
               ))}

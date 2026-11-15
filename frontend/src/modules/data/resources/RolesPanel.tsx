@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { ApiError } from '../../../shared/api/client';
+import { useCan } from '../../../shared/auth/usePermission';
+import { PERM } from '../../../shared/auth/permissions';
 import { listRoles, updateRole, type Role } from './api';
 
 type Load = { state: 'loading' } | { state: 'error' } | { state: 'ready'; roles: Role[] };
@@ -10,6 +12,7 @@ const parse = (value: string) => (value.trim() === '' ? Number.NaN : Number(valu
 
 export function RolesPanel() {
   const [load, setLoad] = useState<Load>({ state: 'loading' });
+  const canWrite = useCan(PERM.masterDataWrite);
   const [editing, setEditing] = useState<string | null>(null);
   const [capacity, setCapacity] = useState('');
   const [description, setDescription] = useState('');
@@ -131,9 +134,9 @@ export function RolesPanel() {
                   <td className="cell-description">{role.description ?? <span className="text-muted">—</span>}</td>
                   <td className="num text-data">{role.resource_count}</td>
                   <td>
-                    <div className="row-actions">
+                    {canWrite && <div className="row-actions">
                       <button type="button" className="button button-ghost" disabled={editing !== null} onClick={() => startEdit(role)}>Ubah</button>
-                    </div>
+                    </div>}
                   </td>
                 </tr>
               ))}

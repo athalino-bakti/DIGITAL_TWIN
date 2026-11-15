@@ -1,4 +1,6 @@
 import { Navigate, NavLink, useParams } from 'react-router-dom';
+import { useAuth } from '../../shared/auth/AuthProvider';
+import { allowed } from '../../shared/auth/permissions';
 import { ModulePlaceholder } from '../../shared/components/ModulePlaceholder';
 import { AvailabilityPanel } from './availability/AvailabilityPanel';
 import { HolidaysPanel } from './availability/HolidaysPanel';
@@ -6,25 +8,19 @@ import { ComplexityPanel } from './complexity/ComplexityPanel';
 import { ProjectsPanel } from './projects/ProjectsPanel';
 import { ResourcesPanel } from './resources/ResourcesPanel';
 import { RolesPanel } from './resources/RolesPanel';
+import { dataViews } from './views';
 import { WorkloadPanel } from './workload/WorkloadPanel';
 
-const views = {
-  proyek: { label: 'Proyek' },
-  anggota: { label: 'Anggota' },
-  peran: { label: 'Peran' },
-  beban: { label: 'Beban non-proyek' },
-  kompleksitas: { label: 'Kompleksitas' },
-  ketersediaan: { label: 'Ketersediaan' },
-  libur: { label: 'Hari libur' },
-  impor: { label: 'Impor dataset' },
-} as const;
-
 export function DataPage() {
-  const { view = 'proyek' } = useParams();
-  if (!Object.hasOwn(views, view)) return <Navigate to="/data/proyek" replace />;
+  const { view } = useParams();
+  const { user } = useAuth();
+  const views = allowed(dataViews, user);
+  if (views.length === 0) return null; // tidak terjadi: /data sudah dijaga RequirePermission
+  // Tab yang tidak dikenal atau tidak boleh dibuka dialihkan ke tab pertama yang boleh.
+  if (!views.some((item) => item.key === view)) return <Navigate to={`/data/${views[0].key}`} replace />;
   return <>
     <nav className="tabs" aria-label="Tampilan Data">
-      {Object.entries(views).map(([key, item]) => <NavLink key={key} to={`/data/${key}`} className={({ isActive }) => isActive ? 'tab active' : 'tab'}>{item.label}</NavLink>)}
+      {views.map((item) => <NavLink key={item.key} to={`/data/${item.key}`} className={({ isActive }) => isActive ? 'tab active' : 'tab'}>{item.label}</NavLink>)}
     </nav>
     {view === 'proyek' && <ProjectsPanel />}
     {view === 'anggota' && <ResourcesPanel />}
