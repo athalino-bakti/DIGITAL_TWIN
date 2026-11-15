@@ -160,3 +160,32 @@ Password diminta lewat prompt, minimal 8 karakter, dan disimpan sebagai hash scr
 - Token berlaku `ACCESS_TOKEN_EXPIRE_MINUTES` menit (default 60). Saat API membalas `401`, frontend sebaiknya menghapus token dan mengarahkan ke halaman login.
 - Endpoint lain bisa mewajibkan login dengan dependency `CurrentUser` dari `app.modules.auth.dependencies`.
 - `JWT_SECRET_KEY` wajib diganti di luar development (`APP_ENV=staging`/`production`); aplikasi menolak start bila masih memakai nilai bawaan.
+
+### Peran aplikasi dan izin (RBAC)
+
+Satu pengguna boleh punya banyak peran aplikasi; izinnya gabungan dari semua perannya. Peran ini terpisah dari D-03 `roles` (peran kerja di PuTI). Matriks di bawah adalah **usulan awal** dari proposal subbab II.2.10 dan Story DIG-19, dan dapat disesuaikan lewat migrasi baru setelah disepakati tim.
+
+| Izin | `kaur_asman` | `system_analyst` | `anggota_tim` | `admin_data` |
+| --- | :-: | :-: | :-: | :-: |
+| `master_data:read` | ✓ | ✓ | ✓ | ✓ |
+| `master_data:write` |  |  |  | ✓ |
+| `import:run` |  |  |  | ✓ |
+| `data_quality:read` |  | ✓ |  | ✓ |
+| `work_event:write` | ✓ | ✓ |  |  |
+| `task_status:update_own` |  |  | ✓ |  |
+| `baseline:read` | ✓ | ✓ | ✓ |  |
+| `workload:read_all` | ✓ | ✓ |  |  |
+| `workload:read_own` | ✓ | ✓ | ✓ |  |
+| `event_log:export` |  | ✓ |  | ✓ |
+| `user:manage` |  |  |  | ✓ |
+
+Mengatur peran dari folder `backend` (belum ada halaman kelola akun):
+
+```powershell
+python -m app.modules.auth.set_roles --list
+python -m app.modules.auth.set_roles --username bagas --role admin_data --role system_analyst
+```
+
+- `GET /api/v1/auth/me` dan respons login memuat `roles` dan `permissions`; frontend memakai `permissions` untuk menyembunyikan menu dan tombol (DIG-92).
+- Endpoint dilindungi dengan `Depends(require_permission(Perm.MASTER_DATA_WRITE))` dari `app.modules.auth.dependencies`. Tanpa token: `401`. Login tapi tidak berizin: `403`.
+- Izin dibaca ulang di setiap request, jadi perubahan peran langsung berlaku tanpa login ulang.
