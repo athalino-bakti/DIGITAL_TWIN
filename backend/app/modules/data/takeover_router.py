@@ -11,6 +11,8 @@ from fastapi import APIRouter, Depends, Path, Query, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.modules.auth.dependencies import require_permission
+from app.modules.auth.permissions import Perm
 from app.modules.data import takeover_service as service
 from app.modules.data.enums import AVAILABILITY_ID_PATTERN, TASK_ID_PATTERN
 from app.modules.data.router import to_http
@@ -25,6 +27,12 @@ from app.modules.data.takeover_schemas import (
 
 router = APIRouter(prefix="/data", tags=["Data"])
 
+# Riwayat penugasan, kandidat pengganti, dan task terdampak memperlihatkan beban dan
+# ketidakhadiran anggota lain (DIG-19). Pengalihan task bagian dari pencatatan
+# ketidakhadiran dan rotasi (FR-06).
+WORKLOAD_READ = [Depends(require_permission(Perm.WORKLOAD_READ_ALL))]
+TAKEOVER_WRITE = [Depends(require_permission(Perm.AVAILABILITY_WRITE))]
+
 Db = Annotated[Session, Depends(get_db)]
 TaskIdPath = Annotated[str, Path(pattern=TASK_ID_PATTERN, examples=["TSK-0001"])]
 AvailabilityIdPath = Annotated[str, Path(pattern=AVAILABILITY_ID_PATTERN, examples=["AVL-001"])]
@@ -33,6 +41,7 @@ TASK_NOT_FOUND = {status.HTTP_404_NOT_FOUND: {"description": "Task tidak ditemuk
 
 @router.get(
     "/tasks/{task_id}/assignments",
+    dependencies=WORKLOAD_READ,
     response_model=list[AssignmentRead],
     responses=TASK_NOT_FOUND,
     summary="Riwayat penugasan sebuah task (D-07)",
@@ -46,6 +55,7 @@ def list_task_assignments(db: Db, task_id: TaskIdPath) -> list[AssignmentRead]:
 
 @router.get(
     "/tasks/{task_id}/replacement-candidates",
+    dependencies=WORKLOAD_READ,
     response_model=list[ReplacementCandidate],
     responses=TASK_NOT_FOUND,
     summary="Kandidat pengganti untuk sebuah task",
@@ -65,6 +75,7 @@ def replacement_candidates(
 
 @router.post(
     "/tasks/{task_id}/takeover",
+    dependencies=TAKEOVER_WRITE,
     response_model=TakeoverResult,
     responses=TASK_NOT_FOUND,
     summary="Alihkan task ke anggota lain",
@@ -80,6 +91,7 @@ def take_over(db: Db, task_id: TaskIdPath, payload: TakeoverRequest) -> Takeover
 
 @router.get(
     "/availability/{availability_id}/affected-tasks",
+    dependencies=WORKLOAD_READ,
     response_model=list[AffectedTask],
     responses={status.HTTP_404_NOT_FOUND: {"description": "Catatan tidak ditemukan"}},
     summary="Task yang terdampak oleh ketidakhadiran",
