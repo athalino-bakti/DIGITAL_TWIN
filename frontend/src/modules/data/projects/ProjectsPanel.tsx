@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ApiError } from '../../../shared/api/client';
+import { useCan } from '../../../shared/auth/usePermission';
+import { PERM } from '../../../shared/auth/permissions';
 import { ProjectForm } from './ProjectForm';
 import { createProject, deleteProject, listProjects, STATUS_LABEL, updateProject, type Project, type ProjectInput, type ProjectStatus } from './api';
 
@@ -19,6 +21,7 @@ type Load = { state: 'loading' } | { state: 'error' } | { state: 'ready'; projec
 export function ProjectsPanel() {
   const [load, setLoad] = useState<Load>({ state: 'loading' });
   const [filter, setFilter] = useState<Filter>('all');
+  const canWrite = useCan(PERM.masterDataWrite);
   const [editing, setEditing] = useState<Project | 'new' | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null);
@@ -66,7 +69,7 @@ export function ProjectsPanel() {
           <h2 id="projects-title">Proyek</h2>
           <p className="panel-subtitle">D-01 projects. Urut dari prioritas tertinggi.</p>
         </div>
-        <button type="button" className="button" onClick={() => { setNotice(null); setEditing('new'); }}>Tambah proyek</button>
+        {canWrite && <button type="button" className="button" onClick={() => { setNotice(null); setEditing('new'); }}>Tambah proyek</button>}
       </div>
 
       {load.state === 'ready' && projects.length > 0 && (
@@ -134,7 +137,7 @@ export function ProjectsPanel() {
                   <td><span className={`status-pill status-${project.status}`}>{STATUS_LABEL[project.status]}</span></td>
                   <td>{project.dor_fulfilled ? 'Ya' : 'Belum'}</td>
                   <td>
-                    <div className="row-actions">
+                    {canWrite && <div className="row-actions">
                     {confirmDelete === project.project_id ? (
                       <>
                         <span className="text-body-sm">Hapus?</span>
@@ -147,7 +150,7 @@ export function ProjectsPanel() {
                         <button type="button" className="button button-ghost" aria-label={`Hapus ${project.project_id}`} onClick={() => setConfirmDelete(project.project_id)}>Hapus</button>
                       </>
                     )}
-                    </div>
+                    </div>}
                   </td>
                 </tr>
               ))}
