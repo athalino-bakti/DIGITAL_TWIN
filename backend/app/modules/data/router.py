@@ -27,6 +27,11 @@ from app.modules.data.schemas import (
 
 router = APIRouter(prefix="/data", tags=["Data"])
 
+# D-08 beban non-proyek (DIG-30) ada di modul terpisah.
+from app.modules.data.workload_router import router as workload_router  # noqa: E402
+
+router.include_router(workload_router)
+
 Db = Annotated[Session, Depends(get_db)]
 ProjectIdPath = Annotated[str, Path(pattern=PROJECT_ID_PATTERN, examples=["PRJ-001"])]
 ComplexityIdPath = Annotated[str, Path(pattern=COMPLEXITY_ID_PATTERN, examples=["CX-M"])]
