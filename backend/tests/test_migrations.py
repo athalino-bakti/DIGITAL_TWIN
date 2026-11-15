@@ -133,3 +133,31 @@ def test_models_match_migrations(engine: Engine):
     """Setelah upgrade head, model SQLAlchemy tidak boleh berbeda dari skema hasil migrasi."""
     run(engine, command.upgrade, "head")
     run(engine, command.check)
+
+
+# Tabel pendukung DATA_CONTRACT 7.3: aksi ON DELETE setiap foreign key (DIG-220, DIG-221).
+SUPPORT_TABLE_FK_ACTIONS = {
+    "resource_skills": {"resource_id": "CASCADE", "role_id": "RESTRICT"},
+}
+
+
+def fk_actions(engine: Engine, table: str) -> dict[str, str]:
+    with engine.connect() as connection:
+        fks = inspect(connection).get_foreign_keys(table, schema="public")
+    return {fk["constrained_columns"][0]: fk["options"].get("ondelete", "NO ACTION") for fk in fks}
+
+
+def test_support_tables_are_dropped_and_recreated(engine: Engine):
+    """Downgrade ke 0016 menghapus tabel 7.3, dan upgrade lagi membuatnya dengan FK yang sama."""
+    run(engine, command.upgrade, "head")
+    for table, actions in SUPPORT_TABLE_FK_ACTIONS.items():
+        assert fk_actions(engine, table) == actions, table
+
+    run(engine, command.downgrade, "0016")
+    with engine.connect() as connection:
+        tables = set(inspect(connection).get_table_names(schema="public"))
+    assert tables.isdisjoint(SUPPORT_TABLE_FK_ACTIONS)
+
+    run(engine, command.upgrade, "head")
+    for table, actions in SUPPORT_TABLE_FK_ACTIONS.items():
+        assert fk_actions(engine, table) == actions, table
