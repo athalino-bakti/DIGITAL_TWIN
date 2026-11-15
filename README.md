@@ -98,6 +98,16 @@ Dari `backend/`:
 
 Tes health memakai dependency override untuk menguji status sukses/gagal tanpa PostgreSQL. Setelah database aktif, periksa koneksi nyata dengan `Invoke-RestMethod http://localhost:8000/api/v1/health/ready`. `alembic heads` harus menampilkan tepat satu revisi.
 
+### Skema basis data vs Data Dictionary
+
+Dari `backend/`, setelah `alembic upgrade head`:
+
+```powershell
+.\.venv\Scripts\python.exe -m app.qa.schema_check
+```
+
+Script ini membandingkan tabel D-01 sampai D-11 di basis data dengan bagian 6 `docs/DATA_CONTRACT.md`: daftar kolom, tipe, wajib/boleh kosong, default, primary key, foreign key, serta nama aturan `ck_`, `uq_`, dan `ex_` dua arah. Hasilnya `Cocok: ...` (kode keluar 0) atau daftar selisih (kode keluar 1). Tes `tests/test_schema_check.py` menjalankan pemeriksaan yang sama di CI, jadi migrasi yang mengubah tabel Data Dictionary harus disertai pembaruan DATA_CONTRACT di pull request yang sama, dan sebaliknya.
+
 ## Migrasi saat modul mulai dibuat
 
 Tambahkan model pada folder modul dan import model tersebut di `backend/migrations/env.py` agar Alembic mengenali metadata. Dari `backend/` dengan PostgreSQL aktif:
@@ -175,6 +185,8 @@ Akun baru belum punya peran aplikasi, jadi belum bisa membuka endpoint yang dili
 - Token berlaku `ACCESS_TOKEN_EXPIRE_MINUTES` menit (default 60). Saat API membalas `401`, frontend sebaiknya menghapus token dan mengarahkan ke halaman login.
 - Endpoint lain bisa mewajibkan login dengan dependency `CurrentUser` dari `app.modules.auth.dependencies`.
 - `JWT_SECRET_KEY` wajib diganti di luar development (`APP_ENV=staging`/`production`); aplikasi menolak start bila masih memakai nilai bawaan.
+- Login gagal dibatasi: 5 kali per username dan 20 kali per alamat IP dalam 15 menit (`LOGIN_MAX_FAILURES_PER_USER`, `LOGIN_MAX_FAILURES_PER_IP`, `LOGIN_LOCKOUT_MINUTES`). Setelah itu API membalas `429` dengan header `Retry-After`, dan password tidak di-hash. Login berhasil menghapus hitungan username tersebut. Hitungan disimpan di memori proses, jadi jalankan API dengan satu worker atau sesuaikan batasnya. Di belakang reverse proxy, jalankan uvicorn dengan `--proxy-headers` agar IP yang terbaca adalah IP pengguna, bukan IP proxy.
+- Hash scrypt memakai N=2^15, r=8, p=3 (32 MiB per hash) dan paling banyak 4 hash dihitung bersamaan. Bila semua slot sibuk lebih dari 10 detik, login membalas `503`. Hash lama dengan parameter lain tetap bisa dipakai login dan otomatis diperbarui saat login berhasil.
 
 ### Peran aplikasi dan izin (RBAC)
 
@@ -195,7 +207,7 @@ Satu pengguna boleh punya banyak peran aplikasi; izinnya gabungan dari semua per
 | `event_log:export` (FR-07) |  |  |  | ✓ |  |
 | `user:manage` |  |  |  |  | ✓ |
 
-- System Analyst yang juga menjalankan tugas Administrator Data (Tabel 2.1) cukup diberi dua peran: `system_analyst` dan `admin_data`.
+- PuTI tidak punya jabatan Administrator Data atau Admin IT tersendiri (struktur tim A.2: Kaur/Asman, SA, TW, UI/UX, QA, FE, BE, DM). Peran `admin_data` dan `admin_it` diberikan sebagai peran kedua, biasanya ke SA sesuai Tabel 2.1 (atau ke Kaur bila perlu). Dengan `system_analyst` + `admin_data`, SA bisa melihat sekaligus menginput dan mengimpor beban non-proyek (D-08).
 - `change_event:write_own` dan `workload:read_own` hanya membuka endpoint; pembatasan ke task atau data milik pengguna sendiri dicek di endpoint tersebut.
 
 Mengatur peran dari folder `backend` (belum ada halaman kelola akun):
@@ -208,3 +220,4 @@ python -m app.modules.auth.set_roles --username bagas --role admin_data --role s
 - `GET /api/v1/auth/me` dan respons login memuat `roles` dan `permissions`; frontend memakai `permissions` untuk menyembunyikan menu dan tombol (DIG-92).
 - Endpoint dilindungi dengan `Depends(require_permission(Perm.MASTER_DATA_WRITE))` dari `app.modules.auth.dependencies`. Tanpa token: `401`. Login tapi tidak berizin: `403`.
 - Izin dibaca ulang di setiap request, jadi perubahan peran langsung berlaku tanpa login ulang.
+- Semua endpoint `/api/v1/data/*` wajib login dan izin (DIG-226): baca master data `master_data:read`, ubah master data dan hari libur `master_data:write`, lihat ketidakhadiran (D-09) dan beban non-proyek (D-08) `workload:read_all`, catat ketidakhadiran `availability:write`, tambah/ubah/hapus beban non-proyek `master_data:write`, impor CSV D-08 `import:run`. `/api/v1/health` tetap terbuka. Tes `tests/test_data_permissions.py` gagal bila ada endpoint data baru tanpa `require_permission` atau belum dicatat di peta izinnya.

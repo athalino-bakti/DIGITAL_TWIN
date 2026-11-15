@@ -23,6 +23,10 @@ from sqlalchemy.orm import sessionmaker
 
 from app.db.session import get_db
 from app.main import app
+from app.modules.auth import security
+from app.modules.auth.models import AppUser
+from app.modules.auth.permissions import ROLES
+from app.modules.auth.rbac_models import UserAppRole
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 TEST_DB_URL = os.getenv("TEST_DATABASE_URL")
@@ -53,12 +57,28 @@ def session_factory():
     engine.dispose()
 
 
+def make_token(session, username: str, roles: list[str]) -> str:
+    """Buat pengguna dengan peran tertentu dan kembalikan token aksesnya (tanpa login/hash)."""
+    user = AppUser(username=username, full_name=username, password_hash="tes-tanpa-password")
+    session.add(user)
+    session.flush()
+    for role in roles:
+        session.add(UserAppRole(user_id=user.user_id, role_code=role))
+    session.commit()
+    return security.create_access_token(user.user_id, user.username)
+
+
 @pytest.fixture
 def client(session_factory):
-    """TestClient dengan tabel transaksi dikosongkan. Data referensi (seed) tetap ada."""
+    """TestClient dengan tabel transaksi dikosongkan. Data referensi (seed) tetap ada.
+
+    Request dikirim sebagai pengguna yang memegang semua peran aplikasi, supaya tes fitur
+    tidak terganjal izin. Aturan izin per peran dites di test_data_permissions.py.
+    """
     with session_factory() as session:
-        session.execute(text("TRUNCATE projects, resources, holidays CASCADE"))
+        session.execute(text("TRUNCATE projects, resources, holidays, app_user CASCADE"))
         session.commit()
+        token = make_token(session, "penguji", sorted(ROLES))
 
     def override():
         with session_factory() as session:
@@ -66,6 +86,7 @@ def client(session_factory):
 
     app.dependency_overrides[get_db] = override
     with TestClient(app) as test_client:
+        test_client.headers["Authorization"] = f"Bearer {token}"
         yield test_client
     app.dependency_overrides.clear()
 
