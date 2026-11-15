@@ -4,8 +4,8 @@ Dokumen ini menjadi kesepakatan tentang data yang dibagi bersama oleh aplikasi D
 
 | Item | Nilai |
 |---|---|
-| Versi | 1.1 |
-| Jira | DIG-12 (DIG-62, DIG-63), DIG-106 |
+| Versi | 1.2 |
+| Jira | DIG-12 (DIG-62, DIG-63), DIG-106, DIG-30 |
 | Skema acuan | Sheet "Data Dictionary" pada berkas *Business Process DT untuk PuTI* |
 | Dataset baseline | Dataset dummy dari dosen pembimbing (`puti_datasets.xlsx`) |
 | Implementasi skema | `backend/app/modules/data/models.py` dan revisi Alembic `0001` sampai `0008` (DIG-15) dan `0017` (DIG-106) |
@@ -238,6 +238,14 @@ Aturan di basis data:
 - `ck_workload_items_severity_valid`: `severity IN ('low', 'medium', 'high', 'critical')`
 - `ck_workload_items_started_after_received`: `started_date >= received_date`
 
+Aturan validator J&C (form, API, dan impor CSV D-08, DIG-30):
+
+- `is_hotfix = true` hanya untuk `item_type = 'ticket'`.
+- Hotfix wajib mengisi `related_project_id` dengan aplikasi yang terdaftar di D-01.
+- Aplikasi itu harus sudah rilis di production: `actual_launch_date` terisi dan tidak setelah `received_date`. Hotfix untuk aplikasi yang belum rilis ditolak.
+
+Aturan hotfix tidak dipasang sebagai constraint basis data karena membandingkan dua tabel (D-08 dan D-01). Kolom D-08 tidak berubah.
+
 ### D-09 `availability`
 
 | Kolom | Tipe DD | Tipe PostgreSQL | Wajib | Keterangan |
@@ -365,3 +373,4 @@ J&C menerima Data Dictionary apa adanya sebagai final sources bersama. Kebutuhan
 |---|---|
 | 1.0 | Versi awal. Persetujuan tWinner atas versi ini dicatat lewat konfirmasi WhatsApp di DIG-12. Isi: salinan Data Dictionary D-01 sampai D-11 sesuai migrasi `0001` sampai `0008`, dataset dosbim sebagai baseline, pemilik dan hak akses, frekuensi pembaruan, aturan format, tabel pendukung J&C, penyelesaian celah skema (`resource_skills`, `change_event_details`, `audit_log`) |
 | 1.1 | Aturan baru pada D-09: `ex_availability_no_overlap` (migrasi `0017`, DIG-106), sehingga ketidakhadiran satu anggota tidak bisa bertumpuk walaupun dua permintaan datang bersamaan. Kolom D-09 tidak berubah dan hak baca `twinner_reader` tetap. Persetujuan tWinner dicatat lewat konfirmasi WhatsApp di DIG-106. Pada `puti_datasets.xlsx`, 19 baris availability ditolak aturan ini dan 4.915 baris lainnya lolos. |
+| 1.2 | Aturan validator hotfix pada D-08 (DIG-30): hanya untuk tiket, wajib terkait aplikasi D-01 yang sudah rilis di production pada tanggal item diterima. Kolom D-08, constraint basis data, dan hak baca `twinner_reader` tidak berubah. Persetujuan tWinner dicatat lewat konfirmasi WhatsApp di DIG-30. |
