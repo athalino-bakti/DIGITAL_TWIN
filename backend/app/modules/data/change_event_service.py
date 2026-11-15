@@ -31,11 +31,11 @@ from app.modules.data.change_event_schemas import (
 from app.modules.data.enums import ChangeEventType, Decision, ResolutionMode, TaskStatus
 from app.modules.data.models import ChangeEvent, Project, Task
 from app.modules.data.service import (
-    ConflictError,
     DataValidationError,
     FieldError,
     NotFoundError,
     commit,
+    ensure_id_free,
     next_id,
 )
 
@@ -265,10 +265,9 @@ def create_change_event(db: Session, payload: ChangeEventCreate) -> ChangeEventR
             raise DataValidationError(errors)
     if values["event_id"] is None:
         values["event_id"] = next_event_id(db)
-    elif db.get(ChangeEvent, values["event_id"]) is not None:
-        raise ConflictError(
-            f"ID {values['event_id']} sudah dipakai kejadian lain", field="event_id"
-        )
+    else:
+        # Menolak juga nomor yang sama dengan padding berbeda, misalnya EVT-0001 vs EVT-001.
+        ensure_id_free(db, ChangeEvent.event_id, values["event_id"], "event_id", "kejadian")
     db.add(ChangeEvent(**values))
     if task is not None and effect is not None:
         # Kejadian dan perubahan task tersimpan bersama, atau tidak sama sekali.

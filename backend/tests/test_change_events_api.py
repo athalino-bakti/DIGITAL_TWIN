@@ -275,3 +275,17 @@ def test_duplicate_id_does_not_apply_effect(client, db, setup):
     payload = swap(setup, event_id="EVT-001", task_effect={"status": "dropped"})
     assert client.post(BASE, json=payload).status_code == 409
     assert task_state(db) == ("not_started", 1)
+
+
+def test_same_number_with_other_padding_is_rejected(client, setup):
+    """Review #24: EVT-0001 saat EVT-001 sudah ada adalah nomor yang sama."""
+    create(client, setup, event_id="EVT-001")
+    response = client.post(BASE, json=body(setup, event_id="EVT-0001"))
+    assert response.status_code == 409
+    assert "EVT-001" in response.json()["detail"]["msg"]
+
+
+def test_event_id_longer_than_20_characters_is_rejected(client, setup):
+    response = client.post(BASE, json=body(setup, event_id="EVT-" + "1" * 17))
+    assert response.status_code == 422
+    assert error_fields(response) == ["event_id"]

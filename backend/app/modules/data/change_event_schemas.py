@@ -16,10 +16,10 @@ from app.modules.data.enums import (
     ResolutionMode,
     TaskStatus,
 )
-from app.modules.data.schemas import IsoDate, ProjectId, reject_nul
+from app.modules.data.schemas import ID_MAX_LENGTH, IsoDate, ProjectId, reject_nul
 
-EventId = Annotated[str, StringConstraints(pattern=EVENT_ID_PATTERN)]
-TaskId = Annotated[str, StringConstraints(pattern=TASK_ID_PATTERN)]
+EventId = Annotated[str, StringConstraints(pattern=EVENT_ID_PATTERN, max_length=ID_MAX_LENGTH)]
+TaskId = Annotated[str, StringConstraints(pattern=TASK_ID_PATTERN, max_length=ID_MAX_LENGTH)]
 RequestedBy = Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=1, max_length=100),
