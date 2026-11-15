@@ -9,11 +9,12 @@ from pathlib import Path
 
 import pytest
 
+from app.integrations.trello.parser import parse_board_export
 from synthetic import reference as ref
 from synthetic.checks import find_problems, read_tables
 from synthetic.dirty import write_dirty
 from synthetic.final_sources import write_final_sources
-from synthetic.raw_sources import PLAN_HEADER, write_raw_sources
+from synthetic.raw_sources import PLAN_HEADER, trello_board, write_raw_sources
 from synthetic.world import build_world
 
 AS_OF = date(2026, 11, 6)
@@ -121,6 +122,56 @@ def test_raw_sources_cover_the_same_tasks(world, output):
     for log in (raw / "git").glob("*.log"):
         codes |= set(re.findall(r"\[(TSK-\d{4})\]", log.read_text(encoding="utf-8")))
     assert codes and codes <= {t.task_id for t in world.tasks}
+
+
+def _actions_per_card(board: dict) -> dict[str, list[dict]]:
+    """Action per kode kartu (TSK-xxxx, WLI-xxxx), urut menurut waktu."""
+    codes = {c["id"]: c["name"].split(" | ")[0] for c in board["cards"]}
+    per_card: dict[str, list[dict]] = {}
+    for action in sorted(board["actions"], key=lambda a: a["date"]):
+        per_card.setdefault(codes[action["data"]["card"]["id"]], []).append(action)
+    return per_card
+
+
+@pytest.mark.parametrize("seed", [42, 7, 2026])
+def test_trello_actions_of_every_card_follow_event_order(seed):
+    """DIG-225: createCard paling awal, waktu tidak kembar, dan perpindahan list bersambung."""
+    for card, actions in _actions_per_card(trello_board(build_world(seed, AS_OF))).items():
+        dates = [a["date"] for a in actions]
+        assert len(set(dates)) == len(dates), card
+        assert actions[0]["type"] == "createCard", card
+        position = actions[0]["data"]["list"]["name"]
+        for action in actions[1:]:
+            if "listAfter" in action["data"]:
+                assert action["data"]["listBefore"]["name"] == position, (card, action["date"])
+                position = action["data"]["listAfter"]["name"]
+
+
+def test_tsk_0052_is_created_before_it_moves_to_todo(output):
+    """Kartu contoh di laporan DIG-225, saat updateCard Backlog -> To Do mendahului createCard."""
+    board = json.loads(
+        (output / "raw" / "trello" / "trello_board.json").read_text(encoding="utf-8")
+    )
+    actions = _actions_per_card(board)["TSK-0052"]
+    to_do = next(a for a in actions if a["data"].get("listAfter", {}).get("name") == "To Do")
+    assert actions[0]["type"] == "createCard"
+    assert actions[0]["date"] < to_do["date"]
+
+
+@pytest.mark.parametrize("board_path", ["raw", "dirty/raw"])
+def test_trello_parser_puts_create_card_first_for_every_card(output, board_path):
+    """DIG-225: hasil parser (urut action_date lalu action_id) diawali createCard per kartu."""
+    board = json.loads(
+        (output / board_path / "trello" / "trello_board.json").read_text(encoding="utf-8")
+    )
+    per_card: dict[str, list[dict]] = {}
+    for row in parse_board_export(board).actions:
+        per_card.setdefault(row["card_id"], []).append(row)
+    assert set(per_card) == {c["id"] for c in board["cards"]}
+    for rows in per_card.values():
+        assert rows[0]["action_type"] == "createCard", rows[0]["card_name"]
+        # Bukan menang urutan action_id: createCard benar-benar lebih awal.
+        assert len(rows) == 1 or rows[0]["action_date"] < rows[1]["action_date"]
 
 
 def test_identity_map_differs_per_tool(world, output):
