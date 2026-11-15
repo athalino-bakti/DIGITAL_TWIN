@@ -15,6 +15,9 @@ import sys
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
+# Tabel resources harus terdaftar di metadata agar FK app_user.resource_id bisa di-resolve
+# saat CLI ini jalan sendiri (tanpa app.main yang biasanya memuat semua model).
+import app.modules.data.models  # noqa: F401
 from app.db.session import SessionLocal
 from app.modules.auth.models import USERNAME_PATTERN, AppUser
 from app.modules.auth.security import hash_password
