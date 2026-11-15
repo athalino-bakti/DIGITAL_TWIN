@@ -12,6 +12,8 @@ from fastapi import APIRouter, Depends, Path, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.modules.auth.dependencies import require_permission
+from app.modules.auth.permissions import Perm
 
 # Modul router Data diimpor sebagai objek modul dan `to_http` dipanggil saat request, karena
 # router.py mengimpor modul ini ketika ia sendiri belum selesai dimuat.
@@ -32,6 +34,11 @@ from app.modules.data.service import ConflictError, DataValidationError
 
 router = APIRouter()
 
+# Riwayat perubahan dibaca Kaur/Asman dan System Analyst; pencatatan oleh keduanya (FR-05).
+# Akses anggota tim ke task miliknya sendiri menyusul di DIG-94.
+EVENT_READ = [Depends(require_permission(Perm.WORKLOAD_READ_ALL))]
+EVENT_WRITE = [Depends(require_permission(Perm.CHANGE_EVENT_WRITE))]
+
 Db = Annotated[Session, Depends(get_db)]
 EventIdPath = Annotated[str, Path(pattern=EVENT_ID_PATTERN, examples=["EVT-001"])]
 CONFLICT = {status.HTTP_409_CONFLICT: {"description": "Bentrok dengan data lain"}}
@@ -40,6 +47,7 @@ NOT_FOUND = {status.HTTP_404_NOT_FOUND: {"description": "Kejadian tidak ditemuka
 
 @router.get(
     "/change-events",
+    dependencies=EVENT_READ,
     response_model=list[ChangeEventRead],
     summary="Riwayat kejadian perubahan (D-10)",
 )
@@ -60,6 +68,7 @@ def list_change_events(
 
 @router.get(
     "/change-events/{event_id}",
+    dependencies=EVENT_READ,
     response_model=ChangeEventRead,
     responses=NOT_FOUND,
     summary="Detail kejadian perubahan",
@@ -73,6 +82,7 @@ def get_change_event(db: Db, event_id: EventIdPath) -> ChangeEventRead:
 
 @router.post(
     "/change-events",
+    dependencies=EVENT_WRITE,
     response_model=ChangeEventRead,
     status_code=status.HTTP_201_CREATED,
     responses=CONFLICT,
@@ -87,6 +97,7 @@ def create_change_event(db: Db, payload: ChangeEventCreate) -> ChangeEventRead:
 
 @router.patch(
     "/change-events/{event_id}",
+    dependencies=EVENT_WRITE,
     response_model=ChangeEventRead,
     responses=CONFLICT | NOT_FOUND,
     summary="Ubah sebagian kolom kejadian perubahan",
@@ -102,6 +113,7 @@ def update_change_event(
 
 @router.delete(
     "/change-events/{event_id}",
+    dependencies=EVENT_WRITE,
     status_code=status.HTTP_204_NO_CONTENT,
     responses=NOT_FOUND,
     summary="Hapus kejadian perubahan",
