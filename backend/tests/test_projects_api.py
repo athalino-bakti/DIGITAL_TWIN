@@ -49,6 +49,13 @@ def test_create_with_explicit_project_id(client):
     assert create(client, priority_rank=2)["project_id"] == "PRJ-011"
 
 
+def test_next_project_id_continues_past_999(client):
+    """Urutan teks menaruh PRJ-1000 sebelum PRJ-999; nomor berikutnya dihitung sebagai angka."""
+    create(client, project_id="PRJ-999", priority_rank=1)
+    assert create(client, priority_rank=2)["project_id"] == "PRJ-1000"
+    assert create(client, priority_rank=3)["project_id"] == "PRJ-1001"
+
+
 def test_duplicate_project_id_is_409(client):
     create(client, project_id="PRJ-005")
     response = client.post(BASE, json=project(project_id="PRJ-005", priority_rank=2))
