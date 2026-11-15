@@ -9,7 +9,7 @@ akun pelaku dari sumber disimpan di actor_source_id dan actor_name.
 case_id tanpa foreign key karena kartu Trello bisa berisi task yang belum dimuat ke D-05.
 
 Revision ID: 0018
-Revises: 0016
+Revises: 0012
 """
 
 from typing import Sequence, Union
@@ -19,7 +19,7 @@ from alembic import op
 
 revision: str = "0018"
 # Saat PR ini di-rebase setelah migrasi lain masuk ke main, ganti ke head terbaru.
-down_revision: Union[str, Sequence[str], None] = "0016"
+down_revision: Union[str, Sequence[str], None] = "0012"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
