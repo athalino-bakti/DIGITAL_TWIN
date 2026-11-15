@@ -13,7 +13,15 @@ from pydantic import (
     StringConstraints,
 )
 
-from app.modules.data.enums import PROJECT_ID_PATTERN, ProjectStatus
+from app.modules.data.enums import (
+    AVAILABILITY_ID_PATTERN,
+    PROJECT_ID_PATTERN,
+    RESOURCE_ID_PATTERN,
+    ROLE_ID_PATTERN,
+    AbsenceType,
+    ProjectStatus,
+    Seniority,
+)
 
 ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 
@@ -47,7 +55,10 @@ Name = Annotated[
 # Batas atas mengikuti kolom INTEGER PostgreSQL; di atasnya insert gagal dengan error 500.
 PG_INTEGER_MAX = 2_147_483_647
 PriorityRank = Annotated[int, Field(strict=True, ge=1, le=PG_INTEGER_MAX)]
-ProjectId = Annotated[str, StringConstraints(pattern=PROJECT_ID_PATTERN)]
+# Kolom ID bertipe VARCHAR(20). Tanpa max_length, ID lebih panjang lolos validasi lalu gagal
+# di basis data atau di int() sebagai error 500.
+ID_MAX_LENGTH = 20
+ProjectId = Annotated[str, StringConstraints(pattern=PROJECT_ID_PATTERN, max_length=ID_MAX_LENGTH)]
 
 
 class ProjectFields(BaseModel):
@@ -101,4 +112,184 @@ class ProjectRead(BaseModel):
     is_active: bool = Field(description="Status planning, development, atau testing")
     is_overdue: bool = Field(
         description="Proyek aktif yang target launching-nya sudah lewat dari hari ini"
+    )
+
+
+# --- D-04 complexity_levels (DIG-22) ---
+
+# Hari dan bobot boleh desimal (misalnya 0,5 hari), tidak negatif, dan harus angka
+# biasa: string, boolean, NaN, dan tak hingga ditolak.
+NonNegative = Annotated[float, Field(strict=True, ge=0, allow_inf_nan=False)]
+
+
+class ComplexityUpdate(BaseModel):
+    """Body PATCH. ID dan nama level tetap; yang diatur hanya rentang hari dan bobot."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    min_days: NonNegative | None = None
+    max_days: NonNegative | None = None
+    load_weight: NonNegative | None = None
+
+
+class ComplexityRead(BaseModel):
+    complexity_id: str
+    complexity_name: str
+    min_days: float
+    max_days: float
+    load_weight: float
+    task_count: int = Field(description="Jumlah task yang memakai level ini")
+
+
+# --- D-02 resources dan D-03 roles (DIG-21) ---
+
+RoleId = Annotated[str, StringConstraints(pattern=ROLE_ID_PATTERN)]
+ResourceId = Annotated[
+    str, StringConstraints(pattern=RESOURCE_ID_PATTERN, max_length=ID_MAX_LENGTH)
+]
+# Daftar role rangkap dikirim sebagai array (multi-select). Di basis data disimpan
+# sebagai string berpemisah titik koma sesuai Data Dictionary, misalnya ROLE-DM;ROLE-FE.
+RoleIdList = Annotated[list[RoleId], Field(max_length=8)]
+
+
+class ResourceFields(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    resource_name: Name
+    primary_role_id: RoleId
+    secondary_role_ids: RoleIdList = Field(default_factory=list)
+    cross_role_capable: bool = Field(default=False, strict=True)
+    join_date: IsoDate
+    seniority: Seniority
+
+
+class ResourceCreate(ResourceFields):
+    """Body POST. `resource_id` boleh dikosongkan; server mengisi RES-xxx berikutnya."""
+
+    resource_id: ResourceId | None = None
+
+
+class ResourceUpdate(BaseModel):
+    """Body PATCH. Hanya kolom yang dikirim yang diubah; `resource_id` tidak bisa diubah."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    resource_name: Name | None = None
+    primary_role_id: RoleId | None = None
+    secondary_role_ids: RoleIdList | None = None
+    cross_role_capable: bool | None = Field(default=None, strict=True)
+    join_date: IsoDate | None = None
+    seniority: Seniority | None = None
+
+
+class ResourceRead(BaseModel):
+    resource_id: str
+    resource_name: str
+    primary_role_id: str
+    secondary_role_ids: list[str]
+    cross_role_capable: bool
+    join_date: date
+    seniority: Seniority
+    tenure_days: int = Field(description="Lama bergabung dalam hari, dihitung dari join_date")
+    is_onboarding: bool = Field(
+        description="Bergabung kurang dari ONBOARDING_DAYS hari yang lalu (asumsi, lihat DIG-186)"
+    )
+
+
+Capacity = Annotated[float, Field(strict=True, gt=0, allow_inf_nan=False)]
+
+
+class RoleUpdate(BaseModel):
+    """Body PATCH. ID dan nama peran tetap; yang diatur kapasitas dan deskripsi."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    capacity_reference: Capacity | None = None
+    description: (
+        Annotated[
+            str,
+            StringConstraints(strip_whitespace=True, max_length=1000),
+            AfterValidator(reject_nul),
+        ]
+        | None
+    ) = None
+
+
+class RoleRead(BaseModel):
+    role_id: str
+    role_name: str
+    capacity_reference: float
+    description: str | None
+    resource_count: int = Field(description="Jumlah anggota dengan peran ini sebagai peran utama")
+
+
+# --- D-09 availability dan D-11 holidays (DIG-23) ---
+
+AvailabilityId = Annotated[str, StringConstraints(pattern=AVAILABILITY_ID_PATTERN)]
+
+
+class AvailabilityFields(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    resource_id: ResourceId
+    date_start: IsoDate
+    date_end: IsoDate
+    absence_type: AbsenceType
+    is_known_at_planning: bool = Field(default=False, strict=True)
+
+
+class AvailabilityCreate(AvailabilityFields):
+    """Body POST. `availability_id` boleh dikosongkan; server mengisi AVL-xxx berikutnya."""
+
+    availability_id: AvailabilityId | None = None
+
+
+class AvailabilityUpdate(BaseModel):
+    """Body PATCH. Hanya kolom yang dikirim yang diubah; ID tidak bisa diubah."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    resource_id: ResourceId | None = None
+    date_start: IsoDate | None = None
+    date_end: IsoDate | None = None
+    absence_type: AbsenceType | None = None
+    is_known_at_planning: bool | None = Field(default=None, strict=True)
+
+
+class AvailabilityRead(BaseModel):
+    availability_id: str
+    resource_id: str
+    resource_name: str
+    date_start: date
+    date_end: date
+    absence_type: AbsenceType
+    is_known_at_planning: bool
+    calendar_days: int = Field(description="Jumlah hari kalender dalam periode, inklusif")
+    working_days: int = Field(
+        description="Hari kerja dalam periode: tanpa Sabtu, Minggu, dan tanggal di D-11"
+    )
+
+
+class HolidayCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    holiday_date: IsoDate
+    holiday_name: Name
+
+
+class HolidayUpdate(BaseModel):
+    """Body PATCH. Tanggal adalah kunci; untuk memindah tanggal, hapus lalu tambah ulang."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    holiday_name: Name
+
+
+class HolidayRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    holiday_date: date
+    holiday_name: str
+    is_weekend: bool = Field(
+        description="Jatuh pada Sabtu atau Minggu, sehingga tidak mengurangi hari kerja"
     )

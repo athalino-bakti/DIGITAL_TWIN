@@ -1,37 +1,16 @@
 """DIG-97 dan DIG-99: endpoint CRUD /api/v1/data/projects terhadap PostgreSQL sungguhan.
 
-Tes ini MENGHAPUS seluruh isi schema `public` pada database tujuan, sehingga hanya
-berjalan jika `TEST_DATABASE_URL` diisi dan nama database berakhiran `_test`.
-Tanpa variabel itu tes dilewati, jadi `pytest` biasa tetap tidak butuh database.
-
-Contoh lokal (PowerShell, dari folder backend):
-    docker compose exec db createdb -U puti digital_twin_test
-    $env:TEST_DATABASE_URL = "postgresql+psycopg://puti:puti_local@localhost:5432/digital_twin_test"
-    python -m pytest -m db -v
+Fixture database (`client`, `db`) dan syarat `TEST_DATABASE_URL` ada di conftest.py.
 """
 
-import os
 from datetime import date, timedelta
-from pathlib import Path
 
 import pytest
-from alembic import command
-from alembic.config import Config
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
-from sqlalchemy.engine import make_url
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import text
 
-from app.db.session import get_db
-from app.main import app
+from tests.conftest import REQUIRES_DB, error_fields
 
-BACKEND_DIR = Path(__file__).resolve().parents[1]
-TEST_DB_URL = os.getenv("TEST_DATABASE_URL")
-
-pytestmark = [
-    pytest.mark.db,
-    pytest.mark.skipif(not TEST_DB_URL, reason="TEST_DATABASE_URL belum diisi"),
-]
+pytestmark = REQUIRES_DB
 
 BASE = "/api/v1/data/projects"
 
@@ -47,59 +26,10 @@ def project(**overrides) -> dict:
     } | overrides
 
 
-@pytest.fixture(scope="module")
-def session_factory():
-    url = make_url(TEST_DB_URL)
-    if not (url.database or "").endswith("_test"):
-        pytest.fail(
-            "Nama database untuk tes harus berakhiran '_test' "
-            f"(sekarang: {url.database!r}) karena isinya akan dihapus."
-        )
-    engine = create_engine(url, pool_pre_ping=True)
-    with engine.begin() as connection:
-        connection.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
-        connection.execute(text("CREATE SCHEMA public"))
-        config = Config(str(BACKEND_DIR / "alembic.ini"))
-        config.set_main_option("script_location", str(BACKEND_DIR / "migrations"))
-        config.attributes["connection"] = connection
-        command.upgrade(config, "head")
-    yield sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
-    engine.dispose()
-
-
-@pytest.fixture
-def client(session_factory):
-    with session_factory() as session:
-        session.execute(text("TRUNCATE projects CASCADE"))
-        session.commit()
-
-    def override():
-        with session_factory() as session:
-            yield session
-
-    app.dependency_overrides[get_db] = override
-    with TestClient(app) as test_client:
-        yield test_client
-    app.dependency_overrides.clear()
-
-
-@pytest.fixture
-def db(session_factory):
-    with session_factory() as session:
-        yield session
-
-
 def create(client, **overrides) -> dict:
     response = client.post(BASE, json=project(**overrides))
     assert response.status_code == 201, response.text
     return response.json()
-
-
-def error_fields(response) -> list[str]:
-    detail = response.json()["detail"]
-    if isinstance(detail, dict):
-        detail = [detail]
-    return [item["loc"][-1] for item in detail if "loc" in item]
 
 
 # --- CRUD dasar (DIG-97) ---
@@ -117,6 +47,50 @@ def test_create_with_explicit_project_id(client):
     created = create(client, project_id="PRJ-010")
     assert created["project_id"] == "PRJ-010"
     assert create(client, priority_rank=2)["project_id"] == "PRJ-011"
+
+
+def test_next_project_id_continues_past_999(client):
+    """Urutan teks menaruh PRJ-1000 sebelum PRJ-999; nomor berikutnya dihitung sebagai angka."""
+    create(client, project_id="PRJ-999", priority_rank=1)
+    assert create(client, priority_rank=2)["project_id"] == "PRJ-1000"
+    assert create(client, priority_rank=3)["project_id"] == "PRJ-1001"
+
+
+def test_next_project_id_keeps_width_of_dataset_ids(client):
+    create(client, project_id="PRJ-0009", priority_rank=1)
+    assert create(client, priority_rank=2)["project_id"] == "PRJ-0010"
+
+
+def test_project_id_with_same_number_is_409(client):
+    create(client, project_id="PRJ-001")
+    response = client.post(BASE, json=project(project_id="PRJ-0001", priority_rank=2))
+    assert response.status_code == 409
+    assert error_fields(response) == ["project_id"]
+    assert "PRJ-001" in response.json()["detail"]["msg"]
+
+
+def test_exact_id_reported_first_when_same_number_already_exists(client, db):
+    """Review #17: bila PRJ-001 dan PRJ-0001 terlanjur ada, PRJ-001 dilaporkan sudah dipakai."""
+    create(client, project_id="PRJ-0001")
+    db.execute(
+        text(
+            "INSERT INTO projects (project_id, project_name, process_owner, priority_rank, "
+            "start_date, target_launch_date, status) VALUES ('PRJ-001', 'Lama', 'Unit', 9, "
+            "'2026-01-05', '2026-06-30', 'on_hold')"
+        )
+    )
+    db.commit()
+    response = client.post(BASE, json=project(project_id="PRJ-001", priority_rank=2))
+    assert response.status_code == 409
+    assert "sudah dipakai" in response.json()["detail"]["msg"]
+
+
+@pytest.mark.parametrize("project_id", ["PRJ-" + "1" * 17, "PRJ-" + "9" * 5000])
+def test_too_long_project_id_is_422(client, project_id):
+    """Review #17: ID lebih dari 20 karakter ditolak validasi, bukan error 500."""
+    response = client.post(BASE, json=project(project_id=project_id))
+    assert response.status_code == 422
+    assert error_fields(response) == ["project_id"]
 
 
 def test_duplicate_project_id_is_409(client):

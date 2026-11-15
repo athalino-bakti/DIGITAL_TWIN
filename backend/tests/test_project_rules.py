@@ -104,10 +104,17 @@ def test_iso_date_is_parsed():
     assert project.start_date == date(2026, 8, 24)
 
 
-@pytest.mark.parametrize("value", ["PRJ-1", "PRJ-0001", "prj-001", "PRJ-ABC"])
+@pytest.mark.parametrize("value", ["PRJ-1", "PRJ-01", "prj-001", "PRJ-ABC"])
 def test_project_id_format(value):
     with pytest.raises(ValidationError):
         ProjectCreate.model_validate_json(_json(VALID | {"project_id": value}))
+
+
+@pytest.mark.parametrize("value", ["PRJ-001", "PRJ-0001", "PRJ-1000"])
+def test_project_id_allows_more_than_three_digits(value):
+    """DIG-224: jumlah digit format ID adalah jumlah minimal (dataset dosbim)."""
+    project = ProjectCreate.model_validate_json(_json(VALID | {"project_id": value}))
+    assert project.project_id == value
 
 
 @pytest.mark.parametrize("field", ["project_name", "process_owner"])
@@ -148,3 +155,57 @@ def test_update_cannot_change_project_id():
 )
 def test_active_statuses(status, active):
     assert is_active(status) is active
+
+
+# --- DIG-22: schema ComplexityUpdate ---
+
+
+@pytest.mark.parametrize(
+    "body",
+    ['{"min_days": -1}', '{"max_days": "5"}', '{"load_weight": true}', '{"load_weight": NaN}'],
+)
+def test_complexity_update_rejects_bad_numbers(body):
+    from app.modules.data.schemas import ComplexityUpdate
+
+    with pytest.raises(ValidationError):
+        ComplexityUpdate.model_validate_json(body)
+
+
+def test_complexity_update_accepts_ints_and_decimals():
+    from app.modules.data.schemas import ComplexityUpdate
+
+    update = ComplexityUpdate.model_validate_json('{"min_days": 0, "max_days": 2.5}')
+    assert (update.min_days, update.max_days) == (0.0, 2.5)
+
+
+# --- DIG-103: penyimpanan secondary_role_ids ---
+
+
+def test_split_and_join_role_ids():
+    from app.modules.data.service import join_role_ids, split_role_ids
+
+    assert split_role_ids("ROLE-DM;ROLE-FE") == ["ROLE-DM", "ROLE-FE"]
+    assert split_role_ids(None) == []
+    assert join_role_ids(["ROLE-DM", "ROLE-FE"]) == "ROLE-DM;ROLE-FE"
+    assert join_role_ids([]) is None
+
+
+def test_next_id_counts_numerically():
+    from app.modules.data.service import next_id
+
+    assert next_id([], "RES") == "RES-001"
+    assert next_id(["RES-009", "RES-010"], "RES") == "RES-011"
+    assert next_id(["RES-999", "RES-1000", "RES-0042"], "RES") == "RES-1001"
+    assert next_id(["PRJ-001", "bukan"], "PRJ") == "PRJ-002"
+
+
+def test_next_id_keeps_digit_width_of_highest_id():
+    """Setelah dataset dosbim (4 digit) dimuat, ID baru ikut 4 digit."""
+    from app.modules.data.service import next_id
+
+    assert next_id(["AVL-0001", "AVL-0050"], "AVL") == "AVL-0051"
+    assert next_id(["EVT-0099"], "EVT") == "EVT-0100"
+    assert next_id(["RES-009"], "RES") == "RES-010"
+    # Lebar diambil dari ID dengan angka terbesar, bukan ID terpanjang.
+    assert next_id(["PRJ-0004", "PRJ-010"], "PRJ") == "PRJ-011"
+    assert next_id([], "TSK", width=4) == "TSK-0001"

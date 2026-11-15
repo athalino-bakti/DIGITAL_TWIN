@@ -98,6 +98,16 @@ Dari `backend/`:
 
 Tes health memakai dependency override untuk menguji status sukses/gagal tanpa PostgreSQL. Setelah database aktif, periksa koneksi nyata dengan `Invoke-RestMethod http://localhost:8000/api/v1/health/ready`. `alembic heads` harus menampilkan tepat satu revisi.
 
+### Skema basis data vs Data Dictionary
+
+Dari `backend/`, setelah `alembic upgrade head`:
+
+```powershell
+.\.venv\Scripts\python.exe -m app.qa.schema_check
+```
+
+Script ini membandingkan tabel D-01 sampai D-11 di basis data dengan bagian 6 `docs/DATA_CONTRACT.md`: daftar kolom, tipe, wajib/boleh kosong, default, primary key, foreign key, serta nama aturan `ck_`, `uq_`, dan `ex_` dua arah. Hasilnya `Cocok: ...` (kode keluar 0) atau daftar selisih (kode keluar 1). Tes `tests/test_schema_check.py` menjalankan pemeriksaan yang sama di CI, jadi migrasi yang mengubah tabel Data Dictionary harus disertai pembaruan DATA_CONTRACT di pull request yang sama, dan sebaliknya.
+
 ## Migrasi saat modul mulai dibuat
 
 Tambahkan model pada folder modul dan import model tersebut di `backend/migrations/env.py` agar Alembic mengenali metadata. Dari `backend/` dengan PostgreSQL aktif:
@@ -148,4 +158,68 @@ $env:TEST_DATABASE_URL = "postgresql+psycopg://puti:puti_local@localhost:5432/di
 
 `npm run build` menghasilkan `frontend/dist`. Hosting frontend perlu fallback ke `index.html` untuk deep link React Router. Proxy Vite hanya untuk development; saat deployment arahkan `/api` ke FastAPI melalui reverse proxy, atau set `VITE_API_BASE_URL` saat build dan sesuaikan `CORS_ORIGINS`. Compose saat ini hanya untuk database lokal.
 
+## Data sintetis
+
+Selama data PuTI belum tersedia, `python -m synthetic` dari folder `backend/` menghasilkan final sources D-01 s.d. D-11, sumber mentah (Project Plan, Trello, git log), dan data kotor untuk pengujian. Detail: [generator data sintetis](docs/SYNTHETIC_DATA.md).
+
 Referensi teknis: [Vite](https://vite.dev/guide/), [router modular FastAPI](https://fastapi.tiangolo.com/tutorial/bigger-applications/), [SQLAlchemy PostgreSQL](https://docs.sqlalchemy.org/en/20/dialects/postgresql.html).
+
+## Login dan sesi pengguna
+
+Backend menyediakan login berbasis token (JWT). Belum ada halaman kelola akun sampai RBAC (DIG-18), jadi akun dibuat dari terminal, dari folder `backend` dengan venv aktif:
+
+```powershell
+python -m app.modules.auth.create_user --username bagas --full-name "Bagas Haris Saputro"
+# opsional: --resource-id RES-001 untuk menautkan akun ke anggota tim
+```
+
+Password diminta lewat prompt, minimal 8 karakter, dan disimpan sebagai hash scrypt.
+
+Akun baru belum punya peran aplikasi, jadi belum bisa membuka endpoint yang dilindungi izin. Beri peran lewat `set_roles`, lihat bagian [Peran aplikasi dan izin (RBAC)](#peran-aplikasi-dan-izin-rbac).
+
+| Endpoint | Body / header | Respons |
+| --- | --- | --- |
+| `POST /api/v1/auth/login` | `{"username": "...", "password": "..."}` | `200` `{access_token, token_type: "bearer", expires_in, user}` · `401` username atau password salah · `422` body tidak valid |
+| `GET /api/v1/auth/me` | `Authorization: Bearer <access_token>` | `200` data user · `401` token tidak ada, rusak, kedaluwarsa, atau akun nonaktif |
+
+- Username tidak peka huruf besar/kecil dan spasi di ujung diabaikan.
+- Username salah, password salah, dan akun nonaktif mendapat pesan yang sama agar tidak membocorkan akun mana yang terdaftar.
+- Token berlaku `ACCESS_TOKEN_EXPIRE_MINUTES` menit (default 60). Saat API membalas `401`, frontend sebaiknya menghapus token dan mengarahkan ke halaman login.
+- Endpoint lain bisa mewajibkan login dengan dependency `CurrentUser` dari `app.modules.auth.dependencies`.
+- `JWT_SECRET_KEY` wajib diganti di luar development (`APP_ENV=staging`/`production`); aplikasi menolak start bila masih memakai nilai bawaan.
+- Login gagal dibatasi: 5 kali per username dan 20 kali per alamat IP dalam 15 menit (`LOGIN_MAX_FAILURES_PER_USER`, `LOGIN_MAX_FAILURES_PER_IP`, `LOGIN_LOCKOUT_MINUTES`). Setelah itu API membalas `429` dengan header `Retry-After`, dan password tidak di-hash. Login berhasil menghapus hitungan username tersebut. Hitungan disimpan di memori proses, jadi jalankan API dengan satu worker atau sesuaikan batasnya. Di belakang reverse proxy, jalankan uvicorn dengan `--proxy-headers` agar IP yang terbaca adalah IP pengguna, bukan IP proxy.
+- Hash scrypt memakai N=2^15, r=8, p=3 (32 MiB per hash) dan paling banyak 4 hash dihitung bersamaan. Bila semua slot sibuk lebih dari 10 detik, login membalas `503`. Hash lama dengan parameter lain tetap bisa dipakai login dan otomatis diperbarui saat login berhasil.
+
+### Peran aplikasi dan izin (RBAC)
+
+Satu pengguna boleh punya banyak peran aplikasi; izinnya gabungan dari semua perannya. Peran ini terpisah dari D-03 `roles` (peran kerja di PuTI). Matriks di bawah mengikuti Tabel 2.1 dan 2.2 (FR-01 sampai FR-12) dokumen Rancangan Kebutuhan dan Arsitektur. Perubahan matriks dilakukan lewat migrasi baru.
+
+| Izin | `kaur_asman` | `system_analyst` | `anggota_tim` | `admin_data` | `admin_it` |
+| --- | :-: | :-: | :-: | :-: | :-: |
+| `master_data:read` | ✓ | ✓ | ✓ | ✓ |  |
+| `master_data:write` |  |  |  | ✓ |  |
+| `import:run` |  |  |  | ✓ |  |
+| `data_quality:read` |  | ✓ |  | ✓ |  |
+| `change_event:write` (FR-05, semua task) | ✓ | ✓ |  |  |  |
+| `change_event:write_own` (FR-05, task miliknya) |  |  | ✓ |  |  |
+| `availability:write` (FR-06) | ✓ | ✓ |  |  |  |
+| `baseline:read` (FR-08 s.d. FR-11) | ✓ | ✓ |  |  |  |
+| `workload:read_all` | ✓ | ✓ |  |  |  |
+| `workload:read_own` | ✓ | ✓ | ✓ |  |  |
+| `event_log:export` (FR-07) |  |  |  | ✓ |  |
+| `user:manage` |  |  |  |  | ✓ |
+
+- PuTI tidak punya jabatan Administrator Data atau Admin IT tersendiri (struktur tim A.2: Kaur/Asman, SA, TW, UI/UX, QA, FE, BE, DM). Peran `admin_data` dan `admin_it` diberikan sebagai peran kedua, biasanya ke SA sesuai Tabel 2.1 (atau ke Kaur bila perlu). Dengan `system_analyst` + `admin_data`, SA bisa melihat sekaligus menginput dan mengimpor beban non-proyek (D-08).
+- `change_event:write_own` dan `workload:read_own` hanya membuka endpoint; pembatasan ke task atau data milik pengguna sendiri dicek di endpoint tersebut.
+
+Mengatur peran dari folder `backend` (belum ada halaman kelola akun):
+
+```powershell
+python -m app.modules.auth.set_roles --list
+python -m app.modules.auth.set_roles --username bagas --role admin_data --role system_analyst
+```
+
+- `GET /api/v1/auth/me` dan respons login memuat `roles` dan `permissions`; frontend memakai `permissions` untuk menyembunyikan menu dan tombol (DIG-92).
+- Endpoint dilindungi dengan `Depends(require_permission(Perm.MASTER_DATA_WRITE))` dari `app.modules.auth.dependencies`. Tanpa token: `401`. Login tapi tidak berizin: `403`.
+- Izin dibaca ulang di setiap request, jadi perubahan peran langsung berlaku tanpa login ulang.
+- Semua endpoint `/api/v1/data/*` wajib login dan izin (DIG-226): baca master data `master_data:read`, ubah master data dan hari libur `master_data:write`, lihat ketidakhadiran (D-09) dan beban non-proyek (D-08) `workload:read_all`, catat ketidakhadiran `availability:write`, tambah/ubah/hapus beban non-proyek `master_data:write`, impor CSV D-08 `import:run`. `/api/v1/health` tetap terbuka. Tes `tests/test_data_permissions.py` gagal bila ada endpoint data baru tanpa `require_permission` atau belum dicatat di peta izinnya.
