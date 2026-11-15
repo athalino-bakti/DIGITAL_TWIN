@@ -16,6 +16,7 @@ from app.modules.data import workdays
 from app.modules.data.enums import ACTIVE_PROJECT_STATUSES, AbsenceType, ProjectStatus
 from app.modules.data.models import (
     ACTIVE_PRIORITY_INDEX,
+    AVAILABILITY_OVERLAP_CONSTRAINT,
     Availability,
     ComplexityLevel,
     Holiday,
@@ -284,6 +285,12 @@ def commit(db: Session) -> None:
                 "Prioritas ini baru saja dipakai proyek aktif lain. "
                 "Muat ulang daftar proyek lalu pilih prioritas lain.",
                 field="priority_rank",
+            ) from exc
+        if constraint == AVAILABILITY_OVERLAP_CONSTRAINT:
+            raise ConflictError(
+                "Periode ini baru saja bertumpuk dengan catatan lain milik anggota yang sama. "
+                "Muat ulang kalender lalu pilih tanggal lain.",
+                field="date_start",
             ) from exc
         raise ConflictError(
             "Data ditolak basis data karena bentrok dengan data lain. "
@@ -671,17 +678,7 @@ def check_availability_rules(db: Session, values: dict, exclude_id: str | None) 
     if errors:
         raise DataValidationError(errors)
 
-    if values["absence_type"] not in ABSENT_TYPES:
-        return
-    query = select(Availability).where(
-        Availability.resource_id == values["resource_id"],
-        Availability.absence_type.in_(ABSENT_TYPES),
-        Availability.date_start <= values["date_end"],
-        Availability.date_end >= values["date_start"],
-    )
-    if exclude_id is not None:
-        query = query.where(Availability.availability_id != exclude_id)
-    clash = db.scalars(query.order_by(Availability.date_start).limit(1)).first()
+    clash = find_overlap(db, values, exclude_id)
     if clash is not None:
         raise ConflictError(
             f"Periode ini bertumpuk dengan {clash.availability_id} "
@@ -690,6 +687,25 @@ def check_availability_rules(db: Session, values: dict, exclude_id: str | None) 
             "Ubah catatan itu atau pilih tanggal lain.",
             field="date_start",
         )
+
+
+def find_overlap(db: Session, values: dict, exclude_id: str | None) -> Availability | None:
+    """Catatan ketidakhadiran lain milik anggota yang sama yang periodenya bersinggungan.
+
+    Pemeriksaan ini memberi pesan yang menyebut catatan yang bentrok. Constraint
+    `ex_availability_no_overlap` tetap menjaga bila dua permintaan datang bersamaan.
+    """
+    if values["absence_type"] not in ABSENT_TYPES:
+        return None
+    query = select(Availability).where(
+        Availability.resource_id == values["resource_id"],
+        Availability.absence_type.in_(ABSENT_TYPES),
+        Availability.date_start <= values["date_end"],
+        Availability.date_end >= values["date_start"],
+    )
+    if exclude_id is not None:
+        query = query.where(Availability.availability_id != exclude_id)
+    return db.scalars(query.order_by(Availability.date_start).limit(1)).first()
 
 
 def next_availability_id(db: Session) -> str:

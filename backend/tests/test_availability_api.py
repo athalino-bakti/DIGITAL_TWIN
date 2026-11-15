@@ -1,8 +1,12 @@
 """DIG-106: ketersediaan (D-09) dan hari libur (D-11) terhadap PostgreSQL sungguhan."""
 
+from concurrent.futures import ThreadPoolExecutor
+
 import pytest
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
+from app.modules.data import service
 from tests.conftest import REQUIRES_DB, error_fields
 
 pytestmark = REQUIRES_DB
@@ -132,6 +136,80 @@ def test_overlapping_absence_for_same_member_is_409(client, members):
     create(client, budi)
     # Bersambung (bukan bertumpuk) boleh.
     create(client, sari, date_start="2026-11-07", date_end="2026-11-08")
+
+
+def test_db_rejects_overlap_when_service_check_is_bypassed(client, members, monkeypatch):
+    """Meniru dua POST bersamaan: keduanya lolos pemeriksaan service sebelum ada yang commit."""
+    sari, _ = members
+    create(client, sari)
+    monkeypatch.setattr(service, "find_overlap", lambda *args: None)
+    response = client.post(
+        AVAILABILITY, json=absence(sari, date_start="2026-11-05", absence_type="sudden_leave")
+    )
+    assert response.status_code == 409
+    assert error_fields(response) == ["date_start"]
+    assert "bertumpuk" in response.json()["detail"]["msg"]
+    assert [a["availability_id"] for a in client.get(AVAILABILITY).json()] == ["AVL-001"]
+
+
+def test_db_rejects_overlapping_patch_when_service_check_is_bypassed(client, members, monkeypatch):
+    sari, _ = members
+    create(client, sari)
+    later = create(client, sari, date_start="2026-11-16", date_end="2026-11-17")
+    monkeypatch.setattr(service, "find_overlap", lambda *args: None)
+    response = client.patch(
+        f"{AVAILABILITY}/{later['availability_id']}", json={"date_start": "2026-11-06"}
+    )
+    assert response.status_code == 409
+    assert error_fields(response) == ["date_start"]
+
+
+def test_concurrent_posts_store_only_one(client, members):
+    sari, _ = members
+    bodies = [
+        absence(
+            sari, availability_id=f"AVL-{n:03d}", date_start="2026-12-01", date_end="2026-12-05"
+        )
+        for n in range(1, 7)
+    ]
+    with ThreadPoolExecutor(max_workers=len(bodies)) as pool:
+        codes = sorted(
+            pool.map(lambda body: client.post(AVAILABILITY, json=body).status_code, bodies)
+        )
+    assert codes == [201] + [409] * (len(bodies) - 1)
+    assert len(client.get(AVAILABILITY, params={"resource_id": sari}).json()) == 1
+
+
+def test_constraint_exists_in_database(client, members, db):
+    sari, _ = members
+    create(client, sari)
+    insert = text(
+        "INSERT INTO availability (availability_id, resource_id, date_start, date_end, "
+        "absence_type) VALUES (:id, :rid, :start, :end, :type)"
+    )
+    with pytest.raises(IntegrityError, match="ex_availability_no_overlap"):
+        db.execute(
+            insert,
+            {
+                "id": "AVL-900",
+                "rid": sari,
+                "start": "2026-11-06",
+                "end": "2026-11-06",
+                "type": "sudden_leave",
+            },
+        )
+    db.rollback()
+    db.execute(
+        insert,
+        {
+            "id": "AVL-901",
+            "rid": sari,
+            "start": "2026-11-06",
+            "end": "2026-11-06",
+            "type": "rotation_in",
+        },
+    )
+    db.commit()
 
 
 def test_rotation_in_may_overlap(client, members):
