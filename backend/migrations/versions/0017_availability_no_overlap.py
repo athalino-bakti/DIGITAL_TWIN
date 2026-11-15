@@ -15,7 +15,7 @@ Nomor 0017 mengikuti antrean migrasi tim (0007-0016 sudah dipesan PR lain). Sebe
 merge, `down_revision` disesuaikan dengan head `main` saat itu.
 
 Revision ID: 0017
-Revises: 0008
+Revises: 0010
 """
 
 from typing import Sequence, Union
@@ -23,7 +23,7 @@ from typing import Sequence, Union
 from alembic import op
 
 revision: str = "0017"
-down_revision: Union[str, Sequence[str], None] = "0008"
+down_revision: Union[str, Sequence[str], None] = "0010"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
