@@ -1,3 +1,5 @@
+import { clearSession, getAccessToken } from '../auth/session';
+
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/$/, '');
 
 /** Satu pesan dari `detail` FastAPI. `field` terisi bila pesan milik kolom tertentu. */
@@ -34,12 +36,20 @@ function toIssues(detail: unknown): ApiIssue[] {
 }
 
 async function request<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+  const token = getAccessToken();
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method,
     signal,
-    headers: { Accept: 'application/json', ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
+    headers: {
+      Accept: 'application/json',
+      ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
+  // Token ditolak (kedaluwarsa, rusak, akun nonaktif): hapus sesi supaya diarahkan ke login.
+  // 401 dari POST /auth/login tidak membawa token, jadi tidak ikut terhapus di sini.
+  if (response.status === 401 && token) clearSession();
   if (!response.ok) {
     const payload = await response.json().catch(() => undefined) as { detail?: unknown } | undefined;
     throw new ApiError(response.status, toIssues(payload?.detail));
