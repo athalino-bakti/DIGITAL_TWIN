@@ -62,3 +62,6 @@ class AffectedTask(BaseModel):
     planned_start: date
     planned_finish: date
     assignment_id: str
+    assigned_date: date = Field(
+        description="Tanggal penugasan aktif; tanggal pengalihan tidak boleh sebelum ini"
+    )

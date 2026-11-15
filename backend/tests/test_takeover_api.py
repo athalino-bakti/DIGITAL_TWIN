@@ -317,3 +317,12 @@ def active_assignee(db, task_id) -> list[str]:
             )
         )
     )
+
+
+def test_takeover_on_first_absence_day_clears_affected_task(client, team):
+    """DIG-160: setelah dialihkan pada hari pertama izin, task tidak lagi terdampak."""
+    avl = absence(client, team["sari"], "2026-03-09", "2026-03-10")
+    affected = client.get(f"{DATA}/availability/{avl}/affected-tasks").json()
+    assert [(t["task_id"], t["assigned_date"]) for t in affected] == [("TSK-0001", "2026-03-02")]
+    assert take_over(client, team["budi"], frm=team["sari"], day="2026-03-09").status_code == 200
+    assert client.get(f"{DATA}/availability/{avl}/affected-tasks").json() == []
