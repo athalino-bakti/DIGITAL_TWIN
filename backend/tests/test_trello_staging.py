@@ -1,12 +1,18 @@
-"""DIG-117: aturan tabel staging_trello_action dan trello_list_mapping di PostgreSQL sungguhan.
+"""DIG-117 dan DIG-118: tabel staging Trello dan penyimpanannya di PostgreSQL sungguhan.
 
 Fixture database (`db`) dan syarat `TEST_DATABASE_URL` ada di conftest.py.
 """
+
+import copy
+import json
+from pathlib import Path
 
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
+from app.integrations.trello.parser import parse_board_export
+from app.modules.data.trello_staging import save_trello_import
 from tests.conftest import REQUIRES_DB
 
 pytestmark = REQUIRES_DB
@@ -80,3 +86,64 @@ def test_list_mapping_is_unique_per_board_and_list(clean_db):
     insert_mapping(clean_db)
     with pytest.raises(IntegrityError, match="pk_trello_list_mapping"):
         insert_mapping(clean_db)
+
+
+# --- save_trello_import (DIG-118) ---
+
+FIXTURE = Path(__file__).parent / "fixtures" / "trello_board_kecil.json"
+
+
+@pytest.fixture
+def board() -> dict:
+    return json.loads(FIXTURE.read_text(encoding="utf-8"))
+
+
+def count(db, table: str) -> int:
+    return db.execute(text(f"SELECT count(*) FROM {table}")).scalar()
+
+
+def test_reimport_does_not_duplicate_actions(clean_db, board):
+    result = parse_board_export(board)
+
+    first = save_trello_import(clean_db, result)
+    second = save_trello_import(clean_db, result)
+
+    assert (first.inserted, first.already_present) == (16, 0)
+    assert (second.inserted, second.already_present) == (0, 16)
+    assert count(clean_db, "staging_trello_action") == 16
+    assert count(clean_db, "trello_list_mapping") == 8
+
+
+def test_saved_row_keeps_raw_action_and_utc_time(clean_db, board):
+    result = parse_board_export(board)
+    save_trello_import(clean_db, result)
+    source = result.actions[0]
+
+    saved = clean_db.execute(
+        text("SELECT action_date, raw FROM staging_trello_action WHERE action_id = :id"),
+        {"id": source["action_id"]},
+    ).one()
+    assert saved.action_date == source["action_date"]
+    assert saved.raw == source["raw"]
+
+
+def test_reimport_updates_list_name_but_keeps_mapping(clean_db, board):
+    save_trello_import(clean_db, parse_board_export(board))
+    list_id = board["lists"][0]["id"]
+    clean_db.execute(
+        text(
+            "UPDATE trello_list_mapping SET status = 'not_started', phase = 'planning'"
+            " WHERE list_id = :id"
+        ),
+        {"id": list_id},
+    )
+
+    renamed = copy.deepcopy(board)
+    renamed["lists"][0]["name"] = "Antrian"
+    save_trello_import(clean_db, parse_board_export(renamed))
+
+    row = clean_db.execute(
+        text("SELECT list_name, status, phase FROM trello_list_mapping WHERE list_id = :id"),
+        {"id": list_id},
+    ).one()
+    assert tuple(row) == ("Antrian", "not_started", "planning")
