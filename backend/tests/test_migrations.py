@@ -138,6 +138,7 @@ def test_models_match_migrations(engine: Engine):
 # Tabel pendukung DATA_CONTRACT 7.3: aksi ON DELETE setiap foreign key (DIG-220, DIG-221).
 SUPPORT_TABLE_FK_ACTIONS = {
     "resource_skills": {"resource_id": "CASCADE", "role_id": "RESTRICT"},
+    "change_event_details": {"event_id": "CASCADE", "approved_by_resource_id": "RESTRICT"},
 }
 
 

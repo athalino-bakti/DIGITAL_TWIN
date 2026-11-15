@@ -7,6 +7,13 @@ dan harus lewat prosedur bagian 9.
 `resource_skills` (DIG-220) mencatat tingkat penguasaan anggota per peran, termasuk peran
 rangkap dan lintas peran. Keahlian hanya atribut anggota, sehingga ikut terhapus bersama
 anggotanya. Peran tidak bisa dihapus selama masih dipakai.
+
+`change_event_details` (DIG-221) melengkapi D-10 dengan persetujuan dan waktu selesai, satu
+baris per `event_id`, dan ikut terhapus bersama kejadiannya. Anggota yang tercatat sebagai
+penyetuju tidak bisa dihapus, supaya jejak persetujuan tidak hilang. Aturan "approved_date dan
+resolved_date tidak sebelum event_date" ada di validator
+(`app.modules.data.change_event_detail_rules`), bukan constraint, karena `event_date` berada di
+tabel lain (DATA_CONTRACT 7.3).
 """
 
 from datetime import date
@@ -37,3 +44,16 @@ class ResourceSkill(Base):
     )
     proficiency_level: Mapped[int] = mapped_column(SmallInteger)
     assessed_date: Mapped[date] = mapped_column(Date)
+
+
+class ChangeEventDetail(Base):
+    __tablename__ = "change_event_details"
+
+    event_id: Mapped[str] = mapped_column(
+        ForeignKey("change_events.event_id", ondelete="CASCADE"), primary_key=True
+    )
+    approved_by_resource_id: Mapped[str | None] = mapped_column(
+        ForeignKey("resources.resource_id", ondelete="RESTRICT"), index=True
+    )
+    approved_date: Mapped[date | None] = mapped_column(Date)
+    resolved_date: Mapped[date | None] = mapped_column(Date)
