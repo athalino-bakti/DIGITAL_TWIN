@@ -43,6 +43,7 @@ from app.modules.data.takeover_schemas import (
 )
 
 CLOSED_TASK_STATUSES = (TaskStatus.DONE, TaskStatus.DROPPED)
+IDLE_TASK_STATUSES = (*CLOSED_TASK_STATUSES, TaskStatus.ON_HOLD)
 MATCH_ORDER = {"primary": 0, "secondary": 1, "cross": 2}
 
 
@@ -126,10 +127,14 @@ def replacement_candidates(db: Session, task_id: str, on: date) -> list[Replacem
             )
         )
     )
+    # Beban = penugasan aktif pada task yang masih berjalan. Task selesai, dibatalkan, atau
+    # ditunda (misalnya lewat efek CR, DIG-150) tidak menyita kapasitas walau penugasannya
+    # belum dilepas.
     load = dict(
         db.execute(
             select(Assignment.resource_id, func.count())
-            .where(Assignment.released_date.is_(None))
+            .join(Task, Task.task_id == Assignment.task_id)
+            .where(Assignment.released_date.is_(None), Task.status.not_in(IDLE_TASK_STATUSES))
             .group_by(Assignment.resource_id)
         ).all()
     )
