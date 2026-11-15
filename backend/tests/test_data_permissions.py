@@ -3,8 +3,8 @@
 import pytest
 from fastapi.routing import APIRoute
 
+from app.api.router import api_router
 from app.modules.auth.permissions import Perm
-from app.modules.data.router import router as data_router
 from tests.conftest import REQUIRES_DB, make_token
 
 DATA_PREFIX = "/api/v1/data"
@@ -56,7 +56,7 @@ def required_permissions(dependant) -> set[Perm]:
 
 
 def walk(routes, prefix: str = "", inherited: frozenset = frozenset()):
-    """Semua APIRoute, termasuk router yang di-include ke router data (misalnya workload)."""
+    """Semua APIRoute beserta path lengkapnya, menelusuri router yang di-include bertingkat."""
     for route in routes:
         if isinstance(route, APIRoute):
             yield prefix + route.path, route, inherited
@@ -67,14 +67,23 @@ def walk(routes, prefix: str = "", inherited: frozenset = frozenset()):
                 for dependency in context.dependencies
                 for perm in getattr(dependency.dependency, "required_permissions", ())
             )
-            yield from walk(route.original_router.routes, context.prefix, inherited | extra)
+            yield from walk(
+                route.original_router.routes, prefix + context.prefix, inherited | extra
+            )
 
 
 def data_routes() -> dict[tuple[str, str], set[Perm]]:
+    """Semua endpoint berawalan /api/v1/data, dari router mana pun asalnya.
+
+    Ditelusuri dari router API utama, jadi router yang dipasang langsung di app/api/router.py
+    dengan prefix /data juga ikut diperiksa, bukan hanya yang di-include ke router data.
+    """
     routes = {}
-    for path, route, inherited in walk(data_router.routes):
+    for path, route, inherited in walk(api_router.routes):
+        if not path.startswith(DATA_PREFIX + "/"):
+            continue
         for method in route.methods:
-            key = (method, path.removeprefix("/data"))
+            key = (method, path.removeprefix(DATA_PREFIX))
             routes[key] = set(inherited) | required_permissions(route.dependant)
     return routes
 
