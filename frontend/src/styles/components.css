@@ -269,6 +269,7 @@ fieldset.field legend { font: var(--text-label); color: var(--color-heading); ma
 .auth-subtitle { font: var(--text-body); color: var(--color-body); margin: var(--space-2) 0 var(--space-7); }
 .auth-card .button { width: 100%; }
 .auth-loading { font: var(--text-body); color: var(--color-muted); }
+.auth-actions { display: grid; gap: var(--space-3); }
 .user-menu { display: flex; align-items: center; gap: var(--space-4); }
 .user-name { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
 .user-name strong { font: var(--text-label); color: var(--color-heading); white-space: nowrap; }

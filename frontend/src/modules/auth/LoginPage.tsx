@@ -1,17 +1,13 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { ApiError } from '../../shared/api/client';
+import { ApiError, isApiUnreachable } from '../../shared/api/client';
 import { useAuth } from '../../shared/auth/AuthProvider';
+import { safeRedirect } from '../../shared/auth/redirect';
 import { Icon } from '../../shared/components/Icon';
 import { ServiceStatus } from '../../shared/components/ServiceStatus';
 
+type Field = 'username' | 'password';
 type Errors = { username?: string; password?: string; form?: string };
-
-/** Hanya terima path internal, supaya state "from" tidak bisa dipakai untuk redirect keluar aplikasi. */
-function safeRedirect(state: unknown): string {
-  const from = (state as { from?: unknown } | null)?.from;
-  return typeof from === 'string' && from.startsWith('/') && !from.startsWith('//') && !from.startsWith('/login') ? from : '/';
-}
 
 export function LoginPage() {
   const { status, signIn } = useAuth();
@@ -20,6 +16,15 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<Errors>({});
   const [submitting, setSubmitting] = useState(false);
+  // Input di-disable saat submit, jadi fokus dikembalikan setelah input aktif lagi.
+  const [focusField, setFocusField] = useState<Field | null>(null);
+  const inputs = { username: useRef<HTMLInputElement>(null), password: useRef<HTMLInputElement>(null) };
+
+  useEffect(() => {
+    if (submitting || !focusField) return;
+    inputs[focusField].current?.focus();
+    setFocusField(null);
+  });
 
   if (status === 'authenticated') return <Navigate to={safeRedirect(location.state)} replace />;
 
@@ -29,7 +34,10 @@ export function LoginPage() {
     if (!username.trim()) found.username = 'Username wajib diisi';
     if (!password) found.password = 'Password wajib diisi';
     setErrors(found);
-    if (Object.keys(found).length) return;
+    if (found.username || found.password) {
+      setFocusField(found.username ? 'username' : 'password');
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -39,17 +47,20 @@ export function LoginPage() {
       if (error instanceof ApiError && error.status === 401) {
         setErrors({ form: 'Username atau password salah' });
         setPassword('');
-      } else if (error instanceof ApiError) {
+        setFocusField('password');
+      } else if (isApiUnreachable(error) || !(error instanceof ApiError)) {
+        setErrors({ form: 'API belum terhubung. Periksa koneksi lalu coba lagi.' });
+        setFocusField('password');
+      } else {
         const fields = error.fieldErrors();
         setErrors({ username: fields.username, password: fields.password, form: fields.username || fields.password ? undefined : error.message });
-      } else {
-        setErrors({ form: 'API belum terhubung. Periksa koneksi lalu coba lagi.' });
+        setFocusField(fields.username ? 'username' : 'password');
       }
       setSubmitting(false);
     }
   }
 
-  const describe = (key: 'username' | 'password') => ({
+  const describe = (key: Field) => ({
     'aria-invalid': errors[key] ? true : undefined,
     'aria-describedby': errors[key] ? `login-${key}-error` : undefined,
   });
@@ -69,6 +80,7 @@ export function LoginPage() {
             <span>Username</span>
             <input
               id="login-username"
+              ref={inputs.username}
               name="username"
               autoComplete="username"
               autoCapitalize="none"
@@ -86,6 +98,7 @@ export function LoginPage() {
             <span>Password</span>
             <input
               id="login-password"
+              ref={inputs.password}
               name="password"
               type="password"
               autoComplete="current-password"

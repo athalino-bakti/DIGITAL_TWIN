@@ -16,5 +16,5 @@ type TokenResponse = {
   user: AuthUser;
 };
 
-export const login = (username: string, password: string) => apiPost<TokenResponse>('/auth/login', { username, password });
+export const login = (username: string, password: string) => apiPost<TokenResponse>('/auth/login', { username, password }, { auth: false });
 export const fetchMe = (signal?: AbortSignal) => apiGet<AuthUser>('/auth/me', signal);
