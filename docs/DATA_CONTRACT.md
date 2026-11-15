@@ -8,14 +8,14 @@ Dokumen ini menjadi kesepakatan tentang data yang dibagi bersama oleh aplikasi D
 | Jira | DIG-12 (DIG-62, DIG-63) |
 | Skema acuan | Sheet "Data Dictionary" pada berkas *Business Process DT untuk PuTI* |
 | Dataset baseline | Dataset dummy dari dosen pembimbing (`puti_datasets.xlsx`) |
-| Implementasi skema | `backend/app/modules/data/models.py` dan revisi Alembic `0001` sampai `0007` (DIG-15) |
+| Implementasi skema | `backend/app/modules/data/models.py` dan revisi Alembic `0001` sampai `0008` (DIG-15) |
 | Basis data | PostgreSQL bersama |
 
 ## 1. Ruang lingkup
 
 J&C mengolah data dari beberapa sumber (Project Plan, riwayat kartu Trello, dan riwayat commit TeamGit) menjadi final sources sesuai Data Dictionary. tWinner memakai final sources tersebut sebagai parameter kondisi aktual untuk skenario *what-if*, perhitungan KPI, dan rekomendasi. Kedua aplikasi bertukar data melalui basis data bersama tanpa pertukaran berkas manual.
 
-Selama pengembangan, J&C tidak menerima data sistem PuTI secara langsung. Kedua tim memakai dataset dummy dari dosen pembimbing (`puti_datasets.xlsx`) sebagai baseline bersama. Seluruh 5.014 baris dataset tersebut dapat dimuat ke skema bagian 6 tanpa penolakan. Generator data sintetis J&C (DIG-16) melengkapinya dengan sumber mentah (Project Plan, riwayat Trello, dan git log) serta data kotor untuk menguji validasi, dengan skenario kerja yang mengikuti hasil wawancara dengan Tim DEVTI PuTI. Data sintetis tidak memuat data pribadi sebenarnya sesuai UU No. 27 Tahun 2022 tentang Pelindungan Data Pribadi.
+Selama pengembangan, J&C tidak menerima data sistem PuTI secara langsung. Kedua tim memakai dataset dummy dari dosen pembimbing (`puti_datasets.xlsx`) sebagai baseline bersama. Seluruh 4.934 baris dataset tersebut dapat dimuat ke skema bagian 6 tanpa penolakan. Generator data sintetis J&C (DIG-16) melengkapinya dengan sumber mentah (Project Plan, riwayat Trello, dan git log) serta data kotor untuk menguji validasi, dengan skenario kerja yang mengikuti hasil wawancara dengan Tim DEVTI PuTI. Data sintetis tidak memuat data pribadi sebenarnya sesuai UU No. 27 Tahun 2022 tentang Pelindungan Data Pribadi.
 
 ## 2. Pihak dan tanggung jawab
 
@@ -95,6 +95,7 @@ Aturan di basis data:
 - `ck_projects_project_id_format`: `project_id ~ '^PRJ-[0-9]{3,}$'`
 - `ck_projects_status_valid`: `status IN ('planning', 'development', 'testing', 'released', 'on_hold')`
 - `ck_projects_target_after_start`: `target_launch_date >= start_date`
+- `uq_projects_active_priority`: `priority_rank` unik di antara proyek berstatus `planning`, `development`, dan `testing` (partial unique index)
 
 ### D-02 `resources`
 
@@ -361,4 +362,4 @@ J&C menerima Data Dictionary apa adanya sebagai final sources bersama. Kebutuhan
 
 | Versi | Perubahan |
 |---|---|
-| 1.0 | Versi awal. Persetujuan tWinner atas versi ini dicatat lewat konfirmasi WhatsApp di DIG-12. Isi: salinan Data Dictionary D-01 sampai D-11 sesuai migrasi `0001` sampai `0007`, dataset dosbim sebagai baseline, pemilik dan hak akses, frekuensi pembaruan, aturan format, tabel pendukung J&C, penyelesaian celah skema (`resource_skills`, `change_event_details`, `audit_log`) |
+| 1.0 | Versi awal. Persetujuan tWinner atas versi ini dicatat lewat konfirmasi WhatsApp di DIG-12. Isi: salinan Data Dictionary D-01 sampai D-11 sesuai migrasi `0001` sampai `0008`, dataset dosbim sebagai baseline, pemilik dan hak akses, frekuensi pembaruan, aturan format, tabel pendukung J&C, penyelesaian celah skema (`resource_skills`, `change_event_details`, `audit_log`) |
