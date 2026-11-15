@@ -17,7 +17,7 @@ from sqlalchemy.dialects import postgresql
 
 revision: str = "0010"
 # Saat PR ini di-rebase setelah migrasi lain masuk ke main, ganti ke head terbaru.
-down_revision: Union[str, Sequence[str], None] = "0006"
+down_revision: Union[str, Sequence[str], None] = "0008"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
