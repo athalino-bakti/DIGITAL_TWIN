@@ -6,11 +6,13 @@ import { ComplexityPanel } from './complexity/ComplexityPanel';
 import { ProjectsPanel } from './projects/ProjectsPanel';
 import { ResourcesPanel } from './resources/ResourcesPanel';
 import { RolesPanel } from './resources/RolesPanel';
+import { WorkloadPanel } from './workload/WorkloadPanel';
 
 const views = {
   proyek: { label: 'Proyek' },
   anggota: { label: 'Anggota' },
   peran: { label: 'Peran' },
+  beban: { label: 'Beban non-proyek' },
   kompleksitas: { label: 'Kompleksitas' },
   ketersediaan: { label: 'Ketersediaan' },
   libur: { label: 'Hari libur' },
@@ -27,6 +29,7 @@ export function DataPage() {
     {view === 'proyek' && <ProjectsPanel />}
     {view === 'anggota' && <ResourcesPanel />}
     {view === 'peran' && <RolesPanel />}
+    {view === 'beban' && <WorkloadPanel />}
     {view === 'kompleksitas' && <ComplexityPanel />}
     {view === 'ketersediaan' && <AvailabilityPanel />}
     {view === 'libur' && <HolidaysPanel />}
