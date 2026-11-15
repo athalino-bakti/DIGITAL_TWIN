@@ -5,6 +5,8 @@ from typing import Literal
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.core.secrets import secrets_dir
+
 # Hanya untuk development lokal. Di staging/production wajib diganti lewat JWT_SECRET_KEY.
 DEV_JWT_SECRET = "dev-only-ganti-jwt-secret-key-di-env-minimal-32-karakter"
 
@@ -40,4 +42,4 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    return Settings(_secrets_dir=secrets_dir())

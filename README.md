@@ -67,6 +67,8 @@ Liveness tetap `200` saat database belum aktif; readiness mengembalikan `503`. I
 
 `constraints.txt` menyimpan versi dependency yang telah diuji. Perbarui file ini bersama perubahan dependency di `pyproject.toml`.
 
+Kredensial (JWT, password basis data, token Trello/TeamGit) tidak pernah di-commit. Di lokal isi lewat `backend/.env`; di server lewat berkas rahasia `SECRETS_DIR`. Aturan lengkap dan cara rotasinya ada di [docs/SECRETS.md](docs/SECRETS.md).
+
 ### 3. Frontend — terminal kedua
 
 ```powershell
