@@ -152,18 +152,24 @@ def write_project_plans(
 # --------------------------------------------------------------------------- Trello
 
 
-def _stamp(rng: random.Random, day: date) -> str:
-    """Waktu kerja acak (WIB) dalam format UTC ekspor Trello."""
-    local = datetime(
-        day.year,
-        day.month,
-        day.day,
-        rng.randint(8, 16),
-        rng.randint(0, 59),
-        rng.randint(0, 59),
-        tzinfo=WIB,
-    )
-    return local.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+WORK_SECONDS = range(8 * 3600, 17 * 3600)  # 08:00:00 sampai 16:59:59 WIB
+
+
+def _stamp(rng: random.Random, actions: list[dict]) -> None:
+    """Ganti tanggal action dengan waktu kerja acak (WIB) dalam format UTC ekspor Trello.
+
+    Action satu kartu pada hari yang sama mendapat detik yang berbeda dan naik mengikuti
+    urutan dicatatnya (createCard, addMemberToCard, lalu perpindahan list), sehingga
+    urutan waktu sama dengan urutan kejadian. Hasil tetap deterministik per seed.
+    """
+    same_day: dict[tuple[str, date], list[dict]] = {}
+    for action in actions:
+        same_day.setdefault((action["data"]["card"]["id"], action["date"]), []).append(action)
+    for (_, day), group in same_day.items():
+        start = datetime(day.year, day.month, day.day, tzinfo=WIB)
+        for action, second in zip(group, sorted(rng.sample(WORK_SECONDS, len(group)))):
+            moment = start + timedelta(seconds=second)
+            action["date"] = moment.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
 
 def trello_board(world: World) -> dict[str, object]:
@@ -198,7 +204,7 @@ def trello_board(world: World) -> dict[str, object]:
             {
                 "id": ids.hex(24),
                 "type": kind,
-                "date": _stamp(rng, day),
+                "date": day,  # diganti _stamp setelah semua action kartu tercatat
                 "idMemberCreator": creator,
                 "data": payload,
             }
@@ -316,6 +322,7 @@ def trello_board(world: World) -> dict[str, object]:
         if item.resolved_date:
             move(card, item.resolved_date, "In Progress", "Done", member["id"])
 
+    _stamp(rng, actions)
     last_by_card: dict[str, str] = {}
     for action in actions:
         card_id = action["data"]["card"]["id"]
