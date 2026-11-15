@@ -12,8 +12,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.modules.data.enums import ACTIVE_PROJECT_STATUSES, ProjectStatus
-from app.modules.data.models import ACTIVE_PRIORITY_INDEX, Project
-from app.modules.data.schemas import ProjectCreate, ProjectRead, ProjectUpdate
+from app.modules.data.models import ACTIVE_PRIORITY_INDEX, ComplexityLevel, Project, Task
+from app.modules.data.schemas import (
+    ComplexityRead,
+    ComplexityUpdate,
+    ProjectCreate,
+    ProjectRead,
+    ProjectUpdate,
+)
 
 ACTIVE_STATUSES = frozenset(ACTIVE_PROJECT_STATUSES)
 NOT_NULL_FIELDS = frozenset(
@@ -41,7 +47,7 @@ class FieldError:
         return {"loc": ["body", self.field], "msg": self.message, "type": self.error_type}
 
 
-class ProjectValidationError(Exception):
+class DataValidationError(Exception):
     """Aturan isi data dilanggar (HTTP 422)."""
 
     def __init__(self, errors: list[FieldError]) -> None:
@@ -58,8 +64,18 @@ class ProjectConflictError(Exception):
         self.field = field
 
 
-class ProjectNotFoundError(Exception):
-    """Proyek tidak ada (HTTP 404)."""
+class NotFoundError(Exception):
+    """Data tidak ada (HTTP 404). `label` dipakai untuk pesan error."""
+
+    label = "Data"
+
+
+class ProjectNotFoundError(NotFoundError):
+    label = "Proyek"
+
+
+class ComplexityNotFoundError(NotFoundError):
+    label = "Level kompleksitas"
 
 
 def is_active(status: str) -> bool:
@@ -169,7 +185,7 @@ def create_project(db: Session, payload: ProjectCreate) -> ProjectRead:
     values = payload.model_dump()
     errors = check_project_rules(values)
     if errors:
-        raise ProjectValidationError(errors)
+        raise DataValidationError(errors)
 
     if values["project_id"] is None:
         values["project_id"] = next_project_id(db)
@@ -195,12 +211,12 @@ def update_project(db: Session, project_id: str, payload: ProjectUpdate) -> Proj
         if value is None and field in NOT_NULL_FIELDS
     ]
     if errors:
-        raise ProjectValidationError(errors)
+        raise DataValidationError(errors)
 
     values = {c.key: getattr(project, c.key) for c in Project.__table__.columns} | changes
     errors = check_project_rules(values)
     if errors:
-        raise ProjectValidationError(errors)
+        raise DataValidationError(errors)
     ensure_unique_active_priority(db, values, exclude_id=project_id)
 
     for field, value in changes.items():
@@ -240,6 +256,74 @@ def commit(db: Session) -> None:
                 field="priority_rank",
             ) from exc
         raise ProjectConflictError(
-            "Data proyek ditolak basis data karena bentrok dengan data lain. "
-            "Muat ulang daftar proyek lalu coba lagi."
+            "Data ditolak basis data karena bentrok dengan data lain. "
+            "Muat ulang halaman lalu coba lagi."
         ) from exc
+
+
+# --- D-04 complexity_levels (DIG-22) ---
+
+# Urutan tampilan dari level tersulit. Level lain (bila kelak ditambah) menyusul urut ID.
+COMPLEXITY_ORDER = {"CX-VH": 0, "CX-H": 1, "CX-M": 2, "CX-L": 3}
+
+
+def list_complexity_levels(db: Session) -> list[ComplexityRead]:
+    task_counts = dict(
+        db.execute(select(Task.complexity_id, func.count()).group_by(Task.complexity_id)).all()
+    )
+    levels = sorted(
+        db.scalars(select(ComplexityLevel)),
+        key=lambda level: (COMPLEXITY_ORDER.get(level.complexity_id, 99), level.complexity_id),
+    )
+    return [complexity_read(level, task_counts.get(level.complexity_id, 0)) for level in levels]
+
+
+def complexity_read(level: ComplexityLevel, task_count: int) -> ComplexityRead:
+    return ComplexityRead(
+        complexity_id=level.complexity_id,
+        complexity_name=level.complexity_name,
+        min_days=level.min_days,
+        max_days=level.max_days,
+        load_weight=level.load_weight,
+        task_count=task_count,
+    )
+
+
+def update_complexity_level(
+    db: Session, complexity_id: str, payload: ComplexityUpdate
+) -> ComplexityRead:
+    level = db.get(ComplexityLevel, complexity_id)
+    if level is None:
+        raise ComplexityNotFoundError(complexity_id)
+    changes = payload.model_dump(exclude_unset=True)
+
+    errors = [
+        FieldError(field, "Kolom ini wajib diisi", "missing")
+        for field, value in changes.items()
+        if value is None
+    ]
+    if errors:
+        raise DataValidationError(errors)
+
+    min_days = changes.get("min_days", level.min_days)
+    max_days = changes.get("max_days", level.max_days)
+    if min_days > max_days:
+        # Pesan ditempel pada kolom yang sedang diubah agar mudah ditemukan di form.
+        field = "min_days" if "min_days" in changes and "max_days" not in changes else "max_days"
+        raise DataValidationError(
+            [
+                FieldError(
+                    field,
+                    "Hari minimum tidak boleh lebih besar dari hari maksimum",
+                    "min_after_max",
+                )
+            ]
+        )
+
+    for field, value in changes.items():
+        setattr(level, field, value)
+    commit(db)
+    task_count = db.scalar(
+        select(func.count()).select_from(Task).where(Task.complexity_id == complexity_id)
+    )
+    return complexity_read(level, task_count or 0)

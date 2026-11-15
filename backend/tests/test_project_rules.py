@@ -148,3 +148,24 @@ def test_update_cannot_change_project_id():
 )
 def test_active_statuses(status, active):
     assert is_active(status) is active
+
+
+# --- DIG-22: schema ComplexityUpdate ---
+
+
+@pytest.mark.parametrize(
+    "body",
+    ['{"min_days": -1}', '{"max_days": "5"}', '{"load_weight": true}', '{"load_weight": NaN}'],
+)
+def test_complexity_update_rejects_bad_numbers(body):
+    from app.modules.data.schemas import ComplexityUpdate
+
+    with pytest.raises(ValidationError):
+        ComplexityUpdate.model_validate_json(body)
+
+
+def test_complexity_update_accepts_ints_and_decimals():
+    from app.modules.data.schemas import ComplexityUpdate
+
+    update = ComplexityUpdate.model_validate_json('{"min_days": 0, "max_days": 2.5}')
+    assert (update.min_days, update.max_days) == (0.0, 2.5)
