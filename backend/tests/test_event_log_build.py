@@ -6,15 +6,24 @@ simulasi yang sama, sehingga setiap kartu TSK punya task di D-05.
 """
 
 import copy
+import threading
+import time
 from collections import Counter, defaultdict
 from datetime import date
 
 import pytest
-from sqlalchemy import insert, text
+from sqlalchemy import delete, insert, text
 
 from app.db.base import Base
 from app.integrations.trello.parser import parse_board_export
-from app.modules.data.event_log import WIB, list_event_log, rebuild_event_log
+from app.modules.data.event_log import (
+    CHANGE_LABEL,
+    WIB,
+    build_events,
+    list_event_log,
+    rebuild_event_log,
+)
+from app.modules.data.event_log_models import EventLogEntry
 from app.modules.data.trello_staging import save_trello_import
 from synthetic.final_sources import final_source_rows
 from synthetic.raw_sources import trello_board
@@ -127,6 +136,25 @@ def test_events_are_ordered_by_time_within_each_case(loaded, db):
         assert times == sorted(times), case
 
 
+def test_change_events_follow_same_day_trello_actions(loaded, db):
+    """Kejadian D-10 hanya bertanggal, jadi selalu setelah aksi Trello di hari yang sama."""
+    checked = 0
+    for case, events in events_by_case(db).items():
+        for change in (e for e in events if e.source == "change_event"):
+            assert change.activity in CHANGE_LABEL.values(), case
+            day = change.event_time.astimezone(WIB).date()
+            same_day = [
+                e
+                for e in events
+                if e.source == "trello" and e.event_time.astimezone(WIB).date() == day
+            ]
+            assert all(e.event_time < change.event_time for e in same_day), case
+            checked += len(same_day)
+    assert checked > 0, (
+        "data seed 42 harus punya kejadian D-10 di hari yang sama dengan aksi Trello"
+    )
+
+
 def test_list_moves_follow_each_other(loaded, db):
     """List tujuan setiap perpindahan sama dengan list awal perpindahan berikutnya."""
     rows = db.execute(
@@ -200,6 +228,63 @@ def test_cards_without_task_code_are_reported(client, db, world, board):
     lost = sum(1 for a in dirty["actions"] if a["data"]["card"]["id"] in {c["id"] for c in renamed})
     assert report.skipped["kartu_tanpa_kode_task"] == lost
     assert report.cases == sum(1 for c in board["cards"] if code_of(c).startswith("TSK-")) - 2
+
+
+def test_renamed_card_uses_its_latest_task_code(client, db, world, board):
+    dirty = copy.deepcopy(board)
+    card = next(
+        c
+        for c in dirty["cards"]
+        if code_of(c).startswith("TSK-")
+        and sum(a["data"]["card"]["id"] == c["id"] for a in dirty["actions"]) >= 2
+    )
+    old = code_of(card)
+    latest = max(
+        (a for a in dirty["actions"] if a["data"]["card"]["id"] == card["id"]),
+        key=lambda a: a["date"],
+    )
+    latest["data"]["card"]["name"] = "TSK-9999 | " + card["name"].split(" | ", 1)[1]
+    load(db, world, dirty)
+    rebuild_event_log(db)
+    cases = events_by_case(db)
+    assert "TSK-9999" in cases and old not in cases
+
+
+def test_parallel_rebuilds_wait_instead_of_failing(client, db, world, board, session_factory):
+    """Bangun ulang kedua menunggu yang pertama selesai, tidak 500 karena UNIQUE (DIG-166)."""
+    load(db, world, board)
+    first = session_factory()
+    events, _ = build_events(first)
+    # Bangun ulang pertama sedang berjalan: baris lama dihapus, baris baru belum di-commit.
+    first.execute(delete(EventLogEntry))
+    first.execute(insert(EventLogEntry), events)
+
+    result: dict = {}
+
+    def second():
+        with session_factory() as session:
+            try:
+                result["report"] = rebuild_event_log(session)
+            except Exception as exc:  # noqa: BLE001 - tes mencatat kegagalan apa pun
+                result["error"] = exc
+
+    thread = threading.Thread(target=second)
+    thread.start()
+    # Kunci apa pun yang ditunggu: kunci tabel (dengan perbaikan) atau kunci baris (tanpa).
+    waiting = "SELECT count(*) FROM pg_locks WHERE NOT granted"
+    for _ in range(100):
+        if db.scalar(text(waiting)):
+            break
+        time.sleep(0.05)
+    else:
+        pytest.fail("bangun ulang kedua tidak menunggu bangun ulang pertama")
+    first.commit()
+    first.close()
+    thread.join(timeout=30)
+
+    assert "error" not in result, result.get("error")
+    assert result["report"].events == len(events)
+    assert db.scalar(text("SELECT count(*) FROM event_log")) == len(events)
 
 
 # --- endpoint dan izin --------------------------------------------------------------------------

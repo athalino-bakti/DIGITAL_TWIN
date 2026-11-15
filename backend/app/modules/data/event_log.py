@@ -10,8 +10,10 @@ beban non-proyek (`WLI-...`) dan kartu tanpa kode bukan case. Pemetaan action ke
 - deleteCard: "Kartu dihapus";
 - addMemberToCard / removeMemberFromCard: "Anggota ditugaskan" / "Anggota dilepas". Pelakunya
   anggota yang ditambah atau dilepas, karena dialah yang bekerja di case itu;
-- D-10 change_events yang punya affected_task_id: aktivitas = event_type. D-10 hanya menyimpan
-  tanggal, jadi waktunya pukul 00:00 WIB pada tanggal itu.
+- D-10 change_events yang punya affected_task_id: aktivitas = label event_type (CHANGE_LABEL,
+  misalnya "Blocker dicatat"). D-10 hanya menyimpan tanggal, jadi waktunya diletakkan di akhir
+  hari itu (23:59:59 WIB): kejadian dicatat paling lambat hari itu, sehingga tidak pernah
+  terurut sebelum aksi Trello pada hari yang sama (misalnya CR sebelum "Task dibuat").
 
 Action lain dilewati dan dihitung per alasan di laporan. Riwayat commit (staging_commit, DIG-27)
 belum ada dan akan menjadi sumber ketiga.
@@ -28,9 +30,10 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import delete, insert, select
+from sqlalchemy import delete, insert, select, text
 from sqlalchemy.orm import Session
 
+from app.modules.data.enums import ChangeEventType
 from app.modules.data.event_log_models import EventLogEntry
 from app.modules.data.models import ChangeEvent, Task
 from app.modules.data.staging_models import StagingTrelloAction, TrelloListMapping
@@ -38,6 +41,14 @@ from app.modules.data.staging_models import StagingTrelloAction, TrelloListMappi
 WIB = timezone(timedelta(hours=7))
 _TASK_CODE = re.compile(r"^(TSK-[0-9]{4,})\b")
 CREATED_TYPES = frozenset({"createCard", "copyCard", "convertToCardFromCheckItem"})
+# Bentuk "<hal> <kata kerja>" seperti aktivitas Trello ("Task dibuat", "Anggota ditugaskan").
+CHANGE_LABEL = {
+    ChangeEventType.CHANGE_REQUEST: "Change request dicatat",
+    ChangeEventType.PRIORITY_CHANGE: "Prioritas diubah",
+    ChangeEventType.BLOCKER: "Blocker dicatat",
+    ChangeEventType.OVERRUN: "Overrun dicatat",
+    ChangeEventType.HOTFIX: "Hotfix dicatat",
+}
 
 
 @dataclass(frozen=True)
@@ -111,8 +122,13 @@ def trello_event(
     }
 
 
+def day_start(day: date) -> datetime:
+    return datetime.combine(day, time(0), tzinfo=WIB)
+
+
 def change_event_time(event_date: date) -> datetime:
-    return datetime.combine(event_date, time(0), tzinfo=WIB)
+    """Akhir hari event_date (WIB). D-10 tidak menyimpan jam."""
+    return datetime.combine(event_date, time(23, 59, 59), tzinfo=WIB)
 
 
 @dataclass
@@ -130,13 +146,17 @@ def build_events(db: Session) -> tuple[list[dict[str, Any]], Counter[str]]:
     """Semua event dari sumber yang ada, tanpa menulis ke basis data."""
     skipped: Counter[str] = Counter()
     columns = [c for c in StagingTrelloAction.__table__.columns]
-    rows = [dict(r._mapping) for r in db.execute(select(*columns))]
+    query = select(*columns).order_by(
+        StagingTrelloAction.action_date, StagingTrelloAction.action_id
+    )
+    rows = [dict(r._mapping) for r in db.execute(query)]
 
+    # Kartu yang pernah ganti kode task memakai kode dari nama terakhirnya.
     card_task: dict[str, str] = {}
     for row in rows:
         task = task_id_from_card(row["card_name"])
         if row["card_id"] and task:
-            card_task.setdefault(row["card_id"], task)
+            card_task[row["card_id"]] = task
     list_status = {
         (m.board_id, m.list_id): m.status
         for m in db.scalars(select(TrelloListMapping).where(TrelloListMapping.status.is_not(None)))
@@ -167,7 +187,7 @@ def build_events(db: Session) -> tuple[list[dict[str, Any]], Counter[str]]:
         events.append(
             {
                 "case_id": change.affected_task_id,
-                "activity": change.event_type,
+                "activity": CHANGE_LABEL.get(change.event_type, change.event_type),
                 "activity_kind": "change_event",
                 "event_time": change_event_time(change.event_date),
                 "resource_id": None,
@@ -194,7 +214,14 @@ def build_events(db: Session) -> tuple[list[dict[str, Any]], Counter[str]]:
 
 
 def rebuild_event_log(db: Session) -> EventLogReport:
-    """Hapus lalu isi ulang event_log dalam satu transaksi. Hasilnya sama bila diulang."""
+    """Hapus lalu isi ulang event_log dalam satu transaksi. Hasilnya sama bila diulang.
+
+    Bangun ulang yang berjalan bersamaan menunggu giliran: tanpa kunci, DELETE milik yang
+    kedua tidak melihat baris baru milik yang pertama, lalu INSERT-nya bentrok di UNIQUE
+    (source, source_ref). EXCLUSIVE tetap mengizinkan SELECT, jadi GET /event-log tidak ikut
+    tertahan. Kunci dilepas saat commit.
+    """
+    db.execute(text("LOCK TABLE event_log IN EXCLUSIVE MODE"))
     events, skipped = build_events(db)
     db.execute(delete(EventLogEntry))
     if events:
@@ -228,7 +255,7 @@ def list_event_log(
     if case_id is not None:
         query = query.where(EventLogEntry.case_id == case_id)
     if date_from is not None:
-        query = query.where(EventLogEntry.event_time >= change_event_time(date_from))
+        query = query.where(EventLogEntry.event_time >= day_start(date_from))
     if date_to is not None:
-        query = query.where(EventLogEntry.event_time < change_event_time(date_to + timedelta(1)))
+        query = query.where(EventLogEntry.event_time < day_start(date_to + timedelta(1)))
     return list(db.scalars(query))

@@ -4,7 +4,14 @@ from datetime import UTC, date, datetime
 
 import pytest
 
-from app.modules.data.event_log import Skip, change_event_time, task_id_from_card, trello_event
+from app.modules.data.enums import ChangeEventType
+from app.modules.data.event_log import (
+    CHANGE_LABEL,
+    Skip,
+    change_event_time,
+    task_id_from_card,
+    trello_event,
+)
 
 BOARD, TODO, DOING = "b" * 24, "1" * 24, "2" * 24
 WHEN = datetime(2026, 9, 1, 2, 0, tzinfo=UTC)
@@ -121,7 +128,12 @@ def test_assignment_actor_is_the_member_added(raw, expected):
     assert removed["activity"] == "Anggota dilepas"
 
 
-def test_change_event_is_midnight_wib():
+def test_change_event_is_end_of_day_wib():
     moment = change_event_time(date(2026, 9, 1))
-    assert moment.isoformat() == "2026-09-01T00:00:00+07:00"
-    assert moment.astimezone(UTC).isoformat() == "2026-08-31T17:00:00+00:00"
+    assert moment.isoformat() == "2026-09-01T23:59:59+07:00"
+    assert moment.astimezone(UTC).isoformat() == "2026-09-01T16:59:59+00:00"
+
+
+def test_every_change_event_type_has_an_indonesian_label():
+    assert set(CHANGE_LABEL) == set(ChangeEventType)
+    assert all(label.endswith(("dicatat", "diubah")) for label in CHANGE_LABEL.values())
