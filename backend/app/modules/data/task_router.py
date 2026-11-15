@@ -10,6 +10,8 @@ from fastapi import APIRouter, Depends, Path, Query, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.modules.auth.dependencies import require_permission
+from app.modules.auth.permissions import Perm
 from app.modules.data import task_service as service
 from app.modules.data.enums import PROJECT_ID_PATTERN, ROLE_ID_PATTERN, TASK_ID_PATTERN, TaskStatus
 from app.modules.data.router import to_http
@@ -18,12 +20,22 @@ from app.modules.data.task_schemas import TaskRead, TaskStatusUpdate
 
 router = APIRouter(prefix="/data", tags=["Data"])
 
+# Daftar task dibaca semua peran yang melihat master data. Status task diperbarui pengelola
+# master data; di PuTI peran ini dipegang System Analyst sebagai peran kedua (DIG-36).
+TASK_READ = [Depends(require_permission(Perm.MASTER_DATA_READ))]
+TASK_STATUS_WRITE = [Depends(require_permission(Perm.MASTER_DATA_WRITE))]
+
 Db = Annotated[Session, Depends(get_db)]
 TaskIdPath = Annotated[str, Path(pattern=TASK_ID_PATTERN, examples=["TSK-0001"])]
 NOT_FOUND = {status.HTTP_404_NOT_FOUND: {"description": "Task tidak ditemukan"}}
 
 
-@router.get("/tasks", response_model=list[TaskRead], summary="Daftar task (D-05)")
+@router.get(
+    "/tasks",
+    dependencies=TASK_READ,
+    response_model=list[TaskRead],
+    summary="Daftar task (D-05)",
+)
 def list_tasks(
     db: Db,
     project_id: Annotated[str | None, Query(pattern=PROJECT_ID_PATTERN)] = None,
@@ -34,7 +46,13 @@ def list_tasks(
     return service.list_tasks(db, project_id, status_filter, required_role_id)
 
 
-@router.get("/tasks/{task_id}", response_model=TaskRead, responses=NOT_FOUND, summary="Detail task")
+@router.get(
+    "/tasks/{task_id}",
+    dependencies=TASK_READ,
+    response_model=TaskRead,
+    responses=NOT_FOUND,
+    summary="Detail task",
+)
 def get_task(db: Db, task_id: TaskIdPath) -> TaskRead:
     try:
         return service.get_task(db, task_id)
@@ -44,6 +62,7 @@ def get_task(db: Db, task_id: TaskIdPath) -> TaskRead:
 
 @router.patch(
     "/tasks/{task_id}/status",
+    dependencies=TASK_STATUS_WRITE,
     response_model=TaskRead,
     responses=NOT_FOUND,
     summary="Ubah status, tanggal aktual, atau DoD task",
