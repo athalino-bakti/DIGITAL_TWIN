@@ -146,4 +146,30 @@ $env:TEST_DATABASE_URL = "postgresql+psycopg://puti:puti_local@localhost:5432/di
 
 `npm run build` menghasilkan `frontend/dist`. Hosting frontend perlu fallback ke `index.html` untuk deep link React Router. Proxy Vite hanya untuk development; saat deployment arahkan `/api` ke FastAPI melalui reverse proxy, atau set `VITE_API_BASE_URL` saat build dan sesuaikan `CORS_ORIGINS`. Compose saat ini hanya untuk database lokal.
 
+## Data sintetis
+
+Selama data PuTI belum tersedia, `python -m synthetic` dari folder `backend/` menghasilkan final sources D-01 s.d. D-11, sumber mentah (Project Plan, Trello, git log), dan data kotor untuk pengujian. Detail: [generator data sintetis](docs/SYNTHETIC_DATA.md).
+
 Referensi teknis: [Vite](https://vite.dev/guide/), [router modular FastAPI](https://fastapi.tiangolo.com/tutorial/bigger-applications/), [SQLAlchemy PostgreSQL](https://docs.sqlalchemy.org/en/20/dialects/postgresql.html).
+
+## Login dan sesi pengguna
+
+Backend menyediakan login berbasis token (JWT). Belum ada halaman kelola akun sampai RBAC (DIG-18), jadi akun dibuat dari terminal, dari folder `backend` dengan venv aktif:
+
+```powershell
+python -m app.modules.auth.create_user --username bagas --full-name "Bagas Haris Saputro"
+# opsional: --resource-id RES-001 untuk menautkan akun ke anggota tim
+```
+
+Password diminta lewat prompt, minimal 8 karakter, dan disimpan sebagai hash scrypt.
+
+| Endpoint | Body / header | Respons |
+| --- | --- | --- |
+| `POST /api/v1/auth/login` | `{"username": "...", "password": "..."}` | `200` `{access_token, token_type: "bearer", expires_in, user}` · `401` username atau password salah · `422` body tidak valid |
+| `GET /api/v1/auth/me` | `Authorization: Bearer <access_token>` | `200` data user · `401` token tidak ada, rusak, kedaluwarsa, atau akun nonaktif |
+
+- Username tidak peka huruf besar/kecil dan spasi di ujung diabaikan.
+- Username salah, password salah, dan akun nonaktif mendapat pesan yang sama agar tidak membocorkan akun mana yang terdaftar.
+- Token berlaku `ACCESS_TOKEN_EXPIRE_MINUTES` menit (default 60). Saat API membalas `401`, frontend sebaiknya menghapus token dan mengarahkan ke halaman login.
+- Endpoint lain bisa mewajibkan login dengan dependency `CurrentUser` dari `app.modules.auth.dependencies`.
+- `JWT_SECRET_KEY` wajib diganti di luar development (`APP_ENV=staging`/`production`); aplikasi menolak start bila masih memakai nilai bawaan.

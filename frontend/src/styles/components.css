@@ -163,12 +163,82 @@ td .status-pill.danger { margin-left: var(--space-3); }
 .form-alert { padding: var(--space-4); border-radius: var(--radius-control); background: rgba(190, 80, 90, .1); color: var(--color-danger); font: var(--text-body-sm); }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
+.data-table .num { white-space: nowrap; }
+.row-editing td { background: rgba(230, 243, 238, .45); vertical-align: top; }
+.cell-input { width: 96px; height: 36px; padding: 0 var(--space-3); text-align: right; font: var(--text-body); color: var(--color-heading); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-control); }
+.cell-input:focus { outline: 2px solid var(--color-primary); outline-offset: -1px; border-color: var(--color-primary); }
+.cell-input[aria-invalid="true"] { border-color: var(--color-danger); }
+.cell-error { display: block; margin-top: var(--space-2); white-space: normal; text-align: left; max-width: 180px; }
+
+.chip-list { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.text-muted { color: var(--color-muted); }
+td .status-pill.status-planning { margin-top: var(--space-2); }
+.cell-description { min-width: 260px; max-width: 420px; color: var(--color-body); }
+.cell-textarea { width: 100%; min-width: 260px; padding: var(--space-3); font: var(--text-body); color: var(--color-heading); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-control); resize: vertical; }
+.cell-textarea:focus { outline: 2px solid var(--color-primary); outline-offset: -1px; border-color: var(--color-primary); }
+fieldset.field { border: 0; padding: 0; margin: 0; min-width: 0; }
+fieldset.field legend { font: var(--text-label); color: var(--color-heading); margin-bottom: var(--space-3); padding: 0; }
+.choice-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--space-3) var(--space-5); }
+.choice { padding: var(--space-3) var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-control); font-weight: 500; }
+.choice:has(input:checked) { border-color: var(--color-primary); background: var(--color-primary-light); }
+
 /* --- Footer --- */
 .main-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-5) var(--content-gutter); border-top: 1px solid var(--color-border); background: var(--color-surface); font: var(--text-body-sm); color: var(--color-muted); }
 .service-status { display: flex; align-items: center; gap: var(--space-4); }
 .service-status > span { display: inline-flex; align-items: center; gap: var(--space-3); }
 .service-status.online .status-dot { background: var(--color-success); }
 .service-status.offline .status-dot { background: var(--color-danger); }
+
+/* Ketersediaan dan hari libur (DIG-23) */
+.month-nav { display: flex; align-items: center; gap: var(--space-3); }
+.month-nav strong { min-width: 132px; text-align: center; font: var(--text-title); color: var(--color-heading); }
+.month-nav .button-ghost { padding: var(--space-2) var(--space-4); }
+.toolbar-filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-5); }
+.toolbar-select { height: 36px; padding: 0 var(--space-4); font: var(--text-body); color: var(--color-heading); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-control); }
+.toolbar-select:focus { outline: 2px solid var(--color-primary); outline-offset: -1px; }
+.calendar { padding: var(--space-5) var(--space-7) var(--space-6); border-bottom: 1px solid var(--color-border); }
+.calendar-head, .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--space-2); }
+.calendar-head { margin-bottom: var(--space-2); }
+.calendar-head span { padding: 0 var(--space-3); font: var(--text-caption); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--color-muted); }
+.calendar-grid { list-style: none; margin: 0; padding: 0; }
+.calendar-day { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; min-height: 96px; padding: var(--space-3); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-control); }
+.calendar-day.is-weekend { background: var(--color-bg); }
+.calendar-day.is-holiday { background: rgba(190, 80, 90, .06); border-color: rgba(190, 80, 90, .28); }
+.calendar-day.is-outside { opacity: .5; }
+.calendar-date { align-self: flex-start; display: grid; place-items: center; min-width: 26px; height: 26px; padding: 0 var(--space-2); font: var(--text-label); color: var(--color-heading); background: none; border: 0; border-radius: var(--radius-pill); cursor: pointer; }
+.calendar-date:hover { background: var(--color-primary-light); color: var(--color-primary); }
+.calendar-date:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+.calendar-day.is-today .calendar-date { background: var(--color-primary); color: var(--color-surface); }
+.calendar-holiday { overflow: hidden; font: var(--text-caption); font-weight: 500; color: var(--color-danger); white-space: nowrap; text-overflow: ellipsis; }
+.calendar-events { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.absence-chip { display: block; width: 100%; overflow: hidden; padding: 2px var(--space-2); font: var(--text-caption); font-weight: 600; text-align: left; white-space: nowrap; text-overflow: ellipsis; border: 0; border-radius: 4px; cursor: pointer; }
+.absence-chip:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+.calendar-more { font: var(--text-caption); color: var(--color-muted); }
+.absence-planned_leave { background: rgba(72, 125, 184, .14); color: var(--color-info); }
+.absence-sudden_leave { background: rgba(190, 80, 90, .14); color: var(--color-danger); }
+.absence-maternity_leave { background: rgba(173, 116, 42, .14); color: var(--color-warning); }
+.absence-rotation_out { background: rgba(83, 101, 112, .14); color: var(--color-body); }
+.absence-rotation_in { background: var(--color-primary-light); color: var(--color-primary); }
+.calendar-legend { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-6); margin-top: var(--space-5); font: var(--text-body-sm); color: var(--color-body); }
+.calendar-legend > span { display: inline-flex; align-items: center; gap: var(--space-3); }
+.legend-swatch { width: 12px; height: 12px; border-radius: 3px; border: 1px solid currentColor; }
+.legend-holiday { color: var(--color-danger); }
+.legend-holiday { background: rgba(190, 80, 90, .2); }
+.empty-state.compact { min-height: 0; padding: var(--space-8) var(--space-7); }
+.empty-state.compact h3 { margin-top: 0; }
+.form-preview { padding: var(--space-3) var(--space-4); font: var(--text-body-sm); color: var(--color-body); background: var(--color-bg); border-radius: var(--radius-control); }
+.form-preview strong { color: var(--color-heading); }
+.subtle-pill { margin-left: var(--space-3); color: var(--color-muted); }
+.dialog-narrow { width: min(480px, calc(100vw - 32px)); }
+@media (max-width: 760px) {
+  .calendar { padding: var(--space-4); }
+  .calendar-head span { padding: 0; text-align: center; }
+  .calendar-day { min-height: 60px; padding: var(--space-2); gap: var(--space-1); }
+  .calendar-holiday, .calendar-more { display: none; }
+  /* Di layar sempit nama anggota disembunyikan; tiap catatan tampil sebagai garis warna. */
+  .absence-chip { height: 6px; padding: 0; font-size: 0; background-color: currentColor; opacity: .75; }
+  .month-nav strong { min-width: 0; }
+}
 
 /* --- Responsive --- */
 @media (max-width: 1100px) {
