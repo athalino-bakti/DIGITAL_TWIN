@@ -56,6 +56,19 @@ def test_next_project_id_continues_past_999(client):
     assert create(client, priority_rank=3)["project_id"] == "PRJ-1001"
 
 
+def test_next_project_id_keeps_width_of_dataset_ids(client):
+    create(client, project_id="PRJ-0009", priority_rank=1)
+    assert create(client, priority_rank=2)["project_id"] == "PRJ-0010"
+
+
+def test_project_id_with_same_number_is_409(client):
+    create(client, project_id="PRJ-001")
+    response = client.post(BASE, json=project(project_id="PRJ-0001", priority_rank=2))
+    assert response.status_code == 409
+    assert error_fields(response) == ["project_id"]
+    assert "PRJ-001" in response.json()["detail"]["msg"]
+
+
 def test_duplicate_project_id_is_409(client):
     create(client, project_id="PRJ-005")
     response = client.post(BASE, json=project(project_id="PRJ-005", priority_rank=2))

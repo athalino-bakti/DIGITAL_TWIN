@@ -206,10 +206,8 @@ def create_project(db: Session, payload: ProjectCreate) -> ProjectRead:
 
     if values["project_id"] is None:
         values["project_id"] = next_project_id(db)
-    elif db.get(Project, values["project_id"]) is not None:
-        raise ConflictError(
-            f"ID {values['project_id']} sudah dipakai proyek lain", field="project_id"
-        )
+    else:
+        ensure_id_free(db, Project.project_id, values["project_id"], "project_id", "proyek")
     ensure_unique_active_priority(db, values, exclude_id=None)
 
     project = Project(**values)
@@ -417,11 +415,41 @@ def next_id(existing: list[str], prefix: str, width: int = 3) -> str:
     """ID berikutnya setelah angka terbesar, dihitung sebagai angka.
 
     Format ID boleh lebih dari `width` digit (PRJ-1000), sehingga urutan teks
-    keliru: "RES-1000" < "RES-999".
+    keliru: "RES-1000" < "RES-999". Jumlah digit mengikuti ID dengan angka terbesar,
+    minimal `width`: setelah dataset dosbim AVL-0001 sampai AVL-0050 dimuat, nomor
+    berikutnya AVL-0051, bukan AVL-051.
     """
     pattern = re.compile(rf"{re.escape(prefix)}-(\d+)")
-    numbers = [int(m.group(1)) for value in existing if (m := pattern.fullmatch(value))]
-    return f"{prefix}-{max(numbers, default=0) + 1:0{width}d}"
+    found = [
+        (int(m.group(1)), len(m.group(1))) for value in existing if (m := pattern.fullmatch(value))
+    ]
+    number, digits = max(found, default=(0, width))
+    return f"{prefix}-{number + 1:0{max(width, digits)}d}"
+
+
+def find_same_id_number(db: Session, column, value: str) -> str | None:
+    """ID yang nomornya sama dengan `value`, termasuk `value` itu sendiri.
+
+    Format ID memakai jumlah digit minimal, sehingga PRJ-001 dan PRJ-0001 sama-sama
+    sah tetapi menunjuk nomor yang sama. Pencarian memakai regex PostgreSQL agar
+    tidak perlu memuat semua ID.
+    """
+    prefix, digits = value.rsplit("-", 1)
+    pattern = f"^{re.escape(prefix)}-0*{int(digits)}$"
+    return db.scalar(select(column).where(column.op("~")(pattern)).order_by(column).limit(1))
+
+
+def ensure_id_free(db: Session, column, value: str, field: str, owner: str) -> None:
+    """409 bila ID atau nomornya sudah dipakai, misalnya PRJ-0001 saat PRJ-001 sudah ada."""
+    existing = find_same_id_number(db, column, value)
+    if existing == value:
+        raise ConflictError(f"ID {value} sudah dipakai {owner} lain", field=field)
+    if existing is not None:
+        raise ConflictError(
+            f"ID {value} bernomor sama dengan {existing} yang sudah ada. "
+            "Pakai nomor lain atau kosongkan agar diisi otomatis.",
+            field=field,
+        )
 
 
 def next_resource_id(db: Session) -> str:
@@ -451,10 +479,8 @@ def create_resource(db: Session, payload: ResourceCreate) -> ResourceRead:
         raise DataValidationError(errors)
     if values["resource_id"] is None:
         values["resource_id"] = next_resource_id(db)
-    elif db.get(Resource, values["resource_id"]) is not None:
-        raise ConflictError(
-            f"ID {values['resource_id']} sudah dipakai anggota lain", field="resource_id"
-        )
+    else:
+        ensure_id_free(db, Resource.resource_id, values["resource_id"], "resource_id", "anggota")
     values["secondary_role_ids"] = join_role_ids(values["secondary_role_ids"])
     resource = Resource(**values)
     db.add(resource)
