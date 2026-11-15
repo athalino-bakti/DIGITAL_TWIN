@@ -133,6 +133,8 @@ $env:MIGRATION_TEST_DATABASE_URL = "postgresql+psycopg://puti:puti_local@localho
 
 Saat menulis migrasi, pastikan `downgrade()` membalik `upgrade()` sepenuhnya, termasuk `DROP TYPE` untuk enum PostgreSQL (`sa.Enum(name="...").drop(op.get_bind())`).
 
+Role basis data `jc_app` (aplikasi) dan schema `twinner` (milik tWinner) dibuat migrasi `0014`. Hak akses dan cara mengaktifkan login di staging ada di [docs/DATABASE_ROLES.md](docs/DATABASE_ROLES.md). Migrasi baru tidak perlu menulis `GRANT`: tabel baru otomatis bisa dibaca-tulis `jc_app`.
+
 ### Tes API dengan PostgreSQL
 
 Tes endpoint yang butuh database sungguhan (misalnya `tests/test_projects_api.py`) memakai marker `db` dan variabel `TEST_DATABASE_URL`, dengan aturan nama `_test` yang sama. Job **Migrasi (alembic naik-turun)** juga menjalankannya.
