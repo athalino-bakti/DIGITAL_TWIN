@@ -176,11 +176,7 @@ def ensure_unique_active_priority(db: Session, values: dict, exclude_id: str | N
 
 
 def next_project_id(db: Session) -> str:
-    highest = db.scalar(select(func.max(Project.project_id)))
-    number = int(highest.removeprefix("PRJ-")) + 1 if highest else 1
-    if number > 999:
-        raise ConflictError("Nomor proyek sudah mencapai PRJ-999", field="project_id")
-    return f"PRJ-{number:03d}"
+    return next_id(list(db.scalars(select(Project.project_id))), "PRJ")
 
 
 def list_projects(
