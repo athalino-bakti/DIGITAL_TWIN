@@ -19,6 +19,11 @@ class ProjectStatus(StrEnum):
     ON_HOLD = "on_hold"
 
 
+# "Proyek aktif" pada DIG-20: masih dikerjakan. released sudah selesai dan on_hold
+# sedang ditunda, sehingga keduanya tidak memegang nomor prioritas.
+ACTIVE_PROJECT_STATUSES = (ProjectStatus.PLANNING, ProjectStatus.DEVELOPMENT, ProjectStatus.TESTING)
+
+
 class Seniority(StrEnum):
     """D-02 resources.seniority"""
 

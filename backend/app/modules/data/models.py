@@ -13,15 +13,18 @@ from sqlalchemy import (
     Date,
     Double,
     ForeignKey,
+    Index,
     String,
     Text,
     UniqueConstraint,
     false,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.modules.data.enums import (
+    ACTIVE_PROJECT_STATUSES,
     ASSIGNMENT_ID_PATTERN,
     AVAILABILITY_ID_PATTERN,
     COMPLEXITY_ID_PATTERN,
@@ -46,6 +49,8 @@ from app.modules.data.enums import (
     WorkloadItemType,
 )
 
+ACTIVE_PRIORITY_INDEX = "uq_projects_active_priority"
+
 
 def one_of(column: str, values: type[StrEnum]) -> str:
     """Ekspresi CHECK `kolom IN (...)` dari sebuah StrEnum."""
@@ -68,6 +73,15 @@ class Project(Base):
         CheckConstraint("priority_rank >= 1", name="priority_rank_min"),
         CheckConstraint("target_launch_date >= start_date", name="target_after_start"),
         CheckConstraint("actual_launch_date >= start_date", name="actual_after_start"),
+        # DIG-20: prioritas unik di antara proyek aktif (migrasi 0006).
+        Index(
+            ACTIVE_PRIORITY_INDEX,
+            "priority_rank",
+            unique=True,
+            postgresql_where=text(
+                f"status IN ({', '.join(repr(s.value) for s in ACTIVE_PROJECT_STATUSES)})"
+            ),
+        ),
     )
 
     project_id: Mapped[str] = mapped_column(String(20), primary_key=True)
