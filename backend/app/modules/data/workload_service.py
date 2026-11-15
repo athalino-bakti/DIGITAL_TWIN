@@ -17,6 +17,7 @@ from typing import Any
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.modules.data.enums import Severity, WorkloadItemType
@@ -450,19 +451,33 @@ def import_workload_items(db: Session, request: WorkloadImportRequest) -> Worklo
     if errors or request.dry_run or not rows:
         return result
 
+    # Hanya baris yang menyebut item_id yang boleh memperbarui item lama. Baris tanpa ID
+    # di-insert biasa: kalau nomor barunya keburu dipakai item lain (impor atau tambah item
+    # bersamaan), insert gagal dan seluruh impor dibatalkan, bukan menimpa item itu.
+    given_rows = [values for _, values in rows if values["item_id"] is not None]
+    new_rows = [values for _, values in rows if values["item_id"] is None]
     # Nomor berikutnya dihitung sekali, lalu dinaikkan per baris tanpa query ulang.
     first = next_workload_item_id(db, given_ids)
     digits = first.removeprefix("WLI-")
     number, width = int(digits), len(digits)
-    for _, values in rows:
-        if values["item_id"] is None:
-            values["item_id"] = f"WLI-{number:0{width}d}"
-            number += 1
-    statement = insert(WorkloadItem)
-    columns = {c: statement.excluded[c] for c in CSV_COLUMNS if c != "item_id"}
-    db.execute(
-        statement.on_conflict_do_update(index_elements=["item_id"], set_=columns),
-        [values for _, values in rows],
-    )
+    for values in new_rows:
+        values["item_id"] = f"WLI-{number:0{width}d}"
+        number += 1
+    try:
+        if given_rows:
+            statement = insert(WorkloadItem)
+            columns = {c: statement.excluded[c] for c in CSV_COLUMNS if c != "item_id"}
+            db.execute(
+                statement.on_conflict_do_update(index_elements=["item_id"], set_=columns),
+                given_rows,
+            )
+        if new_rows:
+            db.execute(insert(WorkloadItem), new_rows)
+    except IntegrityError as exc:
+        db.rollback()
+        raise ConflictError(
+            "Nomor item baru keburu dipakai item lain yang disimpan bersamaan. "
+            "Tidak ada baris yang tersimpan, silakan impor ulang berkasnya."
+        ) from exc
     commit(db)
     return result.model_copy(update={"applied": True})

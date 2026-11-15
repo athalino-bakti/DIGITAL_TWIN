@@ -315,3 +315,17 @@ def test_import_assigns_ids_after_existing(client, team, db):
 def test_import_request_validation(client):
     assert client.post(IMPORT, json={"content": ""}).status_code == 422
     assert client.post(IMPORT, json={"content": "x", "dry_run": "ya"}).status_code == 422
+
+
+def test_import_new_rows_never_overwrite_concurrent_item(client, team, db, monkeypatch):
+    """Nomor baru yang keburu dipakai item lain membatalkan impor, bukan menimpa item itu."""
+    from app.modules.data import workload_service
+
+    create(client, team, item_id="WLI-0001", severity="low")
+    # Seolah nomor dihitung sebelum WLI-0001 disimpan oleh permintaan lain.
+    monkeypatch.setattr(workload_service, "next_workload_item_id", lambda db, taken=(): "WLI-0001")
+    content = csv_rows(team, ",{budi},ticket,,2026-10-05,,,critical,false")
+    response = client.post(IMPORT, json={"content": content, "dry_run": False})
+    assert response.status_code == 409, response.text
+    assert "impor ulang" in response.json()["detail"]["msg"]
+    assert stored(db) == [("WLI-0001", team["sari"], "low", False)]
