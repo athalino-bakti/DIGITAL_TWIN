@@ -4,7 +4,7 @@ Jira: DIG-84. Tabel internal J&C untuk login. resource_id opsional dan unik, ber
 resources dengan ON DELETE SET NULL agar menghapus anggota tidak menghapus akunnya.
 
 Revision ID: 0009
-Revises: 0010
+Revises: 0017
 """
 
 from typing import Sequence, Union
@@ -14,7 +14,7 @@ from alembic import op
 
 revision: str = "0009"
 # Saat PR ini di-rebase setelah migrasi lain masuk ke main, ganti ke head terbaru.
-down_revision: Union[str, Sequence[str], None] = "0010"
+down_revision: Union[str, Sequence[str], None] = "0017"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
