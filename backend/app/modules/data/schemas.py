@@ -14,9 +14,11 @@ from pydantic import (
 )
 
 from app.modules.data.enums import (
+    AVAILABILITY_ID_PATTERN,
     PROJECT_ID_PATTERN,
     RESOURCE_ID_PATTERN,
     ROLE_ID_PATTERN,
+    AbsenceType,
     ProjectStatus,
     Seniority,
 )
@@ -214,3 +216,75 @@ class RoleRead(BaseModel):
     capacity_reference: float
     description: str | None
     resource_count: int = Field(description="Jumlah anggota dengan peran ini sebagai peran utama")
+
+
+# --- D-09 availability dan D-11 holidays (DIG-23) ---
+
+AvailabilityId = Annotated[str, StringConstraints(pattern=AVAILABILITY_ID_PATTERN)]
+
+
+class AvailabilityFields(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    resource_id: ResourceId
+    date_start: IsoDate
+    date_end: IsoDate
+    absence_type: AbsenceType
+    is_known_at_planning: bool = Field(default=False, strict=True)
+
+
+class AvailabilityCreate(AvailabilityFields):
+    """Body POST. `availability_id` boleh dikosongkan; server mengisi AVL-xxx berikutnya."""
+
+    availability_id: AvailabilityId | None = None
+
+
+class AvailabilityUpdate(BaseModel):
+    """Body PATCH. Hanya kolom yang dikirim yang diubah; ID tidak bisa diubah."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    resource_id: ResourceId | None = None
+    date_start: IsoDate | None = None
+    date_end: IsoDate | None = None
+    absence_type: AbsenceType | None = None
+    is_known_at_planning: bool | None = Field(default=None, strict=True)
+
+
+class AvailabilityRead(BaseModel):
+    availability_id: str
+    resource_id: str
+    resource_name: str
+    date_start: date
+    date_end: date
+    absence_type: AbsenceType
+    is_known_at_planning: bool
+    calendar_days: int = Field(description="Jumlah hari kalender dalam periode, inklusif")
+    working_days: int = Field(
+        description="Hari kerja dalam periode: tanpa Sabtu, Minggu, dan tanggal di D-11"
+    )
+
+
+class HolidayCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    holiday_date: IsoDate
+    holiday_name: Name
+
+
+class HolidayUpdate(BaseModel):
+    """Body PATCH. Tanggal adalah kunci; untuk memindah tanggal, hapus lalu tambah ulang."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    holiday_name: Name
+
+
+class HolidayRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    holiday_date: date
+    holiday_name: str
+    is_weekend: bool = Field(
+        description="Jatuh pada Sabtu atau Minggu, sehingga tidak mengurangi hari kerja"
+    )

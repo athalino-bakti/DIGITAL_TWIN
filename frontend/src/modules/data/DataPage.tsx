@@ -1,5 +1,7 @@
 import { Navigate, NavLink, useParams } from 'react-router-dom';
 import { ModulePlaceholder } from '../../shared/components/ModulePlaceholder';
+import { AvailabilityPanel } from './availability/AvailabilityPanel';
+import { HolidaysPanel } from './availability/HolidaysPanel';
 import { ComplexityPanel } from './complexity/ComplexityPanel';
 import { ProjectsPanel } from './projects/ProjectsPanel';
 import { ResourcesPanel } from './resources/ResourcesPanel';
@@ -10,6 +12,8 @@ const views = {
   anggota: { label: 'Anggota' },
   peran: { label: 'Peran' },
   kompleksitas: { label: 'Kompleksitas' },
+  ketersediaan: { label: 'Ketersediaan' },
+  libur: { label: 'Hari libur' },
   impor: { label: 'Impor dataset' },
 } as const;
 
@@ -24,6 +28,8 @@ export function DataPage() {
     {view === 'anggota' && <ResourcesPanel />}
     {view === 'peran' && <RolesPanel />}
     {view === 'kompleksitas' && <ComplexityPanel />}
+    {view === 'ketersediaan' && <AvailabilityPanel />}
+    {view === 'libur' && <HolidaysPanel />}
     {view === 'impor' && <ModulePlaceholder title="Impor dataset" description="Unggah Project Plan, ekspor Trello, dan riwayat commit akan tersedia di sini." areas={['Unggah dataset CSV', 'Kualitas data', 'Baris ditolak']} />}
   </>;
 }

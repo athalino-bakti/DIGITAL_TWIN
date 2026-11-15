@@ -18,8 +18,11 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     false,
+    func,
+    literal,
     text,
 )
+from sqlalchemy.dialects.postgresql import ExcludeConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -50,6 +53,7 @@ from app.modules.data.enums import (
 )
 
 ACTIVE_PRIORITY_INDEX = "uq_projects_active_priority"
+AVAILABILITY_OVERLAP_CONSTRAINT = "ex_availability_no_overlap"
 
 
 def one_of(column: str, values: type[StrEnum]) -> str:
@@ -285,6 +289,15 @@ class Availability(Base):
         ),
         CheckConstraint(one_of("absence_type", AbsenceType), name="absence_type_valid"),
         CheckConstraint("date_end >= date_start", name="date_end_after_start"),
+        # DIG-106: ketidakhadiran satu anggota tidak boleh bertumpuk (migrasi 0017).
+        # rotation_in dikecualikan karena berarti anggota hadir.
+        ExcludeConstraint(
+            ("resource_id", "="),
+            (func.daterange(text("date_start"), text("date_end"), literal("[]")), "&&"),
+            name=AVAILABILITY_OVERLAP_CONSTRAINT,
+            using="gist",
+            where=text("absence_type <> 'rotation_in'"),
+        ),
     )
 
     availability_id: Mapped[str] = mapped_column(String(20), primary_key=True)

@@ -4,18 +4,18 @@ Dokumen ini menjadi kesepakatan tentang data yang dibagi bersama oleh aplikasi D
 
 | Item | Nilai |
 |---|---|
-| Versi | 1.0 |
-| Jira | DIG-12 (DIG-62, DIG-63) |
+| Versi | 1.1 |
+| Jira | DIG-12 (DIG-62, DIG-63), DIG-106 |
 | Skema acuan | Sheet "Data Dictionary" pada berkas *Business Process DT untuk PuTI* |
 | Dataset baseline | Dataset dummy dari dosen pembimbing (`puti_datasets.xlsx`) |
-| Implementasi skema | `backend/app/modules/data/models.py` dan revisi Alembic `0001` sampai `0008` (DIG-15) |
+| Implementasi skema | `backend/app/modules/data/models.py` dan revisi Alembic `0001` sampai `0008` (DIG-15) dan `0017` (DIG-106) |
 | Basis data | PostgreSQL bersama |
 
 ## 1. Ruang lingkup
 
 J&C mengolah data dari beberapa sumber (Project Plan, riwayat kartu Trello, dan riwayat commit TeamGit) menjadi final sources sesuai Data Dictionary. tWinner memakai final sources tersebut sebagai parameter kondisi aktual untuk skenario *what-if*, perhitungan KPI, dan rekomendasi. Kedua aplikasi bertukar data melalui basis data bersama tanpa pertukaran berkas manual.
 
-Selama pengembangan, J&C tidak menerima data sistem PuTI secara langsung. Kedua tim memakai dataset dummy dari dosen pembimbing (`puti_datasets.xlsx`) sebagai baseline bersama. Seluruh 4.934 baris dataset tersebut dapat dimuat ke skema bagian 6 tanpa penolakan. Generator data sintetis J&C (DIG-16) melengkapinya dengan sumber mentah (Project Plan, riwayat Trello, dan git log) serta data kotor untuk menguji validasi, dengan skenario kerja yang mengikuti hasil wawancara dengan Tim DEVTI PuTI. Data sintetis tidak memuat data pribadi sebenarnya sesuai UU No. 27 Tahun 2022 tentang Pelindungan Data Pribadi.
+Selama pengembangan, J&C tidak menerima data sistem PuTI secara langsung. Kedua tim memakai dataset dummy dari dosen pembimbing (`puti_datasets.xlsx`) sebagai baseline bersama. Dari 4.934 baris dataset tersebut, 4.915 baris lolos ke skema bagian 6 dan 19 baris D-09 availability ditolak aturan `ex_availability_no_overlap` karena periode ketidakhadirannya bertumpuk. Ke-19 baris itu diperlakukan sebagai data kotor yang ditolak dan dilaporkan validator (bagian 5). Generator data sintetis J&C (DIG-16) melengkapinya dengan sumber mentah (Project Plan, riwayat Trello, dan git log) serta data kotor untuk menguji validasi, dengan skenario kerja yang mengikuti hasil wawancara dengan Tim DEVTI PuTI. Data sintetis tidak memuat data pribadi sebenarnya sesuai UU No. 27 Tahun 2022 tentang Pelindungan Data Pribadi.
 
 ## 2. Pihak dan tanggung jawab
 
@@ -68,7 +68,7 @@ J&C menjalankan ETL paling sedikit satu kali per minggu selama iterasi analisis,
 | `secondary_role_ids` | Daftar `role_id` dipisah titik koma tanpa spasi, misalnya `ROLE-DM;ROLE-FE` |
 | CSV | UTF-8, pemisah koma, baris pertama berisi nama kolom |
 
-Aturan di basis data (CHECK constraint, foreign key, dan unique constraint) menolak baris yang melanggar format ID, nilai enum, kolom wajib, dan referensi antartabel. Validator dan importer J&C yang menegakkan format tanggal. Constraint basis data tidak dipakai untuk aturan ini karena PostgreSQL menerima sebagian tanggal non-ISO (`14 Oct 2026`, `2026/09/10`, `01/12/2026`) dan dapat salah membacanya: `01/12/2026` tersimpan sebagai 2026-01-12. Validator J&C menyaring data kotor dari sumber mentah di tabel staging sebelum memuatnya ke final sources, sehingga tWinner hanya membaca baris yang lolos validasi.
+Aturan di basis data (CHECK constraint, foreign key, unique constraint, dan exclusion constraint) menolak baris yang melanggar format ID, nilai enum, kolom wajib, referensi antartabel, dan periode ketidakhadiran yang bertumpuk. Validator dan importer J&C yang menegakkan format tanggal. Constraint basis data tidak dipakai untuk aturan ini karena PostgreSQL menerima sebagian tanggal non-ISO (`14 Oct 2026`, `2026/09/10`, `01/12/2026`) dan dapat salah membacanya: `01/12/2026` tersimpan sebagai 2026-01-12. Validator J&C menyaring data kotor dari sumber mentah di tabel staging sebelum memuatnya ke final sources, sehingga tWinner hanya membaca baris yang lolos validasi.
 
 ## 6. Salinan Data Dictionary
 
@@ -254,6 +254,7 @@ Aturan di basis data:
 - `ck_availability_absence_type_valid`: `absence_type IN ('planned_leave', 'sudden_leave', 'maternity_leave', 'rotation_out', 'rotation_in')`
 - `ck_availability_availability_id_format`: `availability_id ~ '^AVL-[0-9]{3,}$'`
 - `ck_availability_date_end_after_start`: `date_end >= date_start`
+- `ex_availability_no_overlap`: dua baris dengan `resource_id` yang sama tidak boleh memiliki rentang `date_start` sampai `date_end` (inklusif) yang bertumpuk, kecuali bila salah satunya berjenis `rotation_in`. `rotation_in` dikecualikan karena berarti anggota hadir dari tim lain. Diterapkan sebagai exclusion constraint `EXCLUDE USING gist (resource_id WITH =, daterange(date_start, date_end, '[]') WITH &&) WHERE (absence_type <> 'rotation_in')` dengan extension `btree_gist` yang dibuat migrasi `0017`
 
 ### D-10 `change_events`
 
@@ -363,3 +364,4 @@ J&C menerima Data Dictionary apa adanya sebagai final sources bersama. Kebutuhan
 | Versi | Perubahan |
 |---|---|
 | 1.0 | Versi awal. Persetujuan tWinner atas versi ini dicatat lewat konfirmasi WhatsApp di DIG-12. Isi: salinan Data Dictionary D-01 sampai D-11 sesuai migrasi `0001` sampai `0008`, dataset dosbim sebagai baseline, pemilik dan hak akses, frekuensi pembaruan, aturan format, tabel pendukung J&C, penyelesaian celah skema (`resource_skills`, `change_event_details`, `audit_log`) |
+| 1.1 | Aturan baru pada D-09: `ex_availability_no_overlap` (migrasi `0017`, DIG-106), sehingga ketidakhadiran satu anggota tidak bisa bertumpuk walaupun dua permintaan datang bersamaan. Kolom D-09 tidak berubah dan hak baca `twinner_reader` tetap. Persetujuan tWinner dicatat lewat konfirmasi WhatsApp di DIG-106. Pada `puti_datasets.xlsx`, 19 baris availability ditolak aturan ini dan 4.915 baris lainnya lolos. |
