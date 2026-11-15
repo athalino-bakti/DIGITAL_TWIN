@@ -19,8 +19,9 @@ from pathlib import Path
 import httpx
 import pytest
 
-from app.integrations.trello.client import PAGE_LIMIT, TrelloClient
-from app.integrations.trello.parser import ACTION_TYPES, parse_board_export
+from app.integrations.trello import parser
+from app.integrations.trello.client import ACTION_TYPES, PAGE_LIMIT, TrelloClient
+from app.integrations.trello.parser import parse_board_export
 
 FIXTURE = Path(__file__).parent / "fixtures" / "trello_board_kecil.json"
 DUPLICATE = "5de414e3b40488cb2477b848"
@@ -213,5 +214,6 @@ def test_file_export_and_api_connector_give_same_rows(board):
 
 
 def test_filter_matches_connector():
+    assert parser.ACTION_TYPES is ACTION_TYPES
     assert "updateCard" in ACTION_TYPES and "commentCard" not in ACTION_TYPES
     assert len(ACTION_TYPES) == 11
