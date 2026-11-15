@@ -163,6 +163,8 @@ python -m app.modules.auth.create_user --username bagas --full-name "Bagas Haris
 
 Password diminta lewat prompt, minimal 8 karakter, dan disimpan sebagai hash scrypt.
 
+Akun baru belum punya peran aplikasi, jadi belum bisa membuka endpoint yang dilindungi izin. Beri peran lewat `set_roles`, lihat bagian [Peran aplikasi dan izin (RBAC)](#peran-aplikasi-dan-izin-rbac).
+
 | Endpoint | Body / header | Respons |
 | --- | --- | --- |
 | `POST /api/v1/auth/login` | `{"username": "...", "password": "..."}` | `200` `{access_token, token_type: "bearer", expires_in, user}` · `401` username atau password salah · `422` body tidak valid |
@@ -173,3 +175,36 @@ Password diminta lewat prompt, minimal 8 karakter, dan disimpan sebagai hash scr
 - Token berlaku `ACCESS_TOKEN_EXPIRE_MINUTES` menit (default 60). Saat API membalas `401`, frontend sebaiknya menghapus token dan mengarahkan ke halaman login.
 - Endpoint lain bisa mewajibkan login dengan dependency `CurrentUser` dari `app.modules.auth.dependencies`.
 - `JWT_SECRET_KEY` wajib diganti di luar development (`APP_ENV=staging`/`production`); aplikasi menolak start bila masih memakai nilai bawaan.
+
+### Peran aplikasi dan izin (RBAC)
+
+Satu pengguna boleh punya banyak peran aplikasi; izinnya gabungan dari semua perannya. Peran ini terpisah dari D-03 `roles` (peran kerja di PuTI). Matriks di bawah mengikuti Tabel 2.1 dan 2.2 (FR-01 sampai FR-12) dokumen Rancangan Kebutuhan dan Arsitektur. Perubahan matriks dilakukan lewat migrasi baru.
+
+| Izin | `kaur_asman` | `system_analyst` | `anggota_tim` | `admin_data` | `admin_it` |
+| --- | :-: | :-: | :-: | :-: | :-: |
+| `master_data:read` | ✓ | ✓ | ✓ | ✓ |  |
+| `master_data:write` |  |  |  | ✓ |  |
+| `import:run` |  |  |  | ✓ |  |
+| `data_quality:read` |  | ✓ |  | ✓ |  |
+| `change_event:write` (FR-05, semua task) | ✓ | ✓ |  |  |  |
+| `change_event:write_own` (FR-05, task miliknya) |  |  | ✓ |  |  |
+| `availability:write` (FR-06) | ✓ | ✓ |  |  |  |
+| `baseline:read` (FR-08 s.d. FR-11) | ✓ | ✓ |  |  |  |
+| `workload:read_all` | ✓ | ✓ |  |  |  |
+| `workload:read_own` | ✓ | ✓ | ✓ |  |  |
+| `event_log:export` (FR-07) |  |  |  | ✓ |  |
+| `user:manage` |  |  |  |  | ✓ |
+
+- System Analyst yang juga menjalankan tugas Administrator Data (Tabel 2.1) cukup diberi dua peran: `system_analyst` dan `admin_data`.
+- `change_event:write_own` dan `workload:read_own` hanya membuka endpoint; pembatasan ke task atau data milik pengguna sendiri dicek di endpoint tersebut.
+
+Mengatur peran dari folder `backend` (belum ada halaman kelola akun):
+
+```powershell
+python -m app.modules.auth.set_roles --list
+python -m app.modules.auth.set_roles --username bagas --role admin_data --role system_analyst
+```
+
+- `GET /api/v1/auth/me` dan respons login memuat `roles` dan `permissions`; frontend memakai `permissions` untuk menyembunyikan menu dan tombol (DIG-92).
+- Endpoint dilindungi dengan `Depends(require_permission(Perm.MASTER_DATA_WRITE))` dari `app.modules.auth.dependencies`. Tanpa token: `401`. Login tapi tidak berizin: `403`.
+- Izin dibaca ulang di setiap request, jadi perubahan peran langsung berlaku tanpa login ulang.
