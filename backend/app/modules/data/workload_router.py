@@ -12,6 +12,8 @@ from fastapi import APIRouter, Depends, Path, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.modules.auth.dependencies import require_permission
+from app.modules.auth.permissions import Perm
 
 # Modul router Data diimpor sebagai objek modul dan `to_http` dipanggil saat request, karena
 # router.py mengimpor modul ini ketika ia sendiri belum selesai dimuat.
@@ -38,9 +40,17 @@ Db = Annotated[Session, Depends(get_db)]
 ItemIdPath = Annotated[str, Path(pattern=WORKLOAD_ITEM_ID_PATTERN, examples=["WLI-0001"])]
 CONFLICT = {status.HTTP_409_CONFLICT: {"description": "Bentrok dengan data lain"}}
 
+# Izin D-08 (DIG-226). Daftar beban per orang hanya untuk peran yang boleh melihat beban seluruh
+# anggota (DIG-19). Input dan impor oleh Administrator Data, yang di PuTI dipegang SA atau Kaur
+# sebagai peran kedua, sehingga pemegangnya tetap bisa melihat daftar.
+WORKLOAD_READ = [Depends(require_permission(Perm.WORKLOAD_READ_ALL))]
+WORKLOAD_WRITE = [Depends(require_permission(Perm.MASTER_DATA_WRITE))]
+WORKLOAD_IMPORT = [Depends(require_permission(Perm.IMPORT_RUN))]
+
 
 @router.get(
     "/workload-items",
+    dependencies=WORKLOAD_READ,
     response_model=list[WorkloadItemRead],
     summary="Daftar beban non-proyek (D-08)",
 )
@@ -61,6 +71,7 @@ def list_workload_items(
 
 @router.post(
     "/workload-items",
+    dependencies=WORKLOAD_WRITE,
     response_model=WorkloadItemRead,
     status_code=status.HTTP_201_CREATED,
     responses=CONFLICT,
@@ -75,6 +86,7 @@ def create_workload_item(db: Db, payload: WorkloadItemCreate) -> WorkloadItemRea
 
 @router.post(
     "/workload-items/import",
+    dependencies=WORKLOAD_IMPORT,
     response_model=WorkloadImportResult,
     responses=CONFLICT,
     summary="Impor CSV D-08 (periksa dulu dengan dry_run)",
@@ -91,6 +103,7 @@ def import_workload_items(db: Db, payload: WorkloadImportRequest) -> WorkloadImp
 
 @router.patch(
     "/workload-items/{item_id}",
+    dependencies=WORKLOAD_WRITE,
     response_model=WorkloadItemRead,
     responses=CONFLICT,
     summary="Ubah sebagian kolom item beban non-proyek",
@@ -106,6 +119,7 @@ def update_workload_item(
 
 @router.delete(
     "/workload-items/{item_id}",
+    dependencies=WORKLOAD_WRITE,
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Hapus item beban non-proyek",
 )
