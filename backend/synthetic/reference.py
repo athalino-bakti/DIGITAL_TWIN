@@ -119,7 +119,7 @@ TABLE_CODES = {
     "holidays": "D-11",
 }
 
-# Jumlah digit contoh Data Dictionary adalah jumlah digit minimal (migrasi 0006).
+# Jumlah digit contoh Data Dictionary adalah jumlah digit minimal (migrasi 0007).
 ID_PATTERNS = {
     "project_id": re.compile(r"^PRJ-[0-9]{3,}$"),
     "resource_id": re.compile(r"^RES-[0-9]{3,}$"),
@@ -224,12 +224,12 @@ ROLES = [
     ),
 ]
 # capacity_reference per peran mengikuti dataset dummy dosbim (puti_datasets.xlsx),
-# sama dengan seed migrasi 0007. Peran yang tidak tercantum memakai default 3.0.
+# sama dengan seed migrasi 0008. Peran yang tidak tercantum memakai default 3.0.
 CAPACITY_REFERENCE = {"ROLE-TW": 2.5}
 DEFAULT_CAPACITY = 3.0
 
 # D-04 complexity_levels: rentang hari dan bobot mengikuti dataset dummy dosbim,
-# sama dengan seed migrasi 0007.
+# sama dengan seed migrasi 0008.
 COMPLEXITY = {
     "CX-VH": ("Very High", 8.0, 15.0, 1.5),
     "CX-H": ("High", 5.0, 8.0, 1.2),
