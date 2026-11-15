@@ -22,8 +22,9 @@ from sqlalchemy.orm import sessionmaker
 
 from app.db.session import get_db
 from app.main import app
-from app.modules.auth import security
+from app.modules.auth import rate_limit, security
 from app.modules.auth.models import AppUser
+from app.modules.auth.rate_limit import LoginRateLimiter
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 TEST_DB_URL = os.getenv("TEST_DATABASE_URL")
@@ -65,6 +66,8 @@ def fast_hash(monkeypatch):
     # dari hash yang tersimpan, jadi alurnya tetap sama dengan produksi.
     monkeypatch.setattr(security, "SCRYPT_N", 2**12)
     monkeypatch.setattr(security, "_dummy_hash", None)
+    # Hitungan login gagal tidak boleh terbawa dari tes sebelumnya.
+    rate_limit.get_login_limiter().reset()
 
 
 @pytest.fixture
@@ -248,3 +251,99 @@ def test_token_of_deleted_user_is_401(client, db):
     db.commit()
 
     assert client.get(ME, headers=bearer(token)).status_code == 401
+
+
+# --- batas percobaan login dan beban hash -----------------------------------------
+
+
+TOO_MANY = "Terlalu banyak percobaan login"
+
+
+def test_account_is_locked_after_five_wrong_passwords(client, db):
+    make_user(db)
+    make_user(db, username="davi")
+    for _ in range(5):
+        assert login(client, password="salah-password").status_code == 401
+
+    response = login(client)  # password benar pun ditolak selama terkunci
+
+    assert response.status_code == 429
+    assert response.json()["detail"].startswith(TOO_MANY)
+    assert 1 <= int(response.headers["retry-after"]) <= 15 * 60
+    assert login(client, username="davi").status_code == 200, "akun lain tidak ikut terkunci"
+
+
+def test_unknown_username_is_locked_the_same_way(client, db):
+    """Respons 429 tidak boleh membedakan username terdaftar dan tidak."""
+    make_user(db)
+    for username in ("bagas", "hantu"):
+        for _ in range(5):
+            login(client, username=username, password="salah-password")
+    known = login(client, username="bagas", password="salah-password")
+    unknown = login(client, username="hantu", password="salah-password")
+
+    assert known.status_code == unknown.status_code == 429
+    assert known.json() == unknown.json()
+
+
+def test_successful_login_resets_the_counter(client, db):
+    make_user(db)
+    for _ in range(4):
+        login(client, password="salah-password")
+    assert login(client).status_code == 200
+    for _ in range(4):
+        assert login(client, password="salah-password").status_code == 401
+
+
+def test_locked_login_does_not_hash_the_password(client, db, monkeypatch):
+    make_user(db)
+    for _ in range(5):
+        login(client, password="salah-password")
+    calls = []
+    monkeypatch.setattr(security, "verify_password", lambda *args: calls.append(args))
+    monkeypatch.setattr(security, "burn_password_check", lambda *args: calls.append(args))
+
+    assert login(client).status_code == 429
+    assert calls == [], "login yang ditolak 429 tidak boleh menghitung hash"
+
+
+def test_one_ip_trying_many_usernames_is_limited(client, db, monkeypatch):
+    monkeypatch.setattr(
+        rate_limit, "_limiter", LoginRateLimiter(max_per_user=5, max_per_ip=3, window_seconds=900)
+    )
+    make_user(db)
+    for username in ("andi", "budi", "citra"):
+        assert login(client, username=username, password="salah-password").status_code == 401
+
+    assert login(client).status_code == 429
+
+
+def test_busy_hash_slots_give_503_and_do_not_count_as_failure(client, db, monkeypatch):
+    make_user(db)
+
+    def busy(*args, **kwargs):
+        raise security.HashBusyError
+
+    monkeypatch.setattr(security, "_scrypt", busy)
+    for _ in range(6):
+        response = login(client)
+        assert response.status_code == 503
+        assert response.headers["retry-after"] == "5"
+    monkeypatch.undo()
+    monkeypatch.setattr(security, "SCRYPT_N", 2**12)
+
+    assert login(client).status_code == 200
+
+
+def test_login_upgrades_hash_with_old_parameters(client, db, monkeypatch):
+    monkeypatch.setattr(security, "SCRYPT_N", 2**11)
+    user = make_user(db)
+    monkeypatch.setattr(security, "SCRYPT_N", 2**12)
+    assert security.needs_rehash(user.password_hash)
+
+    assert login(client).status_code == 200
+
+    db.refresh(user)
+    assert user.password_hash.startswith(f"scrypt${2**12}$8$3$")
+    assert not security.needs_rehash(user.password_hash)
+    assert login(client).status_code == 200
