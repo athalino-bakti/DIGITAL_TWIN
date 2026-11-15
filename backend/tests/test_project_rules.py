@@ -104,10 +104,17 @@ def test_iso_date_is_parsed():
     assert project.start_date == date(2026, 8, 24)
 
 
-@pytest.mark.parametrize("value", ["PRJ-1", "PRJ-0001", "prj-001", "PRJ-ABC"])
+@pytest.mark.parametrize("value", ["PRJ-1", "PRJ-01", "prj-001", "PRJ-ABC"])
 def test_project_id_format(value):
     with pytest.raises(ValidationError):
         ProjectCreate.model_validate_json(_json(VALID | {"project_id": value}))
+
+
+@pytest.mark.parametrize("value", ["PRJ-001", "PRJ-0001", "PRJ-1000"])
+def test_project_id_allows_more_than_three_digits(value):
+    """DIG-224: jumlah digit format ID adalah jumlah minimal (dataset dosbim)."""
+    project = ProjectCreate.model_validate_json(_json(VALID | {"project_id": value}))
+    assert project.project_id == value
 
 
 @pytest.mark.parametrize("field", ["project_name", "process_owner"])

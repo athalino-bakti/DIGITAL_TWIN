@@ -42,7 +42,7 @@ function initialValues(project: Project | null): Values {
 /** Aturan yang sama dengan backend, supaya pengguna langsung tahu sebelum menyimpan. */
 function validate(values: Values, isNew: boolean): Errors {
   const errors: Errors = {};
-  if (isNew && values.project_id && !/^PRJ-\d{3}$/.test(values.project_id)) errors.project_id = 'Format PRJ-001, atau kosongkan agar diisi otomatis';
+  if (isNew && values.project_id && !/^PRJ-\d{3,}$/.test(values.project_id)) errors.project_id = 'Format PRJ-001, atau kosongkan agar diisi otomatis';
   if (!values.project_name.trim()) errors.project_name = 'Nama aplikasi wajib diisi';
   if (!values.process_owner.trim()) errors.process_owner = 'Pemilik proses wajib diisi';
   if (!/^\d+$/.test(values.priority_rank) || Number(values.priority_rank) < 1 || Number(values.priority_rank) > PRIORITY_MAX) errors.priority_rank = 'Isi bilangan bulat mulai dari 1';
