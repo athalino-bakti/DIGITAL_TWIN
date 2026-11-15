@@ -197,3 +197,15 @@ def test_next_id_counts_numerically():
     assert next_id(["RES-009", "RES-010"], "RES") == "RES-011"
     assert next_id(["RES-999", "RES-1000", "RES-0042"], "RES") == "RES-1001"
     assert next_id(["PRJ-001", "bukan"], "PRJ") == "PRJ-002"
+
+
+def test_next_id_keeps_digit_width_of_highest_id():
+    """Setelah dataset dosbim (4 digit) dimuat, ID baru ikut 4 digit."""
+    from app.modules.data.service import next_id
+
+    assert next_id(["AVL-0001", "AVL-0050"], "AVL") == "AVL-0051"
+    assert next_id(["EVT-0099"], "EVT") == "EVT-0100"
+    assert next_id(["RES-009"], "RES") == "RES-010"
+    # Lebar diambil dari ID dengan angka terbesar, bukan ID terpanjang.
+    assert next_id(["PRJ-0004", "PRJ-010"], "PRJ") == "PRJ-011"
+    assert next_id([], "TSK", width=4) == "TSK-0001"

@@ -56,6 +56,43 @@ def test_next_project_id_continues_past_999(client):
     assert create(client, priority_rank=3)["project_id"] == "PRJ-1001"
 
 
+def test_next_project_id_keeps_width_of_dataset_ids(client):
+    create(client, project_id="PRJ-0009", priority_rank=1)
+    assert create(client, priority_rank=2)["project_id"] == "PRJ-0010"
+
+
+def test_project_id_with_same_number_is_409(client):
+    create(client, project_id="PRJ-001")
+    response = client.post(BASE, json=project(project_id="PRJ-0001", priority_rank=2))
+    assert response.status_code == 409
+    assert error_fields(response) == ["project_id"]
+    assert "PRJ-001" in response.json()["detail"]["msg"]
+
+
+def test_exact_id_reported_first_when_same_number_already_exists(client, db):
+    """Review #17: bila PRJ-001 dan PRJ-0001 terlanjur ada, PRJ-001 dilaporkan sudah dipakai."""
+    create(client, project_id="PRJ-0001")
+    db.execute(
+        text(
+            "INSERT INTO projects (project_id, project_name, process_owner, priority_rank, "
+            "start_date, target_launch_date, status) VALUES ('PRJ-001', 'Lama', 'Unit', 9, "
+            "'2026-01-05', '2026-06-30', 'on_hold')"
+        )
+    )
+    db.commit()
+    response = client.post(BASE, json=project(project_id="PRJ-001", priority_rank=2))
+    assert response.status_code == 409
+    assert "sudah dipakai" in response.json()["detail"]["msg"]
+
+
+@pytest.mark.parametrize("project_id", ["PRJ-" + "1" * 17, "PRJ-" + "9" * 5000])
+def test_too_long_project_id_is_422(client, project_id):
+    """Review #17: ID lebih dari 20 karakter ditolak validasi, bukan error 500."""
+    response = client.post(BASE, json=project(project_id=project_id))
+    assert response.status_code == 422
+    assert error_fields(response) == ["project_id"]
+
+
 def test_duplicate_project_id_is_409(client):
     create(client, project_id="PRJ-005")
     response = client.post(BASE, json=project(project_id="PRJ-005", priority_rank=2))
