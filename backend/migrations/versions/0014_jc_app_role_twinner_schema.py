@@ -13,7 +13,7 @@ Migrasi ini harus dijalankan role yang boleh membuat role (superuser atau CREATE
 misalnya pemilik basis data di compose.yaml.
 
 Revision ID: 0014
-Revises: 0006
+Revises: 0012
 """
 
 from typing import Sequence, Union
@@ -22,7 +22,7 @@ from alembic import op
 
 revision: str = "0014"
 # Saat PR ini di-rebase setelah migrasi lain masuk ke main, ganti ke head terbaru.
-down_revision: Union[str, Sequence[str], None] = "0006"
+down_revision: Union[str, Sequence[str], None] = "0012"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

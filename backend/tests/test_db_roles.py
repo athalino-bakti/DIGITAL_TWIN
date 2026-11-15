@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 from alembic import command
 from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Connection, Engine, make_url
 from sqlalchemy.exc import ProgrammingError
@@ -24,9 +25,19 @@ pytestmark = [
 ]
 
 
-def alembic(connection: Connection, action, target: str) -> None:
+def alembic_config() -> Config:
     config = Config(str(BACKEND_DIR / "alembic.ini"))
     config.set_main_option("script_location", str(BACKEND_DIR / "migrations"))
+    return config
+
+
+# Revisi tepat sebelum 0014. Dibaca dari skrip migrasi, jadi tes tidak perlu diubah setiap kali
+# 0014 disambungkan ulang ke head main yang baru.
+BEFORE_ROLES = ScriptDirectory.from_config(alembic_config()).get_revision("0014").down_revision
+
+
+def alembic(connection: Connection, action, target: str) -> None:
+    config = alembic_config()
     config.attributes["connection"] = connection
     action(config, target)
 
@@ -81,7 +92,7 @@ def test_jc_app_role_exists_without_login(migrated):
     # Role berlaku untuk seluruh server, jadi bisa tersisa dari run lain. Hapus dulu agar
     # yang diuji benar-benar role buatan migrasi ini.
     with migrated.begin() as connection:
-        alembic(connection, command.downgrade, "0006")
+        alembic(connection, command.downgrade, BEFORE_ROLES)
     try:
         with migrated.begin() as connection:
             connection.execute(text("DROP ROLE IF EXISTS jc_app"))
@@ -115,7 +126,9 @@ def test_twinner_schema_exists_and_is_closed_to_jc_app(migrated):
 
 def test_jc_app_has_dml_on_every_final_source_table(migrated):
     tables = [t for t in public_tables(migrated) if t != "alembic_version"]
-    assert "projects" in tables and "holidays" in tables
+    # Final sources D-01 s.d. D-11 dan tabel pendukung 7.3 yang dibaca tWinner (#28).
+    for table in ("projects", "holidays", "resource_skills", "change_event_details"):
+        assert table in tables
 
     missing = [
         f"{table}.{privilege}"
@@ -178,7 +191,7 @@ def test_jc_app_can_read_but_not_change_migration_history(migrated):
 def test_existing_role_is_left_untouched(migrated):
     """Login yang sudah diaktifkan admin di staging tidak boleh tertimpa migrasi."""
     with migrated.begin() as connection:
-        alembic(connection, command.downgrade, "0006")
+        alembic(connection, command.downgrade, BEFORE_ROLES)
         connection.execute(text("ALTER ROLE jc_app LOGIN"))
     try:
         with migrated.begin() as connection:
@@ -207,7 +220,7 @@ def test_tables_from_later_migrations_are_granted_automatically(migrated):
 
 def test_downgrade_removes_schema_and_privileges(migrated):
     with migrated.begin() as connection:
-        alembic(connection, command.downgrade, "0006")
+        alembic(connection, command.downgrade, BEFORE_ROLES)
 
     assert scalar(migrated, "SELECT 1 FROM pg_namespace WHERE nspname = 'twinner'") is None
     assert (
@@ -226,7 +239,7 @@ def test_downgrade_refuses_to_drop_twinner_data(migrated):
     try:
         with pytest.raises(Exception, match="depend"):
             with migrated.begin() as connection:
-                alembic(connection, command.downgrade, "0006")
+                alembic(connection, command.downgrade, BEFORE_ROLES)
         assert scalar(migrated, "SELECT to_regclass('twinner.scenario') IS NOT NULL") is True
     finally:
         with migrated.begin() as connection:
