@@ -26,8 +26,9 @@ from app.modules.data.change_event_schemas import (
     ChangeEventCreate,
     ChangeEventRead,
     ChangeEventUpdate,
+    TaskEffect,
 )
-from app.modules.data.enums import ChangeEventType, ResolutionMode
+from app.modules.data.enums import ChangeEventType, Decision, ResolutionMode, TaskStatus
 from app.modules.data.models import ChangeEvent, Project, Task
 from app.modules.data.service import (
     ConflictError,
@@ -126,7 +127,61 @@ def validate_event(db: Session, values: Mapping[str, Any]) -> None:
         raise DataValidationError(errors)
 
 
-def to_read(event: ChangeEvent, project_name: str, task_name: str | None) -> ChangeEventRead:
+EFFECT_MODES = frozenset({ResolutionMode.SWAP_TASK, ResolutionMode.RESHUFFLE})
+CLOSED_TASK_STATUSES = frozenset({TaskStatus.DONE, TaskStatus.DROPPED})
+
+
+def check_task_effect_rules(
+    values: Mapping[str, Any], effect: TaskEffect, task_status: TaskStatus | None
+) -> list[FieldError]:
+    """Kapan efek samping ke task boleh dipakai (DIG-150), tanpa menyentuh basis data.
+
+    `task_status` = status task terdampak saat ini, atau None bila task tidak ada.
+    """
+    errors: list[FieldError] = []
+    if effect.status is None and effect.priority_rank is None:
+        errors.append(
+            FieldError("task_effect", "Isi status atau prioritas baru task", "effect_empty")
+        )
+    if values.get("affected_task_id") is None:
+        errors.append(
+            FieldError("affected_task_id", "Pilih task yang terdampak", "effect_needs_task")
+        )
+    if values.get("decision") != Decision.ACCEPT_NOW:
+        errors.append(
+            FieldError(
+                "decision",
+                "Task hanya berubah bila perubahan diterima sekarang",
+                "effect_needs_accept",
+            )
+        )
+    if values.get("resolution_mode") not in EFFECT_MODES:
+        errors.append(
+            FieldError(
+                "resolution_mode",
+                "Task hanya berubah pada mode tukar task atau atur ulang prioritas",
+                "effect_needs_mode",
+            )
+        )
+    if effect.status is not None and task_status in CLOSED_TASK_STATUSES:
+        state = "selesai" if task_status == TaskStatus.DONE else "dibatalkan"
+        errors.append(
+            FieldError(
+                "task_effect.status",
+                f"Task sudah {state}, statusnya tidak bisa diubah",
+                "task_closed",
+            )
+        )
+    return errors
+
+
+def to_read(
+    event: ChangeEvent,
+    project_name: str,
+    task_name: str | None,
+    task_status: TaskStatus | None = None,
+    task_priority: int | None = None,
+) -> ChangeEventRead:
     return ChangeEventRead(
         event_id=event.event_id,
         project_id=event.project_id,
@@ -138,23 +193,23 @@ def to_read(event: ChangeEvent, project_name: str, task_name: str | None) -> Cha
         resolution_mode=event.resolution_mode,
         affected_task_id=event.affected_task_id,
         affected_task_name=task_name,
+        affected_task_status=task_status,
+        affected_task_priority_rank=task_priority,
         extension_days=event.extension_days,
     )
 
 
 def _query():
     return (
-        select(ChangeEvent, Project.project_name, Task.task_name)
+        select(ChangeEvent, Project.project_name, Task.task_name, Task.status, Task.priority_rank)
         .join(Project, Project.project_id == ChangeEvent.project_id)
         .outerjoin(Task, Task.task_id == ChangeEvent.affected_task_id)
     )
 
 
 def _read_one(db: Session, event_id: str) -> ChangeEventRead:
-    event, project_name, task_name = db.execute(
-        _query().where(ChangeEvent.event_id == event_id)
-    ).one()
-    return to_read(event, project_name, task_name)
+    row = db.execute(_query().where(ChangeEvent.event_id == event_id)).one()
+    return to_read(*row)
 
 
 def list_change_events(
@@ -177,7 +232,7 @@ def list_change_events(
         query = query.where(ChangeEvent.event_date >= date_from)
     if date_to is not None:
         query = query.where(ChangeEvent.event_date <= date_to)
-    return [to_read(event, project, task) for event, project, task in db.execute(query)]
+    return [to_read(*row) for row in db.execute(query)]
 
 
 def get_change_event(db: Session, event_id: str) -> ChangeEvent:
@@ -197,8 +252,17 @@ def next_event_id(db: Session) -> str:
 
 
 def create_change_event(db: Session, payload: ChangeEventCreate) -> ChangeEventRead:
-    values = payload.model_dump()
+    effect = payload.task_effect
+    values = payload.model_dump(exclude={"task_effect"})
     validate_event(db, values)
+    task = None
+    if effect is not None:
+        if values["affected_task_id"] is not None:
+            # Dikunci sampai commit supaya dua kejadian tidak mengubah task yang sama bersamaan.
+            task = db.get(Task, values["affected_task_id"], with_for_update=True)
+        errors = check_task_effect_rules(values, effect, task.status if task else None)
+        if errors:
+            raise DataValidationError(errors)
     if values["event_id"] is None:
         values["event_id"] = next_event_id(db)
     elif db.get(ChangeEvent, values["event_id"]) is not None:
@@ -206,6 +270,12 @@ def create_change_event(db: Session, payload: ChangeEventCreate) -> ChangeEventR
             f"ID {values['event_id']} sudah dipakai kejadian lain", field="event_id"
         )
     db.add(ChangeEvent(**values))
+    if task is not None and effect is not None:
+        # Kejadian dan perubahan task tersimpan bersama, atau tidak sama sekali.
+        if effect.status is not None:
+            task.status = TaskStatus(effect.status)
+        if effect.priority_rank is not None:
+            task.priority_rank = effect.priority_rank
     commit(db)
     return _read_one(db, values["event_id"])
 

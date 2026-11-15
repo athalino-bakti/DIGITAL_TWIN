@@ -4,7 +4,7 @@ Dipisah dari `schemas.py` supaya PR modul Data yang berjalan paralel tidak salin
 """
 
 from datetime import date
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
 
@@ -14,6 +14,7 @@ from app.modules.data.enums import (
     ChangeEventType,
     Decision,
     ResolutionMode,
+    TaskStatus,
 )
 from app.modules.data.schemas import IsoDate, ProjectId, reject_nul
 
@@ -41,10 +42,26 @@ class ChangeEventFields(BaseModel):
     extension_days: ExtensionDays | None = None
 
 
+class TaskEffect(BaseModel):
+    """Efek samping ke task terdampak, disimpan bersama kejadiannya (DIG-150).
+
+    Sengaja eksplisit: di dataset dosbim tidak ada pola tetap antara keputusan CR dan status
+    task, jadi sistem tidak menebak. Pencatat yang memilih apa yang terjadi pada task.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["on_hold", "dropped"] | None = Field(
+        default=None, description="Task ditunda (on_hold) atau dibatalkan (dropped)"
+    )
+    priority_rank: int | None = Field(default=None, ge=1, le=999, strict=True)
+
+
 class ChangeEventCreate(ChangeEventFields):
     """Body POST. `event_id` boleh dikosongkan; server mengisi EVT-xxx berikutnya."""
 
     event_id: EventId | None = None
+    task_effect: TaskEffect | None = None
 
 
 class ChangeEventUpdate(BaseModel):
@@ -73,4 +90,6 @@ class ChangeEventRead(BaseModel):
     resolution_mode: ResolutionMode | None
     affected_task_id: str | None
     affected_task_name: str | None
+    affected_task_status: TaskStatus | None = Field(description="Status task saat ini")
+    affected_task_priority_rank: int | None = Field(description="Prioritas task saat ini")
     extension_days: float | None

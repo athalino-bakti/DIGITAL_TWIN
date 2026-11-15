@@ -204,3 +204,74 @@ def test_delete(client, setup):
     event_id = create(client, setup)["event_id"]
     assert client.delete(f"{BASE}/{event_id}").status_code == 204
     assert client.get(f"{BASE}/{event_id}").status_code == 404
+
+
+# --- DIG-150: efek samping ke task dalam satu transaksi ---
+
+
+def task_state(db, task_id="TSK-0001") -> tuple[str, int]:
+    db.expire_all()
+    task = db.get(Task, task_id)
+    return task.status, task.priority_rank
+
+
+def swap(setup, **overrides) -> dict:
+    return body(setup, **({"resolution_mode": "swap_task", "extension_days": 0} | overrides))
+
+
+def test_swap_task_puts_task_on_hold_and_changes_priority(client, db, setup):
+    payload = swap(setup, task_effect={"status": "on_hold", "priority_rank": 5})
+    response = client.post(BASE, json=payload)
+    assert response.status_code == 201, response.text
+    event = response.json()
+    assert (event["affected_task_status"], event["affected_task_priority_rank"]) == ("on_hold", 5)
+    assert task_state(db) == ("on_hold", 5)
+
+
+def test_reshuffle_changes_priority_only(client, db, setup):
+    payload = swap(setup, resolution_mode="reshuffle", task_effect={"priority_rank": 3})
+    assert client.post(BASE, json=payload).status_code == 201
+    assert task_state(db) == ("not_started", 3)
+
+
+def test_event_without_effect_leaves_task_alone(client, db, setup):
+    event = create(client, setup, resolution_mode="swap_task", extension_days=0)
+    assert event["affected_task_status"] == "not_started"
+    assert task_state(db) == ("not_started", 1)
+
+
+@pytest.mark.parametrize(
+    "overrides,expected",
+    [
+        ({"decision": "defer_next"}, ["decision"]),
+        ({"resolution_mode": "scope_addition"}, ["resolution_mode"]),
+        ({"affected_task_id": None}, ["affected_task_id"]),
+        ({"task_effect": {}}, ["task_effect"]),
+        ({"task_effect": {"status": "done"}}, ["status"]),
+        ({"task_effect": {"priority_rank": 0}}, ["priority_rank"]),
+    ],
+)
+def test_effect_rules_reject_and_nothing_is_saved(client, db, setup, overrides, expected):
+    payload = swap(setup, task_effect={"status": "dropped"}) | overrides
+    response = client.post(BASE, json=payload)
+    assert response.status_code == 422, response.text
+    assert error_fields(response) == expected
+    assert task_state(db) == ("not_started", 1)
+    assert client.get(BASE).json() == []
+
+
+def test_effect_on_done_task_is_rejected(client, db, setup):
+    task = db.get(Task, "TSK-0001")
+    task.status, task.actual_start, task.actual_finish = "done", date(2026, 2, 2), date(2026, 2, 5)
+    db.commit()
+    response = client.post(BASE, json=swap(setup, task_effect={"status": "dropped"}))
+    assert response.status_code == 422
+    assert error_fields(response) == ["task_effect.status"]
+    assert task_state(db)[0] == "done"
+
+
+def test_duplicate_id_does_not_apply_effect(client, db, setup):
+    create(client, setup, event_id="EVT-001")
+    payload = swap(setup, event_id="EVT-001", task_effect={"status": "dropped"})
+    assert client.post(BASE, json=payload).status_code == 409
+    assert task_state(db) == ("not_started", 1)

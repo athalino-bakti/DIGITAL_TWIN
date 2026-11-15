@@ -96,3 +96,40 @@ def test_mode_needs_decision():
 
 def test_decision_without_mode_is_valid():
     assert fields(event(resolution_mode=None)) == []
+
+
+# --- DIG-150: efek samping ke task ---
+
+
+def effect_fields(effect: dict, task_status="in_progress", **overrides) -> list[str]:
+    from app.modules.data.change_event_schemas import TaskEffect
+    from app.modules.data.change_event_service import check_task_effect_rules
+
+    values = event(**overrides)
+    return [e.field for e in check_task_effect_rules(values, TaskEffect(**effect), task_status)]
+
+
+@pytest.mark.parametrize("mode", ["swap_task", "reshuffle"])
+@pytest.mark.parametrize(
+    "effect", [{"status": "on_hold"}, {"status": "dropped"}, {"priority_rank": 3}]
+)
+def test_effect_allowed_for_accepted_swap_or_reshuffle(mode, effect):
+    assert effect_fields(effect, resolution_mode=mode) == []
+
+
+def test_effect_must_change_something():
+    assert effect_fields({}) == ["task_effect"]
+
+
+def test_effect_needs_task_accept_and_mode():
+    assert effect_fields({"status": "on_hold"}, affected_task_id=None) == ["affected_task_id"]
+    assert effect_fields({"status": "on_hold"}, decision="defer_next") == ["decision"]
+    assert effect_fields({"status": "on_hold"}, decision="reject") == ["decision"]
+    fields_ = effect_fields({"status": "on_hold"}, resolution_mode="scope_addition")
+    assert fields_ == ["resolution_mode"]
+
+
+@pytest.mark.parametrize("status", ["done", "dropped"])
+def test_closed_task_status_cannot_change_but_priority_can(status):
+    assert effect_fields({"status": "on_hold"}, task_status=status) == ["task_effect.status"]
+    assert effect_fields({"priority_rank": 2}, task_status=status) == []
