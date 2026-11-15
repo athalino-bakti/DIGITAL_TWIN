@@ -75,4 +75,6 @@ def require_permission(*required: Perm):
             raise HTTPException(status.HTTP_403_FORBIDDEN, detail=FORBIDDEN)
         return user
 
+    # Dipakai tes untuk memastikan setiap endpoint data memasang izin.
+    dependency.required_permissions = needed  # type: ignore[attr-defined]
     return dependency

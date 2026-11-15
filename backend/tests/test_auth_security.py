@@ -1,6 +1,11 @@
 """DIG-88: hash password dan token akses, tanpa database."""
 
+import subprocess
+import sys
+import threading
+import time
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import jwt
 import pytest
@@ -13,7 +18,7 @@ def test_hash_password_uses_owasp_scrypt_params_and_random_salt():
     first = security.hash_password("rahasia-123")
     second = security.hash_password("rahasia-123")
 
-    assert first.startswith(f"scrypt${2**17}$8$1$")
+    assert first.startswith(f"scrypt${2**15}$8$3$")
     assert first != second, "salt harus acak sehingga hash password sama tetap berbeda"
     assert "rahasia-123" not in first
 
@@ -79,3 +84,76 @@ def test_settings_refuse_default_secret_outside_development():
     with pytest.raises(ValueError, match="minimal 32"):
         Settings(jwt_secret_key="pendek")
     Settings(app_env="production", jwt_secret_key="x" * 48)
+
+
+# --- beban memori dan jumlah hash bersamaan ------------------------------------------
+
+
+def test_scrypt_memory_per_hash_is_32_mib():
+    # OWASP: N=2^15, r=8, p=3 setara N=2^17, r=8, p=1 dengan memori 4x lebih kecil.
+    assert 128 * security.SCRYPT_N * security.SCRYPT_R == 32 * 1024 * 1024
+    assert security.SCRYPT_P == 3
+
+
+def test_old_parameter_hash_still_verifies_and_needs_rehash():
+    salt = b"0123456789abcdef"
+    digest = security._scrypt("rahasia-123", salt, 2**17, 8, 1, 32)
+    old = f"scrypt${2**17}$8$1${security._b64encode(salt)}${security._b64encode(digest)}"
+
+    assert security.verify_password("rahasia-123", old)
+    assert security.needs_rehash(old)
+    assert not security.needs_rehash(security.hash_password("rahasia-123"))
+    assert security.needs_rehash("bukan-hash")
+
+
+def test_concurrent_hashes_are_capped(monkeypatch):
+    active = peak = 0
+    lock = threading.Lock()
+    real_scrypt = security.hashlib.scrypt
+
+    def slow_scrypt(*args, **kwargs):
+        nonlocal active, peak
+        with lock:
+            active += 1
+            peak = max(peak, active)
+        time.sleep(0.05)
+        with lock:
+            active -= 1
+        return real_scrypt(*args, **{**kwargs, "n": 2**10})
+
+    monkeypatch.setattr(security.hashlib, "scrypt", slow_scrypt)
+    threads = [
+        threading.Thread(target=security.hash_password, args=("rahasia",)) for _ in range(12)
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert peak == security.HASH_CONCURRENCY
+
+
+def test_hash_waits_then_reports_busy(monkeypatch):
+    monkeypatch.setattr(security, "_hash_slots", threading.BoundedSemaphore(1))
+    monkeypatch.setattr(security, "HASH_WAIT_SECONDS", 0.05)
+    security._hash_slots.acquire()
+    try:
+        with pytest.raises(security.HashBusyError):
+            security.hash_password("rahasia")
+    finally:
+        security._hash_slots.release()
+    assert security.verify_password("rahasia", security.hash_password("rahasia"))
+
+
+def test_dummy_hash_is_ready_when_module_loads():
+    """Login pertama dengan username tak dikenal tidak boleh lebih lama karena membuat hash."""
+    code = "from app.modules.auth import security; print(security._dummy_hash is not None)"
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=Path(__file__).resolve().parents[1],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "True"

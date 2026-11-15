@@ -1,27 +1,41 @@
 """Hash password (scrypt) dan token akses (JWT HS256).
 
-scrypt memakai hashlib bawaan Python dengan parameter minimum rekomendasi OWASP
-(N=2^17, r=8, p=1). Parameter dan salt ikut disimpan di dalam hash sehingga parameter
-bisa dinaikkan nanti tanpa mematahkan hash lama.
+scrypt memakai hashlib bawaan Python dengan salah satu parameter minimum rekomendasi OWASP
+(N=2^15, r=8, p=3). Kekuatannya setara N=2^17, r=8, p=1, tetapi memorinya 32 MiB per hash,
+bukan 128 MiB. Parameter dan salt ikut disimpan di dalam hash, jadi hash lama dengan parameter
+lain tetap bisa diverifikasi dan diperbarui saat pengguna berhasil login (`needs_rehash`).
+
+Jumlah hash yang dihitung bersamaan dibatasi `HASH_CONCURRENCY`, sehingga pemakaian memori
+untuk hash paling banyak HASH_CONCURRENCY x 32 MiB walaupun banyak login datang sekaligus.
+Request yang tidak kebagian slot dalam `HASH_WAIT_SECONDS` mendapat `HashBusyError`.
 """
 
 import base64
 import hashlib
 import hmac
 import os
+import threading
 from datetime import UTC, datetime, timedelta
 
 import jwt
 
 from app.core.config import get_settings
 
-SCRYPT_N = 2**17
+SCRYPT_N = 2**15
 SCRYPT_R = 8
-SCRYPT_P = 1
+SCRYPT_P = 3
 SCRYPT_DKLEN = 32
 SALT_BYTES = 16
 JWT_ALGORITHM = "HS256"
 TOKEN_TYPE = "access"
+HASH_CONCURRENCY = 4
+HASH_WAIT_SECONDS = 10.0
+
+_hash_slots = threading.BoundedSemaphore(HASH_CONCURRENCY)
+
+
+class HashBusyError(Exception):
+    """Semua slot hash sedang dipakai lebih lama dari HASH_WAIT_SECONDS."""
 
 
 def _b64encode(raw: bytes) -> str:
@@ -29,10 +43,22 @@ def _b64encode(raw: bytes) -> str:
 
 
 def _scrypt(password: str, salt: bytes, n: int, r: int, p: int, dklen: int) -> bytes:
-    # maxmem harus di atas 128*n*r byte; default hashlib (32 MiB) terlalu kecil untuk N=2^17.
-    return hashlib.scrypt(
-        password.encode("utf-8"), salt=salt, n=n, r=r, p=p, dklen=dklen, maxmem=256 * 1024 * 1024
-    )
+    if not _hash_slots.acquire(timeout=HASH_WAIT_SECONDS):
+        raise HashBusyError
+    try:
+        # maxmem harus di atas 128*n*r byte; default hashlib (32 MiB) pas-pasan untuk N=2^15
+        # dan terlalu kecil untuk hash lama N=2^17.
+        return hashlib.scrypt(
+            password.encode("utf-8"),
+            salt=salt,
+            n=n,
+            r=r,
+            p=p,
+            dklen=dklen,
+            maxmem=256 * 1024 * 1024,
+        )
+    finally:
+        _hash_slots.release()
 
 
 def hash_password(password: str) -> str:
@@ -54,7 +80,10 @@ def verify_password(password: str, stored_hash: str) -> bool:
     return hmac.compare_digest(actual, expected)
 
 
-_dummy_hash: str | None = None
+def needs_rehash(stored_hash: str) -> bool:
+    """True bila hash disimpan dengan parameter scrypt yang berbeda dari sekarang."""
+    parts = stored_hash.split("$")
+    return len(parts) != 6 or parts[1:4] != [str(SCRYPT_N), str(SCRYPT_R), str(SCRYPT_P)]
 
 
 def burn_password_check(password: str) -> None:
@@ -67,6 +96,11 @@ def burn_password_check(password: str) -> None:
     if _dummy_hash is None:
         _dummy_hash = hash_password("akun-tidak-ada")
     verify_password(password, _dummy_hash)
+
+
+# Dibuat saat modul dimuat, supaya login pertama dengan username tidak dikenal tidak lebih
+# lama dari yang lain. Tes boleh mengosongkannya; burn_password_check akan membuat ulang.
+_dummy_hash: str | None = hash_password("akun-tidak-ada")
 
 
 def create_access_token(user_id: int, username: str, expires_minutes: int | None = None) -> str:

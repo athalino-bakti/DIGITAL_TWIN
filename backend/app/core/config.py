@@ -23,6 +23,10 @@ class Settings(BaseSettings):
 
     jwt_secret_key: SecretStr = SecretStr(DEV_JWT_SECRET)
     access_token_expire_minutes: int = Field(default=60, ge=1, le=24 * 60)
+    # Batas login gagal (app/modules/auth/rate_limit.py).
+    login_max_failures_per_user: int = Field(default=5, ge=1)
+    login_max_failures_per_ip: int = Field(default=20, ge=1)
+    login_lockout_minutes: int = Field(default=15, ge=1, le=24 * 60)
 
     @model_validator(mode="after")
     def check_jwt_secret(self) -> "Settings":
