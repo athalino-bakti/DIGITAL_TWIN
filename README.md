@@ -175,6 +175,8 @@ Akun baru belum punya peran aplikasi, jadi belum bisa membuka endpoint yang dili
 - Token berlaku `ACCESS_TOKEN_EXPIRE_MINUTES` menit (default 60). Saat API membalas `401`, frontend sebaiknya menghapus token dan mengarahkan ke halaman login.
 - Endpoint lain bisa mewajibkan login dengan dependency `CurrentUser` dari `app.modules.auth.dependencies`.
 - `JWT_SECRET_KEY` wajib diganti di luar development (`APP_ENV=staging`/`production`); aplikasi menolak start bila masih memakai nilai bawaan.
+- Login gagal dibatasi: 5 kali per username dan 20 kali per alamat IP dalam 15 menit (`LOGIN_MAX_FAILURES_PER_USER`, `LOGIN_MAX_FAILURES_PER_IP`, `LOGIN_LOCKOUT_MINUTES`). Setelah itu API membalas `429` dengan header `Retry-After`, dan password tidak di-hash. Login berhasil menghapus hitungan username tersebut. Hitungan disimpan di memori proses, jadi jalankan API dengan satu worker atau sesuaikan batasnya. Di belakang reverse proxy, jalankan uvicorn dengan `--proxy-headers` agar IP yang terbaca adalah IP pengguna, bukan IP proxy.
+- Hash scrypt memakai N=2^15, r=8, p=3 (32 MiB per hash) dan paling banyak 4 hash dihitung bersamaan. Bila semua slot sibuk lebih dari 10 detik, login membalas `503`. Hash lama dengan parameter lain tetap bisa dipakai login dan otomatis diperbarui saat login berhasil.
 
 ### Peran aplikasi dan izin (RBAC)
 

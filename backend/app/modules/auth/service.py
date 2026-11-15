@@ -25,6 +25,9 @@ def authenticate(db: Session, payload: LoginRequest) -> TokenResponse:
     if not user.is_active:
         raise InvalidCredentialsError
 
+    # Hash dengan parameter lama diperbarui selagi password-nya diketahui.
+    if security.needs_rehash(user.password_hash):
+        user.password_hash = security.hash_password(payload.password)
     user.last_login_at = datetime.now(UTC)
     db.commit()
 
