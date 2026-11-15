@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response, st
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.modules.auth.dependencies import require_permission
+from app.modules.auth.permissions import Perm
 from app.modules.data import service
 from app.modules.data.enums import (
     AVAILABILITY_ID_PATTERN,
@@ -53,6 +55,14 @@ ResourceIdQuery = Annotated[str | None, Query(pattern=RESOURCE_ID_PATTERN)]
 CONFLICT = {status.HTTP_409_CONFLICT: {"description": "Bentrok dengan data lain"}}
 NOT_FOUND = {status.HTTP_404_NOT_FOUND: {"description": "Proyek tidak ditemukan"}}
 
+# Izin per kelompok endpoint (DIG-226). Tanpa token: 401, tanpa izin: 403.
+# Ketidakhadiran (D-09) hanya untuk peran yang boleh melihat beban seluruh anggota (DIG-19),
+# dan dicatat oleh Kaur/Asman atau System Analyst (FR-06).
+MASTER_READ = [Depends(require_permission(Perm.MASTER_DATA_READ))]
+MASTER_WRITE = [Depends(require_permission(Perm.MASTER_DATA_WRITE))]
+AVAILABILITY_READ = [Depends(require_permission(Perm.WORKLOAD_READ_ALL))]
+AVAILABILITY_WRITE = [Depends(require_permission(Perm.AVAILABILITY_WRITE))]
+
 
 def to_http(exc: Exception) -> HTTPException:
     if isinstance(exc, service.NotFoundError):
@@ -70,7 +80,12 @@ def to_http(exc: Exception) -> HTTPException:
     raise exc
 
 
-@router.get("/projects", response_model=list[ProjectRead], summary="Daftar proyek (D-01)")
+@router.get(
+    "/projects",
+    dependencies=MASTER_READ,
+    response_model=list[ProjectRead],
+    summary="Daftar proyek (D-01)",
+)
 def list_projects(
     db: Db,
     status_filter: Annotated[list[ProjectStatus] | None, Query(alias="status")] = None,
@@ -82,6 +97,7 @@ def list_projects(
 
 @router.post(
     "/projects",
+    dependencies=MASTER_WRITE,
     response_model=ProjectRead,
     status_code=status.HTTP_201_CREATED,
     responses=CONFLICT,
@@ -95,7 +111,11 @@ def create_project(db: Db, payload: ProjectCreate) -> ProjectRead:
 
 
 @router.get(
-    "/projects/{project_id}", response_model=ProjectRead, responses=NOT_FOUND, summary="Detail"
+    "/projects/{project_id}",
+    dependencies=MASTER_READ,
+    response_model=ProjectRead,
+    responses=NOT_FOUND,
+    summary="Detail",
 )
 def get_project(db: Db, project_id: ProjectIdPath) -> ProjectRead:
     try:
@@ -106,6 +126,7 @@ def get_project(db: Db, project_id: ProjectIdPath) -> ProjectRead:
 
 @router.patch(
     "/projects/{project_id}",
+    dependencies=MASTER_WRITE,
     response_model=ProjectRead,
     responses=NOT_FOUND | CONFLICT,
     summary="Ubah sebagian kolom proyek",
@@ -123,6 +144,7 @@ def update_project(db: Db, project_id: ProjectIdPath, payload: ProjectUpdate) ->
 
 @router.delete(
     "/projects/{project_id}",
+    dependencies=MASTER_WRITE,
     status_code=status.HTTP_204_NO_CONTENT,
     responses=NOT_FOUND | CONFLICT,
     summary="Hapus proyek yang belum dipakai data lain",
@@ -137,6 +159,7 @@ def delete_project(db: Db, project_id: ProjectIdPath) -> Response:
 
 @router.get(
     "/complexity-levels",
+    dependencies=MASTER_READ,
     response_model=list[ComplexityRead],
     summary="Daftar level kompleksitas (D-04)",
 )
@@ -147,6 +170,7 @@ def list_complexity_levels(db: Db) -> list[ComplexityRead]:
 
 @router.patch(
     "/complexity-levels/{complexity_id}",
+    dependencies=MASTER_WRITE,
     response_model=ComplexityRead,
     responses={status.HTTP_404_NOT_FOUND: {"description": "Level tidak ditemukan"}},
     summary="Ubah rentang hari dan bobot level kompleksitas",
@@ -164,13 +188,19 @@ def update_complexity_level(
         raise to_http(exc) from exc
 
 
-@router.get("/resources", response_model=list[ResourceRead], summary="Daftar anggota (D-02)")
+@router.get(
+    "/resources",
+    dependencies=MASTER_READ,
+    response_model=list[ResourceRead],
+    summary="Daftar anggota (D-02)",
+)
 def list_resources(db: Db) -> list[ResourceRead]:
     return service.list_resources(db)
 
 
 @router.post(
     "/resources",
+    dependencies=MASTER_WRITE,
     response_model=ResourceRead,
     status_code=status.HTTP_201_CREATED,
     responses=CONFLICT,
@@ -183,7 +213,12 @@ def create_resource(db: Db, payload: ResourceCreate) -> ResourceRead:
         raise to_http(exc) from exc
 
 
-@router.get("/resources/{resource_id}", response_model=ResourceRead, summary="Detail anggota")
+@router.get(
+    "/resources/{resource_id}",
+    dependencies=MASTER_READ,
+    response_model=ResourceRead,
+    summary="Detail anggota",
+)
 def get_resource(db: Db, resource_id: ResourceIdPath) -> ResourceRead:
     try:
         return service.resource_read(service.get_resource(db, resource_id))
@@ -193,6 +228,7 @@ def get_resource(db: Db, resource_id: ResourceIdPath) -> ResourceRead:
 
 @router.patch(
     "/resources/{resource_id}",
+    dependencies=MASTER_WRITE,
     response_model=ResourceRead,
     responses=CONFLICT,
     summary="Ubah sebagian kolom anggota",
@@ -210,6 +246,7 @@ def update_resource(db: Db, resource_id: ResourceIdPath, payload: ResourceUpdate
 
 @router.delete(
     "/resources/{resource_id}",
+    dependencies=MASTER_WRITE,
     status_code=status.HTTP_204_NO_CONTENT,
     responses=CONFLICT,
     summary="Hapus anggota yang belum dipakai data lain",
@@ -222,13 +259,16 @@ def delete_resource(db: Db, resource_id: ResourceIdPath) -> Response:
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.get("/roles", response_model=list[RoleRead], summary="Daftar peran (D-03)")
+@router.get(
+    "/roles", dependencies=MASTER_READ, response_model=list[RoleRead], summary="Daftar peran (D-03)"
+)
 def list_roles(db: Db) -> list[RoleRead]:
     return service.list_roles(db)
 
 
 @router.patch(
     "/roles/{role_id}",
+    dependencies=MASTER_WRITE,
     response_model=RoleRead,
     summary="Ubah kapasitas acuan dan deskripsi peran",
 )
@@ -254,6 +294,7 @@ def parse_path_date(value: str) -> date:
 
 @router.get(
     "/availability",
+    dependencies=AVAILABILITY_READ,
     response_model=list[AvailabilityRead],
     summary="Daftar ketidakhadiran dan rotasi (D-09)",
 )
@@ -270,6 +311,7 @@ def list_availability(
 
 @router.post(
     "/availability",
+    dependencies=AVAILABILITY_WRITE,
     response_model=AvailabilityRead,
     status_code=status.HTTP_201_CREATED,
     responses=CONFLICT,
@@ -284,6 +326,7 @@ def create_availability(db: Db, payload: AvailabilityCreate) -> AvailabilityRead
 
 @router.patch(
     "/availability/{availability_id}",
+    dependencies=AVAILABILITY_WRITE,
     response_model=AvailabilityRead,
     responses=CONFLICT,
     summary="Ubah sebagian kolom catatan ketersediaan",
@@ -303,6 +346,7 @@ def update_availability(
 
 @router.delete(
     "/availability/{availability_id}",
+    dependencies=AVAILABILITY_WRITE,
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Hapus catatan ketersediaan",
 )
@@ -314,7 +358,12 @@ def delete_availability(db: Db, availability_id: AvailabilityIdPath) -> Response
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.get("/holidays", response_model=list[HolidayRead], summary="Daftar hari libur (D-11)")
+@router.get(
+    "/holidays",
+    dependencies=MASTER_READ,
+    response_model=list[HolidayRead],
+    summary="Daftar hari libur (D-11)",
+)
 def list_holidays(
     db: Db, year: Annotated[int | None, Query(ge=1900, le=2100)] = None
 ) -> list[HolidayRead]:
@@ -323,6 +372,7 @@ def list_holidays(
 
 @router.post(
     "/holidays",
+    dependencies=MASTER_WRITE,
     response_model=HolidayRead,
     status_code=status.HTTP_201_CREATED,
     responses=CONFLICT,
@@ -336,7 +386,10 @@ def create_holiday(db: Db, payload: HolidayCreate) -> HolidayRead:
 
 
 @router.patch(
-    "/holidays/{holiday_date}", response_model=HolidayRead, summary="Ubah nama hari libur"
+    "/holidays/{holiday_date}",
+    dependencies=MASTER_WRITE,
+    response_model=HolidayRead,
+    summary="Ubah nama hari libur",
 )
 def update_holiday(db: Db, holiday_date: HolidayDatePath, payload: HolidayUpdate) -> HolidayRead:
     try:
@@ -347,6 +400,7 @@ def update_holiday(db: Db, holiday_date: HolidayDatePath, payload: HolidayUpdate
 
 @router.delete(
     "/holidays/{holiday_date}",
+    dependencies=MASTER_WRITE,
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Hapus hari libur",
 )

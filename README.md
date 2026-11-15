@@ -205,7 +205,7 @@ Satu pengguna boleh punya banyak peran aplikasi; izinnya gabungan dari semua per
 | `event_log:export` (FR-07) |  |  |  | ✓ |  |
 | `user:manage` |  |  |  |  | ✓ |
 
-- System Analyst yang juga menjalankan tugas Administrator Data (Tabel 2.1) cukup diberi dua peran: `system_analyst` dan `admin_data`.
+- PuTI tidak punya jabatan Administrator Data atau Admin IT tersendiri (struktur tim A.2: Kaur/Asman, SA, TW, UI/UX, QA, FE, BE, DM). Peran `admin_data` dan `admin_it` diberikan sebagai peran kedua, biasanya ke SA sesuai Tabel 2.1 (atau ke Kaur bila perlu). Dengan `system_analyst` + `admin_data`, SA bisa melihat sekaligus menginput dan mengimpor beban non-proyek (D-08).
 - `change_event:write_own` dan `workload:read_own` hanya membuka endpoint; pembatasan ke task atau data milik pengguna sendiri dicek di endpoint tersebut.
 
 Mengatur peran dari folder `backend` (belum ada halaman kelola akun):
@@ -218,3 +218,4 @@ python -m app.modules.auth.set_roles --username bagas --role admin_data --role s
 - `GET /api/v1/auth/me` dan respons login memuat `roles` dan `permissions`; frontend memakai `permissions` untuk menyembunyikan menu dan tombol (DIG-92).
 - Endpoint dilindungi dengan `Depends(require_permission(Perm.MASTER_DATA_WRITE))` dari `app.modules.auth.dependencies`. Tanpa token: `401`. Login tapi tidak berizin: `403`.
 - Izin dibaca ulang di setiap request, jadi perubahan peran langsung berlaku tanpa login ulang.
+- Semua endpoint `/api/v1/data/*` wajib login dan izin (DIG-226): baca master data `master_data:read`, ubah master data dan hari libur `master_data:write`, lihat ketidakhadiran (D-09) dan beban non-proyek (D-08) `workload:read_all`, catat ketidakhadiran `availability:write`, tambah/ubah/hapus beban non-proyek `master_data:write`, impor CSV D-08 `import:run`. `/api/v1/health` tetap terbuka. Tes `tests/test_data_permissions.py` gagal bila ada endpoint data baru tanpa `require_permission` atau belum dicatat di peta izinnya.
