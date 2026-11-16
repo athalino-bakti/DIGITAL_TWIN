@@ -421,6 +421,18 @@ def duplicate_pair(rows, ctx):
             )
 
 
+# --------------------------------------------------------------------------- traceability (DIG-143)
+
+
+@rule("change_events", 11, "traceability", PERINGATAN, "Peminta perubahan (requested_by) tercatat")
+def requested_by_recorded(rows, ctx):
+    for row in rows:
+        if blank(row.values.get("requested_by")):
+            yield Hit(
+                row, "requested_by", "", "requested_by kosong: peminta perubahan tidak tercatat"
+            )
+
+
 # --------------------------------------------------------------------------- siklus (DIG-142)
 
 
