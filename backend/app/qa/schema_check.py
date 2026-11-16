@@ -8,12 +8,23 @@ Dari folder backend, dengan basis data yang sudah di-`alembic upgrade head`:
 Yang dibandingkan untuk setiap tabel D-01 sampai D-11 di bagian 6 DATA_CONTRACT:
 - tabel ada, dan daftar kolomnya sama persis (tidak ada yang hilang atau berlebih);
 - tipe PostgreSQL, wajib (NOT NULL), dan nilai default tiap kolom;
-- primary key dan foreign key (kolom serta tabel/kolom tujuannya);
+- primary key dan foreign key (kolom serta tabel/kolom tujuannya), termasuk aksi ON DELETE.
+  Dokumen menulis FK sebagai `(FK ke `tabel.kolom`)`, yang berarti ON DELETE NO ACTION (baris
+  induk tidak bisa dihapus selama masih dirujuk). Aksi lain ditulis
+  `(FK ke `tabel.kolom`, ON DELETE CASCADE)`;
 - aturan di basis data: setiap nama `ck_`, `uq_`, dan `ex_` yang ditulis di dokumen ada di basis
-  data, dan sebaliknya tidak ada aturan di basis data yang belum dicatat di dokumen.
+  data, dan sebaliknya tidak ada aturan di basis data yang belum dicatat di dokumen;
+- isi aturan `ck_` (DIG-228): ekspresi setelah nama aturan di dokumen dibandingkan dengan
+  CHECK di basis data. Karena PostgreSQL menulis ulang ekspresi (menambah kurung dan cast,
+  `IN (...)` menjadi `= ANY (ARRAY[...])`), ekspresi dokumen lebih dulu dipasang ke tabel
+  sementara dengan kolom yang sama, lalu kedua bentuk dibandingkan setelah sama-sama ditulis
+  ulang PostgreSQL. Isi `uq_` dan `ex_` ditulis sebagai kalimat, jadi hanya namanya yang dicek.
 
 Selain itu "Tipe DD" diperiksa cocok dengan "Tipe PostgreSQL" (misalnya integer harus INTEGER).
-Keluar dengan kode 0 bila semuanya cocok, 1 bila ada selisih. Hanya membaca katalog basis data.
+Tabel markdown boleh ditulis tanpa pipa di tepi, dan kolom Wajib tidak peka huruf besar-kecil.
+
+Keluar dengan kode 0 bila semuanya cocok, 1 bila ada selisih. Basis data tidak diubah: tabel
+sementara untuk membandingkan CHECK dibuat di dalam savepoint yang selalu di-rollback.
 """
 
 import argparse
@@ -25,6 +36,7 @@ from pathlib import Path
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Connection
+from sqlalchemy.exc import DBAPIError
 
 DEFAULT_CONTRACT = Path(__file__).resolve().parents[3] / "docs" / "DATA_CONTRACT.md"
 SCHEMA = "public"
@@ -42,8 +54,20 @@ DD_TYPES = {
 RULE_PREFIXES = ("ck_", "uq_", "ex_")
 
 _HEADING = re.compile(r"^### (D-\d{2}) `(\w+)`")
-_RULE = re.compile(r"^- `((?:ck|uq|ex)_\w+)`")
-_COLUMN = re.compile(r"^`(\w+)`(?: \((PK|FK ke `(\w+)\.(\w+)`)\))?$")
+_RULE = re.compile(r"^- `((?:ck|uq|ex)_\w+)`(?::\s*`([^`]+)`\s*$)?")
+_ON_DELETE = r"(CASCADE|SET NULL|SET DEFAULT|RESTRICT|NO ACTION)"
+_COLUMN = re.compile(
+    r"^`(\w+)`(?: \((PK|FK ke `(\w+)\.(\w+)`(?:, ON DELETE " + _ON_DELETE + r")?)\))?$"
+)
+_QUOTED = re.compile(r"'(?:[^']|'')*'")
+# confdeltype di pg_constraint.
+ON_DELETE_CODES = {
+    "a": "NO ACTION",
+    "r": "RESTRICT",
+    "c": "CASCADE",
+    "n": "SET NULL",
+    "d": "SET DEFAULT",
+}
 
 
 @dataclass
@@ -55,6 +79,7 @@ class Column:
     default: str | None = None
     primary_key: bool = False
     references: tuple[str, str] | None = None
+    on_delete: str = "NO ACTION"
 
 
 @dataclass
@@ -63,6 +88,8 @@ class TableSpec:
     name: str
     columns: dict[str, Column] = field(default_factory=dict)
     rules: set[str] = field(default_factory=set)
+    # Ekspresi aturan ck_ seperti ditulis di dokumen.
+    checks: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -105,37 +132,41 @@ def parse_contract(markdown: str) -> dict[str, TableSpec]:
         if line.startswith("Aturan di basis data"):
             in_rules = True
             continue
-        if line.startswith("|"):
+        if line.startswith("- "):
+            rule = _RULE.match(line) if in_rules else None
+            if rule:
+                name, expression = rule.groups()
+                current.rules.add(name)
+                if expression and name.startswith("ck_"):
+                    current.checks[name] = expression
+            continue
+        if "|" in line:  # baris tabel, dengan atau tanpa pipa di tepi
             column = _parse_column_row(line)
             if column is not None:
                 current.columns[column.name] = column
-            continue
-        if line.startswith("- ") and in_rules:
-            rule = _RULE.match(line)
-            if rule:
-                current.rules.add(rule.group(1))
             continue
         in_rules = False  # paragraf lain menutup daftar aturan
     return tables
 
 
 def _parse_column_row(line: str) -> Column | None:
-    cells = [cell.strip() for cell in line.strip("|").split("|")]
+    cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
     if len(cells) < 4:
         return None
     match = _COLUMN.match(cells[0])
     if match is None:  # baris judul atau pemisah tabel
         return None
-    name, key, ref_table, ref_column = match.groups()
+    name, key, ref_table, ref_column, on_delete = match.groups()
     pg_type, _, default = cells[2].partition(", default ")
     return Column(
         name=name,
         dd_type=cells[1],
         pg_type=pg_type.strip().upper(),
-        required=cells[3] == "Ya",
+        required=cells[3].strip("*").strip().lower() == "ya",
         default=default.strip() or None,
         primary_key=key == "PK",
         references=(ref_table, ref_column) if ref_table else None,
+        on_delete=on_delete or "NO ACTION",
     )
 
 
@@ -147,7 +178,10 @@ class DbTable:
     columns: dict[str, dict] = field(default_factory=dict)
     primary_key: set[str] = field(default_factory=set)
     foreign_keys: dict[str, tuple[str, str]] = field(default_factory=dict)
+    on_delete: dict[str, str] = field(default_factory=dict)
     rules: set[str] = field(default_factory=set)
+    # Definisi CHECK dari pg_get_constraintdef, per nama constraint.
+    checks: dict[str, str] = field(default_factory=dict)
 
 
 def read_database(connection: Connection, tables: Iterable[str]) -> dict[str, DbTable]:
@@ -210,6 +244,25 @@ def read_database(connection: Connection, tables: Iterable[str]) -> dict[str, Db
         if name.startswith(RULE_PREFIXES):
             result[table].rules.add(name)
 
+    definitions = connection.execute(
+        text(
+            "SELECT c.relname, con.conname, con.contype, con.confdeltype,"
+            " pg_get_constraintdef(con.oid), a.attname"
+            " FROM pg_constraint con"
+            " JOIN pg_class c ON c.oid = con.conrelid"
+            " JOIN pg_namespace n ON n.oid = c.relnamespace"
+            " LEFT JOIN pg_attribute a ON a.attrelid = con.conrelid AND a.attnum = con.conkey[1]"
+            " WHERE n.nspname = :schema AND c.relname = ANY(:tables)"
+            "   AND con.contype IN ('c', 'f')"
+        ),
+        params,
+    )
+    for table, name, kind, delete_code, definition, column in definitions:
+        if kind == "c":
+            result[table].checks[name] = definition
+        elif column is not None:
+            result[table].on_delete[column] = ON_DELETE_CODES.get(delete_code, delete_code)
+
     existing = connection.execute(
         text(
             "SELECT table_name FROM information_schema.tables"
@@ -219,6 +272,61 @@ def read_database(connection: Connection, tables: Iterable[str]) -> dict[str, Db
     )
     found = {row[0] for row in existing}
     return {name: table for name, table in result.items() if name in found}
+
+
+def render_check(connection: Connection, table: str, expression: str) -> str:
+    """Bentuk CHECK dari ekspresi dokumen setelah ditulis ulang PostgreSQL.
+
+    Ekspresi dipasang ke tabel sementara berkolom sama (`LIKE`), dibaca dengan
+    `pg_get_constraintdef`, lalu savepoint di-rollback sehingga tidak ada yang tersimpan.
+    Melempar ValueError bila ekspresi tidak bisa dibaca PostgreSQL.
+    """
+    # Titik koma di luar literal string bisa menyelipkan perintah SQL kedua.
+    if ";" in _QUOTED.sub("''", expression):
+        raise ValueError("ekspresi tidak boleh berisi titik koma di luar teks berkutip")
+    savepoint = connection.begin_nested()
+    try:
+        connection.exec_driver_sql(f'CREATE TEMP TABLE "_cek_skema" (LIKE "{SCHEMA}"."{table}")')
+        connection.exec_driver_sql(
+            f'ALTER TABLE "_cek_skema" ADD CONSTRAINT "_cek" CHECK ({expression}) NOT VALID'
+        )
+        definition = connection.exec_driver_sql(
+            "SELECT pg_get_constraintdef(oid) FROM pg_constraint"
+            " WHERE conname = '_cek' AND conrelid = '_cek_skema'::regclass"
+        ).scalar_one()
+    except DBAPIError as exc:
+        raise ValueError(str(exc.orig).splitlines()[0]) from exc
+    finally:
+        savepoint.rollback()
+    return definition.removesuffix(" NOT VALID")
+
+
+def compare_checks(
+    connection: Connection, specs: dict[str, TableSpec], database: dict[str, DbTable]
+) -> list[Problem]:
+    """Isi aturan ck_ di dokumen dibandingkan dengan CHECK di basis data (DIG-228)."""
+    problems = []
+    for name, spec in specs.items():
+        table = database.get(name)
+        if table is None:
+            continue
+        for rule, expression in sorted(spec.checks.items()):
+            stored = table.checks.get(rule)
+            if stored is None:  # selisih nama sudah dilaporkan compare()
+                continue
+            try:
+                documented = render_check(connection, name, expression)
+            except ValueError as exc:
+                problems.append(Problem(name, f"aturan {rule}: ekspresi dokumen tidak sah ({exc})"))
+                continue
+            if documented != stored:
+                problems.append(
+                    Problem(
+                        name,
+                        f"aturan {rule}: isi dokumen {documented}, basis data {stored}",
+                    )
+                )
+    return problems
 
 
 def _pg_type(data_type: str, length: int | None) -> str:
@@ -335,6 +443,17 @@ def compare(specs: dict[str, TableSpec], database: dict[str, DbTable]) -> list[P
                         f"basis data {_ref(actual_ref)}",
                     )
                 )
+            elif expected is not None:
+                documented_action = spec.columns[column].on_delete
+                stored_action = table.on_delete.get(column, "NO ACTION")
+                if documented_action != stored_action:
+                    problems.append(
+                        Problem(
+                            name,
+                            f"{column}: ON DELETE dokumen {documented_action}, "
+                            f"basis data {stored_action}",
+                        )
+                    )
 
         for rule in sorted(spec.rules - table.rules):
             problems.append(Problem(name, f"aturan {rule} ada di dokumen, tidak ada di basis data"))
@@ -352,7 +471,9 @@ def run_check(connection: Connection, contract: str) -> tuple[dict[str, TableSpe
     if not specs:
         return specs, [Problem("DATA_CONTRACT", "bagian 6 tidak ditemukan atau kosong")]
     problems = check_contract_types(specs)
-    problems += compare(specs, read_database(connection, specs))
+    database = read_database(connection, specs)
+    problems += compare(specs, database)
+    problems += compare_checks(connection, specs, database)
     return specs, problems
 
 
@@ -377,12 +498,16 @@ def main(argv: list[str] | None = None) -> int:
 
     columns = sum(len(spec.columns) for spec in specs.values())
     rules = sum(len(spec.rules) for spec in specs.values())
+    checks = sum(len(spec.checks) for spec in specs.values())
     if problems:
         print(f"Ditemukan {len(problems)} selisih antara basis data dan DATA_CONTRACT:")
         for problem in problems:
             print(f"- {problem}")
         return 1
-    print(f"Cocok: {len(specs)} tabel, {columns} kolom, dan {rules} aturan sesuai DATA_CONTRACT.")
+    print(
+        f"Cocok: {len(specs)} tabel, {columns} kolom, dan {rules} aturan sesuai DATA_CONTRACT"
+        f" (isi {checks} aturan CHECK ikut dibandingkan)."
+    )
     return 0
 
 

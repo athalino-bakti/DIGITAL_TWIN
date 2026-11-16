@@ -232,3 +232,136 @@ def test_cli_reports_match_and_mismatch(session_factory, tmp_path, capsys):
     contract.write_text(CONTRACT.replace("### D-11 `holidays`", "### D-11 `hari_libur`"), "utf-8")
     assert schema_check.main(["--database-url", TEST_DB_URL, "--contract", str(contract)]) == 1
     assert "hari_libur: tabel tidak ada di basis data" in capsys.readouterr().out
+
+
+# --- DIG-228: isi CHECK, aksi ON DELETE, dan parser yang lebih longgar -----------------
+
+ASSIGNMENT_RESOURCE = (
+    "| `resource_id` (FK ke `resources.resource_id`) | string | VARCHAR(20) | Ya"
+    " | Resource pelaksana |"
+)
+
+
+def test_check_expressions_are_read_from_rule_list():
+    specs = parse_contract(CONTRACT)
+    assert specs["roles"].checks["ck_roles_capacity_reference_positive"] == (
+        "capacity_reference > 0"
+    )
+    # Semua aturan ck_ di dokumen punya ekspresi; uq_ dan ex_ ditulis sebagai kalimat.
+    for spec in specs.values():
+        assert set(spec.checks) == {r for r in spec.rules if r.startswith("ck_")}
+
+
+def test_on_delete_defaults_to_no_action_and_can_be_documented():
+    specs = parse_contract(CONTRACT)
+    assert specs["assignments"].columns["resource_id"].on_delete == "NO ACTION"
+
+    cascade = CONTRACT.replace(
+        ASSIGNMENT_RESOURCE,
+        ASSIGNMENT_RESOURCE.replace(
+            "(FK ke `resources.resource_id`)", "(FK ke `resources.resource_id`, ON DELETE CASCADE)"
+        ),
+    )
+    column = parse_contract(cascade)["assignments"].columns["resource_id"]
+    assert column.references == ("resources", "resource_id")
+    assert column.on_delete == "CASCADE"
+
+
+def test_table_without_edge_pipes_and_lowercase_required_is_parsed():
+    markdown = """
+## 6. Salinan Data Dictionary
+
+### D-11 `holidays`
+
+Kolom | Tipe DD | Tipe PostgreSQL | Wajib | Keterangan
+---|---|---|---|---
+`holiday_date` (PK) | date | DATE | ya | Tanggal libur
+`holiday_name` | string | VARCHAR(200) | **Ya** | Nama libur
+`catatan` | string | TEXT | tidak | Opsional
+"""
+    columns = parse_contract(markdown)["holidays"].columns
+    assert list(columns) == ["holiday_date", "holiday_name", "catatan"]
+    assert columns["holiday_date"].primary_key and columns["holiday_date"].required
+    assert columns["holiday_name"].required
+    assert not columns["catatan"].required
+
+
+@requires_db
+def test_changed_check_body_in_database_is_reported(connection):
+    connection.execute(
+        text(
+            "ALTER TABLE roles DROP CONSTRAINT ck_roles_capacity_reference_positive;"
+            " ALTER TABLE roles ADD CONSTRAINT ck_roles_capacity_reference_positive"
+            " CHECK (capacity_reference >= 0)"
+        )
+    )
+    problems = problems_of(connection)
+    assert len(problems) == 1
+    assert problems[0].startswith("roles: aturan ck_roles_capacity_reference_positive: isi dokumen")
+    assert "> (0)::double precision" in problems[0] and ">= (0)::double precision" in problems[0]
+
+
+@requires_db
+def test_changed_check_body_in_contract_is_reported(connection):
+    old = "- `ck_roles_capacity_reference_positive`: `capacity_reference > 0`"
+    new = "- `ck_roles_capacity_reference_positive`: `capacity_reference > 1`"
+    problems = problems_of(connection, CONTRACT.replace(old, new))
+    assert len(problems) == 1
+    assert "ck_roles_capacity_reference_positive: isi dokumen" in problems[0]
+
+
+@pytest.mark.parametrize(
+    ("expression", "reason"),
+    [
+        ("kolom_tidak_ada > 0", "kolom_tidak_ada"),
+        ("capacity_reference > 0); DROP TABLE holidays; --", "titik koma"),
+    ],
+)
+@requires_db
+def test_invalid_check_expression_in_contract_is_reported(connection, expression, reason):
+    old = "- `ck_roles_capacity_reference_positive`: `capacity_reference > 0`"
+    new = f"- `ck_roles_capacity_reference_positive`: `{expression}`"
+    problems = problems_of(connection, CONTRACT.replace(old, new))
+    assert len(problems) == 1
+    assert problems[0].startswith(
+        "roles: aturan ck_roles_capacity_reference_positive: ekspresi dokumen tidak sah"
+    )
+    assert reason in problems[0]
+    assert connection.execute(text("SELECT to_regclass('public.holidays')")).scalar() is not None
+
+
+@requires_db
+def test_check_comparison_leaves_nothing_behind(connection):
+    assert problems_of(connection) == []
+    assert connection.execute(text("SELECT to_regclass('_cek_skema')")).scalar() is None
+    # Transaksi pemanggil tetap bisa dipakai setelah ekspresi yang gagal.
+    broken = CONTRACT.replace("`capacity_reference > 0`", "`kolom_tidak_ada > 0`")
+    problems_of(connection, broken)
+    assert connection.execute(text("SELECT 1")).scalar() == 1
+
+
+@requires_db
+def test_changed_on_delete_in_database_is_reported(connection):
+    connection.execute(
+        text(
+            "ALTER TABLE assignments DROP CONSTRAINT fk_assignments_resource_id_resources;"
+            " ALTER TABLE assignments ADD CONSTRAINT fk_assignments_resource_id_resources"
+            " FOREIGN KEY (resource_id) REFERENCES resources (resource_id) ON DELETE CASCADE"
+        )
+    )
+    assert problems_of(connection) == [
+        "assignments: resource_id: ON DELETE dokumen NO ACTION, basis data CASCADE"
+    ]
+
+
+@requires_db
+def test_documented_on_delete_must_match_database(connection):
+    contract = CONTRACT.replace(
+        ASSIGNMENT_RESOURCE,
+        ASSIGNMENT_RESOURCE.replace(
+            "(FK ke `resources.resource_id`)", "(FK ke `resources.resource_id`, ON DELETE SET NULL)"
+        ),
+    )
+    assert problems_of(connection, contract) == [
+        "assignments: resource_id: ON DELETE dokumen SET NULL, basis data NO ACTION"
+    ]
