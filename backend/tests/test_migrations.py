@@ -56,7 +56,7 @@ def current_revision(engine: Engine) -> str | None:
 
 
 def leftover_objects(engine: Engine) -> dict[str, list[str]]:
-    """Objek di schema public selain tabel alembic_version.
+    """Objek di schema public selain tabel alembic_version, plus schema lain buatan migrasi.
 
     Enum, sequence, dan view yang lupa di-drop pada downgrade sering lolos karena
     tabelnya sudah hilang; tes mengeceknya satu per satu.
@@ -67,7 +67,18 @@ def leftover_objects(engine: Engine) -> dict[str, list[str]]:
         views = insp.get_view_names(schema="public")
         sequences = insp.get_sequence_names(schema="public")
         enums = [e["name"] for e in insp.get_enums(schema="public")]
-    found = {"tabel": tables, "view": views, "sequence": sequences, "enum": enums}
+        schemas = [
+            name
+            for name in insp.get_schema_names()
+            if name not in ("public", "information_schema") and not name.startswith("pg_")
+        ]
+    found = {
+        "tabel": tables,
+        "view": views,
+        "sequence": sequences,
+        "enum": enums,
+        "schema": schemas,
+    }
     return {kind: names for kind, names in found.items() if names}
 
 
@@ -87,6 +98,8 @@ def engine() -> Engine:
 @pytest.fixture(autouse=True)
 def empty_schema(engine: Engine) -> None:
     with engine.begin() as connection:
+        # Schema tambahan buatan migrasi (mis. twinner) ikut dikosongkan.
+        connection.execute(text("DROP SCHEMA IF EXISTS twinner CASCADE"))
         connection.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
         connection.execute(text("CREATE SCHEMA public"))
 
@@ -133,3 +146,32 @@ def test_models_match_migrations(engine: Engine):
     """Setelah upgrade head, model SQLAlchemy tidak boleh berbeda dari skema hasil migrasi."""
     run(engine, command.upgrade, "head")
     run(engine, command.check)
+
+
+# Tabel pendukung DATA_CONTRACT 7.3: aksi ON DELETE setiap foreign key (DIG-220, DIG-221).
+SUPPORT_TABLE_FK_ACTIONS = {
+    "resource_skills": {"resource_id": "CASCADE", "role_id": "RESTRICT"},
+    "change_event_details": {"event_id": "CASCADE", "approved_by_resource_id": "RESTRICT"},
+}
+
+
+def fk_actions(engine: Engine, table: str) -> dict[str, str]:
+    with engine.connect() as connection:
+        fks = inspect(connection).get_foreign_keys(table, schema="public")
+    return {fk["constrained_columns"][0]: fk["options"].get("ondelete", "NO ACTION") for fk in fks}
+
+
+def test_support_tables_are_dropped_and_recreated(engine: Engine):
+    """Downgrade ke 0016 menghapus tabel 7.3, dan upgrade lagi membuatnya dengan FK yang sama."""
+    run(engine, command.upgrade, "head")
+    for table, actions in SUPPORT_TABLE_FK_ACTIONS.items():
+        assert fk_actions(engine, table) == actions, table
+
+    run(engine, command.downgrade, "0016")
+    with engine.connect() as connection:
+        tables = set(inspect(connection).get_table_names(schema="public"))
+    assert tables.isdisjoint(SUPPORT_TABLE_FK_ACTIONS)
+
+    run(engine, command.upgrade, "head")
+    for table, actions in SUPPORT_TABLE_FK_ACTIONS.items():
+        assert fk_actions(engine, table) == actions, table
