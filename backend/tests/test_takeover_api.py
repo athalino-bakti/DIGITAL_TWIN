@@ -317,3 +317,24 @@ def active_assignee(db, task_id) -> list[str]:
             )
         )
     )
+
+
+def test_takeover_on_first_absence_day_clears_affected_task(client, team):
+    """DIG-160: setelah dialihkan pada hari pertama izin, task tidak lagi terdampak."""
+    avl = absence(client, team["sari"], "2026-03-09", "2026-03-10")
+    affected = client.get(f"{DATA}/availability/{avl}/affected-tasks").json()
+    assert [(t["task_id"], t["assigned_date"]) for t in affected] == [("TSK-0001", "2026-03-02")]
+    assert take_over(client, team["budi"], frm=team["sari"], day="2026-03-09").status_code == 200
+    assert client.get(f"{DATA}/availability/{avl}/affected-tasks").json() == []
+
+
+@pytest.mark.parametrize("status,expected", [("in_progress", 1), ("on_hold", 0), ("dropped", 0)])
+def test_candidate_load_ignores_idle_tasks(client, db, team, status, expected):
+    """Review DIG-150: task yang ditunda atau dibatalkan tidak dihitung sebagai beban."""
+    db.execute(update(Task).where(Task.task_id == "TSK-0003").values(status=status))
+    db.commit()
+    response = client.get(
+        f"{DATA}/tasks/TSK-0001/replacement-candidates", params={"on": "2026-03-09"}
+    )
+    load = {c["resource_name"]: c["active_assignments"] for c in response.json()}
+    assert load["Budi"] == expected
