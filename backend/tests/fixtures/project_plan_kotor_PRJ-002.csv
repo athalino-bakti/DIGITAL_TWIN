@@ -1,0 +1,12 @@
+No,Kode,Fitur,Task,Peran,PIC,Kompleksitas,Prioritas,Estimasi (hari),Mulai Rencana,Selesai Rencana,Mulai Aktual,Selesai Aktual,Status,Bergantung Pada,Catatan
+1,TSK-0041,Presensi geolokasi,Analisis kebutuhan dan breakdown task presensi geolokasi,System Analyst,Yoga P.,High,1,7,02/09/2026,10/09/2026,02/09/2026,10/09/2026,Selesai,TSK-0042 (hard),
+2,TSK-0042,Presensi geolokasi,Rancangan antarmuka presensi geolokasi,UI/UX Designer,Fajar N.,High,1,5,02/10/2026,08/10/2026,05/10/2026,09/10/2026,Selesai,TSK-0041 (hard),
+6,TSK-0046,Presensi geolokasi,Pengujian fitur presensi geolokasi,Quality Assurance,Rizky R.,High,1,"5,5",22/10/2026,29/10/2026,05/11/2026,,Dikerjakan,TSK-0045 (hard); TSK-0044 (hard),
+9,TSK-0049,Rekap kehadiran bulanan,Analisis kebutuhan dan breakdown task rekap kehadiran bulanan,System Analyst,Yoga P.,Medium,2,"4,5",11/9/26,17/09/2026,15/09/2026,21/09/2026,Selesai,,
+17,TSK-0057,Notifikasi keterlambatan,Analisis kebutuhan dan breakdown task notifikasi keterlambatan,System Analyst,yoga p,Low,3,"1,5",28/09/2026,29/09/2026,28/09/2026,29/09/2026,Selesai,,
+21,TSK-0061,Notifikasi keterlambatan,Pengembangan antarmuka notifikasi keterlambatan,Front-End Developer,Fajar N.,Medium,3,,20/10/2026,26/10/2026,27/10/2026,03/11/2026,QA,TSK-0058 (hard); TSK-0060 (hard),
+22,TSK-0062,Notifikasi keterlambatan,Pengujian fitur notifikasi keterlambatan,Quality Assurance,RIZKY RAMADHAN,Low,3,"2,5",30/10/2026,03/11/2026,06/11/2026,,Dikerjakan,TSK-0061 (hard); TSK-0060 (hard),
+24,TSK-0064,Notifikasi keterlambatan,Dokumentasi fitur notifikasi keterlambatan,Technical Writer,Nadia K.,Low,3,"2,5",2026-11-03,05/11/2026,,,Belum Mulai,TSK-0062 (soft),
+35,TSK-0107,Ekspor laporan presensi,Rancangan dan pembuatan basis data ekspor laporan presensi,Data Manager,,Medium,5,3,9 Nov 2026,11/11/2026,,,Belum Mulai,TSK-0105 (hard),
+6,TSK-0046,Presensi geolokasi,Pengujian fitur presensi geolokasi,Quality Assurance,Rizky R.,High,1,"5,5",22/10/2026,29/10/2026,05/11/2026,,Dikerjakan,TSK-0045 (hard); TSK-0044 (hard),
+17,TSK-0089,Penjadwalan wawancara,Analisis kebutuhan dan breakdown task penjadwalan wawancara,System Analyst,Dodi (magang),Low,3,1,23/10/2026,23/10/2026,23/10/2026,23/10/2026,Selesai,,
