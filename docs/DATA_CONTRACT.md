@@ -304,7 +304,7 @@ Tabel berikut hanya dipakai aplikasi J&C dan tidak dibaca tWinner.
 | Tabel | Isi | Jira |
 |---|---|---|
 | `staging_project_plan` | Baris mentah hasil unggah Project Plan sebelum validasi | DIG-113 |
-| `import_job` | Catatan setiap impor: sumber, waktu, jumlah baris, status | DIG-113 |
+| `import_job` | Catatan setiap impor: sumber, waktu, jumlah baris, status | DIG-128 (bersama DIG-113) |
 | `staging_trello_action` | Riwayat aksi kartu Trello mentah | DIG-117 |
 | `trello_list_mapping` | Pemetaan nama list Trello ke status dan phase task | DIG-117 |
 | `staging_commit` | Riwayat commit TeamGit mentah | DIG-121 |

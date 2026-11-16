@@ -67,6 +67,8 @@ Liveness tetap `200` saat database belum aktif; readiness mengembalikan `503`. I
 
 `constraints.txt` menyimpan versi dependency yang telah diuji. Perbarui file ini bersama perubahan dependency di `pyproject.toml`.
 
+Kredensial (JWT, password basis data, token Trello/TeamGit) tidak pernah di-commit. Di lokal isi lewat `backend/.env`; di server lewat berkas rahasia `SECRETS_DIR`. Aturan lengkap dan cara rotasinya ada di [docs/SECRETS.md](docs/SECRETS.md).
+
 ### 3. Frontend — terminal kedua
 
 ```powershell
@@ -97,6 +99,20 @@ Dari `backend/`:
 ```
 
 Tes health memakai dependency override untuk menguji status sukses/gagal tanpa PostgreSQL. Setelah database aktif, periksa koneksi nyata dengan `Invoke-RestMethod http://localhost:8000/api/v1/health/ready`. `alembic heads` harus menampilkan tepat satu revisi.
+
+### Konektivitas ke Trello dan TeamGit
+
+Jalankan di server yang akan menjalankan impor, dari `backend/`:
+
+```powershell
+.\.venv\Scripts\python.exe -m app.integrations.connectivity
+```
+
+Per tujuan diperiksa DNS, port 443, HTTPS (termasuk sertifikat TLS), lalu kredensial Trello bila `TRELLO_API_ENABLED=true`. Di belakang proxy, langkah DNS/TCP langsung dilewati dan HTTPS memakai proxy. Tujuan yang belum dikonfigurasi (misalnya `TEAMGIT_BASE_URL` kosong) ditandai "dilewati". Kode keluar `1` bila ada langkah yang gagal. Key dan token tidak pernah ditampilkan.
+
+### Impor terjadwal
+
+`python -m app.pipeline.run trello` menjalankan satu impor Trello dengan retry, mencatatnya di tabel `import_job`, dan mengirim notifikasi bila gagal. Contoh cron/systemd timer, konfigurasi, dan cara memantau ada di [docs/IMPORT_PIPELINE.md](docs/IMPORT_PIPELINE.md).
 
 ### Skema basis data vs Data Dictionary
 

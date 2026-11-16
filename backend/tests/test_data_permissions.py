@@ -64,6 +64,9 @@ EXPECTED = {
     # Event log (DIG-37): membentuk ulang = pengolahan impor, membaca = ekspor (FR-07).
     ("POST", "/event-log/rebuild"): Perm.IMPORT_RUN,
     ("GET", "/event-log"): Perm.EVENT_LOG_EXPORT,
+    # Pemantauan job impor terjadwal (DIG-128).
+    ("GET", "/import-jobs"): Perm.DATA_QUALITY_READ,
+    ("GET", "/import-jobs/{job_id}"): Perm.DATA_QUALITY_READ,
 }
 
 

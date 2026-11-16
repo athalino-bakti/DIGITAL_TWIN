@@ -41,7 +41,7 @@ Filter action: `createCard`, `copyCard`, `convertToCardFromCheckItem`, `moveCard
 
 - Key dan token dikirim lewat header `Authorization: OAuth oauth_consumer_key="…", oauth_token="…"`, **tidak** lewat query string, sehingga tidak tercatat di log URL.
 - Kredensial disimpan sebagai `SecretStr` dan tidak muncul di `repr` atau pesan error.
-- Buat token dengan scope **read** saja. Token tidak pernah di-commit; isi lewat `.env` lokal. Penyimpanan rahasia di server staging dibahas di DIG-125.
+- Buat token dengan scope **read** saja. Token tidak pernah di-commit; isi lewat `.env` lokal. Di server, simpan sebagai berkas rahasia lewat `SECRETS_DIR` (lihat [SECRETS.md](SECRETS.md)).
 
 ## Cara mencoba
 
