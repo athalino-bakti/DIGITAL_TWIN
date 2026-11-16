@@ -7,7 +7,7 @@ Jira: DIG-113 (story DIG-25). Tabel internal J&C (docs/DATA_CONTRACT.md bagian 7
   NULL; menghapus job tidak menghapus action (SET NULL).
 
 Revision ID: 0022
-Revises: 0019
+Revises: 0020
 """
 
 from typing import Sequence, Union
@@ -18,7 +18,7 @@ from sqlalchemy.dialects import postgresql
 
 revision: str = "0022"
 # Saat PR ini di-rebase setelah migrasi lain masuk ke main, ganti ke head terbaru.
-down_revision: Union[str, Sequence[str], None] = "0019"
+down_revision: Union[str, Sequence[str], None] = "0020"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
