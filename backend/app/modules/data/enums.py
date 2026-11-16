@@ -120,6 +120,18 @@ class ResolutionMode(StrEnum):
     RESHUFFLE = "reshuffle"
 
 
+class IdentitySource(StrEnum):
+    """resource_alias.source (DIG-110), tabel internal J&C, bukan Data Dictionary.
+
+    Nilainya sama dengan sumber impor di import_job (DIG-28) supaya satu kosakata dipakai di
+    semua tabel internal. Identitas teamgit adalah email author commit.
+    """
+
+    PROJECT_PLAN = "project_plan"
+    TRELLO = "trello"
+    TEAMGIT = "teamgit"
+
+
 # Pola regex PostgreSQL untuk format ID. Jumlah digit pada contoh Data Dictionary
 # (PRJ-001, TSK-0001, DEP-001, ...) menjadi jumlah digit minimal, sehingga format
 # dataset dummy dosbim (DEP-0001, ASG-00001, AVL-0001, EVT-0001) juga valid.
