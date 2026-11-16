@@ -1,5 +1,6 @@
 import { Navigate, NavLink, useParams } from 'react-router-dom';
 import { ModulePlaceholder } from '../../shared/components/ModulePlaceholder';
+import { DependencyPanel } from './dependency/DependencyPanel';
 
 const views = {
   timeline: { label: 'Timeline', title: 'Timeline proyek', description: 'Jadwal dan ringkasan proyek akan ditampilkan setelah model baseline tersedia.', areas: ['Gantt proyek', 'Fase iterasi', 'Ringkasan proyek'] },
@@ -16,8 +17,8 @@ export function DigitalTwinPage() {
       {['Proyek aktif', 'Proyek lewat target', 'Resource overload', 'Resource multi-role'].map((label, index) => <article className={`metric-card metric-${index}`} key={label}><h2>{label}</h2><strong>—</strong><p>Data belum tersedia</p></article>)}
     </section>
     <nav className="tabs" aria-label="Tampilan Digital Twin">
-      {Object.entries(views).map(([key, item]) => <NavLink key={key} to={`/digital-twin/${key}`} className={({ isActive }) => isActive ? 'tab active' : 'tab'}>{item.label}{key === 'dependency' && <span className="optional-badge">opsional</span>}</NavLink>)}
+      {Object.entries(views).map(([key, item]) => <NavLink key={key} to={`/digital-twin/${key}`} className={({ isActive }) => isActive ? 'tab active' : 'tab'}>{item.label}</NavLink>)}
     </nav>
-    <ModulePlaceholder title={selected.title} description={selected.description} areas={selected.areas} />
+    {view === 'dependency' ? <DependencyPanel /> : <ModulePlaceholder title={selected.title} description={selected.description} areas={selected.areas} />}
   </>;
 }
