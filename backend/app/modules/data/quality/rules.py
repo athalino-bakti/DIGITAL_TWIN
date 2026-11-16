@@ -18,6 +18,7 @@ from sqlalchemy import Boolean, Date, Double, Integer
 import app.modules.data.models  # noqa: F401  (mendaftarkan D-01 s.d. D-11 ke metadata)
 from app.db.base import Base
 from app.modules.data import enums
+from app.modules.data.quality.cycles import Edge, resolve_cycles
 from app.modules.data.quality.dates import ISO, parse_date
 from app.modules.data.quality.engine import (
     PERINGATAN,
@@ -417,6 +418,52 @@ def duplicate_pair(rows, ctx):
                 pair[1],
                 f"{pair[0]} bergantung pada {pair[1]} sudah dicatat "
                 f"{seen.values.get('dependency_id')}",
+            )
+
+
+# --------------------------------------------------------------------------- siklus (DIG-142)
+
+
+def _cycles(rows: list[SourceRow]):
+    edges = [
+        Edge(
+            row.values.get("dependency_id", ""),
+            row.values.get("task_id", ""),
+            row.values.get("depends_on_task_id", ""),
+        )
+        for row in rows
+    ]
+    return resolve_cycles(edges)
+
+
+@rule("task_dependencies", 12, "consistency", TOLAK, "Dependency tidak menutup siklus")
+def closing_edge(rows, ctx):
+    for cycle in _cycles(rows):
+        row = rows[cycle.closing]
+        yield Hit(
+            row,
+            "depends_on_task_id",
+            row.values.get("depends_on_task_id"),
+            "Menutup siklus " + " -> ".join(cycle.path),
+        )
+
+
+@rule("task_dependencies", 13, "consistency", PERINGATAN, "Dependency bukan bagian siklus")
+def cycle_member(rows, ctx):
+    closing = set()
+    members: dict[int, str] = {}
+    for cycle in _cycles(rows):
+        closing.add(cycle.closing)
+        for index in cycle.members:
+            members.setdefault(index, rows[cycle.closing].values.get("dependency_id", ""))
+    for index, closer in members.items():
+        if index not in closing:
+            row = rows[index]
+            yield Hit(
+                row,
+                "depends_on_task_id",
+                row.values.get("depends_on_task_id"),
+                f"Bagian dari siklus yang ditutup {closer}",
             )
 
 
