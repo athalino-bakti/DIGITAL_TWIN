@@ -119,7 +119,19 @@ Dengan `--strict` semua selisih dianggap gagal; dipakai di CI, saat tidak ada ya
 5. Simpan `digital_twin_rusak` sampai yakin pemulihan benar, baru hapus.
 
 Di server baru, role dari berkas `.roles.sql` dibuat otomatis oleh `restore.sh` sebelum data
-dipulihkan; password `jc_app` diatur ulang sesuai docs/DATABASE_ROLES.md.
+dipulihkan, tetapi **tanpa password** (backup sengaja tidak menyimpan hash password role).
+Sampai password diatur ulang, `jc_app` tidak bisa login. Setelah restore, atur ulang dengan
+password baru yang disimpan sebagai rahasia (docs/DATABASE_ROLES.md, docs/SECRETS.md):
+
+```bash
+docker compose -f compose.prod.yaml exec db psql -U puti -d postgres \
+  -c "\password jc_app"
+```
+
+`\password` meminta password secara interaktif, jadi password tidak tercatat di riwayat shell
+maupun log PostgreSQL. Lalu perbarui `DATABASE_URL` aplikasi yang memakai `jc_app`.
+
+Uji restore memeriksa semua schema aplikasi, termasuk `twinner`, bukan hanya `public`.
 
 Uji lokal 16 November 2026 (PostgreSQL 16): backup, uji restore ketat, peringatan saat data
 berubah, gagal saat tabel kosong atau berkas terpotong, penolakan restore ke basis data yang

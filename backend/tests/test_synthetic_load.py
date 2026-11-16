@@ -62,7 +62,29 @@ def test_refuses_database_that_already_has_data(empty):
         loader.load(empty, 7, AS_OF)
 
 
-def test_refuses_production(monkeypatch, capsys):
+@pytest.fixture
+def fresh_settings():
+    from app.core.config import get_settings
+
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
+
+
+def test_refuses_production(monkeypatch, capsys, fresh_settings):
     monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("JWT_SECRET_KEY", "x" * 48)
+    assert loader.main([]) == 2
+    assert "APP_ENV=production" in capsys.readouterr().err
+
+
+def test_refuses_production_set_only_in_dotenv(monkeypatch, tmp_path, capsys, fresh_settings):
+    """APP_ENV yang hanya ada di berkas .env juga dikenali (review #42)."""
+    from app.core import config
+
+    env_file = tmp_path / ".env"
+    env_file.write_text(f"APP_ENV=production\nJWT_SECRET_KEY={'y' * 48}\n", encoding="utf-8")
+    monkeypatch.delenv("APP_ENV", raising=False)
+    monkeypatch.setitem(config.Settings.model_config, "env_file", env_file)
     assert loader.main([]) == 2
     assert "APP_ENV=production" in capsys.readouterr().err

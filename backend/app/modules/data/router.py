@@ -432,3 +432,8 @@ router.include_router(change_event_router)
 from app.modules.data.my_task_router import router as my_task_router  # noqa: E402
 
 router.include_router(my_task_router)
+
+# Alias identitas anggota antar tool (DIG-24), tabel internal J&C resource_alias.
+from app.modules.data.resource_alias_router import router as resource_alias_router  # noqa: E402
+
+router.include_router(resource_alias_router)
