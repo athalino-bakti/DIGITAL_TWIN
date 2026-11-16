@@ -73,6 +73,8 @@ EXPECTED = {
     ("POST", "/resource-aliases"): Perm.MASTER_DATA_WRITE,
     ("PATCH", "/resource-aliases/{alias_id}"): Perm.MASTER_DATA_WRITE,
     ("DELETE", "/resource-aliases/{alias_id}"): Perm.MASTER_DATA_WRITE,
+    # Unggah Project Plan ke staging (DIG-25), sama dengan impor lain.
+    ("POST", "/imports/project-plan"): Perm.IMPORT_RUN,
 }
 
 
@@ -192,6 +194,9 @@ CASES = [
     ("admin_data", "delete", "/workload-items/WLI-9999", None, True),
     ("kaur_asman", "post", "/workload-items/import", {"content": "", "dry_run": True}, False),
     ("admin_data", "post", "/workload-items/import", {"content": "", "dry_run": True}, True),
+    ("anggota_tim", "post", "/imports/project-plan", {}, False),
+    ("kaur_asman", "post", "/imports/project-plan", {}, False),
+    ("admin_data", "post", "/imports/project-plan", {}, True),
     # DIG-153: task saya untuk semua yang punya beban sendiri; mencatat hanya anggota tim.
     ("admin_data", "get", "/my-tasks", None, False),
     ("anggota_tim", "get", "/my-tasks", None, True),

@@ -16,6 +16,9 @@ dependencies = [
   "pydantic-settings>=2.7,<3",
   "alembic>=1.14,<2",
   "PyJWT>=2.10,<3",
+  # Unggah Project Plan (DIG-114): form multipart dan pembaca XLSX.
+  "python-multipart>=0.0.20,<1",
+  "openpyxl>=3.1,<4",
 ]
 
 [project.optional-dependencies]
