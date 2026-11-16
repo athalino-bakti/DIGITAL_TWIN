@@ -67,6 +67,9 @@ EXPECTED = {
     # Pemantauan job impor terjadwal (DIG-128).
     ("GET", "/import-jobs"): Perm.DATA_QUALITY_READ,
     ("GET", "/import-jobs/{job_id}"): Perm.DATA_QUALITY_READ,
+    # Pemetaan list Trello (DIG-120): konfigurasi impor.
+    ("GET", "/trello-lists"): Perm.IMPORT_RUN,
+    ("PATCH", "/trello-lists/{board_id}/{list_id}"): Perm.IMPORT_RUN,
 }
 
 

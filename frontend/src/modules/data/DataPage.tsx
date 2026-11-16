@@ -8,6 +8,7 @@ import { ChangeEventsPanel } from './changes/ChangeEventsPanel';
 import { ComplexityPanel } from './complexity/ComplexityPanel';
 import { MyTasksPanel } from './my-tasks/MyTasksPanel';
 import { ProjectsPanel } from './projects/ProjectsPanel';
+import { TrelloListsPanel } from './trello-lists/TrelloListsPanel';
 import { ResourcesPanel } from './resources/ResourcesPanel';
 import { RolesPanel } from './resources/RolesPanel';
 import { dataViews } from './views';
@@ -33,6 +34,7 @@ export function DataPage() {
     {view === 'ketersediaan' && <AvailabilityPanel />}
     {view === 'libur' && <HolidaysPanel />}
     {view === 'impor' && <ModulePlaceholder title="Impor dataset" description="Unggah Project Plan, ekspor Trello, dan riwayat commit akan tersedia di sini." areas={['Unggah dataset CSV', 'Kualitas data', 'Baris ditolak']} />}
+    {view === 'trello' && <TrelloListsPanel />}
     {view === 'task-saya' && <MyTasksPanel />}
   </>;
 }
