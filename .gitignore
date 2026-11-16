@@ -16,3 +16,6 @@ __pycache__/
 pytest-cache-files-*/
 
 synthetic-output/
+
+# Hasil backup basis data (ops/backup, DIG-218): berisi seluruh data, jangan di-commit.
+backups/

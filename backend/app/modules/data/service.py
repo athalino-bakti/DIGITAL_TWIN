@@ -544,7 +544,7 @@ def delete_resource(db: Session, resource_id: str) -> None:
         db.rollback()
         raise ConflictError(
             f"Anggota {resource_id} masih tercatat di assignment, beban non-proyek, "
-            "atau ketersediaan, sehingga tidak bisa dihapus."
+            "ketersediaan, atau persetujuan kejadian perubahan, sehingga tidak bisa dihapus."
         ) from exc
 
 

@@ -5,6 +5,8 @@ import { useCan } from '../../../shared/auth/usePermission';
 import { PERM } from '../../../shared/auth/permissions';
 import { listResources, type Resource } from '../resources/api';
 import { AvailabilityForm } from './AvailabilityForm';
+import { TakeoverDialog } from './TakeoverDialog';
+import { listAffectedTasks } from './takeover';
 import { ABSENCE_LABEL, ABSENCE_TYPES, createAvailability, deleteAvailability, listAvailability, listHolidays, updateAvailability, type Availability, type AvailabilityInput, type Holiday } from './api';
 import { addDays, countWorkingDays, formatLong, formatMonth, formatRange, monthBounds, monthGrid, monthOf, shiftMonth, todayIso, WEEKDAY_SHORT, type Month } from './dates';
 
@@ -20,6 +22,9 @@ export function AvailabilityPanel() {
   const [resourceFilter, setResourceFilter] = useState('');
   const [load, setLoad] = useState<Load>({ state: 'loading' });
   const canWrite = useCan(PERM.availabilityWrite);
+  // Pengalihan butuh melihat beban anggota lain (kandidat) dan mencatat ketidakhadiran.
+  const canTakeover = useCan(PERM.workloadReadAll) && canWrite;
+  const [takeover, setTakeover] = useState<{ item: Availability; intro?: string } | null>(null);
   const [editing, setEditing] = useState<Editing>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null);
@@ -74,6 +79,14 @@ export function AvailabilityPanel() {
     setEditing(null);
     setNotice({ tone: 'success', text: `${saved.availability_id} ${saved.resource_name} tersimpan (${saved.working_days} hari kerja).` });
     refresh();
+    // DIG-160: ketidakhadiran baru langsung menawarkan pengalihan bila ada task yang terdampak.
+    if (!target && canTakeover && saved.absence_type !== 'rotation_in') {
+      listAffectedTasks(saved.availability_id)
+        .then((tasks) => {
+          if (tasks.length > 0) setTakeover({ item: saved, intro: `${saved.resource_name} memegang ${tasks.length} task aktif selama periode ini. Alihkan sekarang, atau tutup dan lakukan nanti dari tombol Task terdampak.` });
+        })
+        .catch(() => undefined);
+    }
   }
 
   async function remove(item: Availability) {
@@ -213,6 +226,9 @@ export function AvailabilityPanel() {
                             </>
                           ) : (
                             <>
+                              {canTakeover && item.absence_type !== 'rotation_in' && (
+                                <button type="button" className="button button-ghost" onClick={() => { setNotice(null); setTakeover({ item }); }}>Task terdampak</button>
+                              )}
                               <button type="button" className="button button-ghost" onClick={() => { setNotice(null); setEditing({ item }); }}>Ubah</button>
                               <button type="button" className="button button-ghost" aria-label={`Hapus ${item.availability_id}`} onClick={() => setConfirmDelete(item.availability_id)}>Hapus</button>
                             </>
@@ -228,6 +244,9 @@ export function AvailabilityPanel() {
         </>
       )}
 
+      {takeover !== null && (
+        <TakeoverDialog availability={takeover.item} intro={takeover.intro} onClose={() => { setTakeover(null); refresh(); }} />
+      )}
       {editing !== null && (
         <AvailabilityForm availability={editing.item} defaultDate={editing.defaultDate} resources={resources} holidays={holidaySet} onSubmit={save} onClose={() => setEditing(null)} />
       )}

@@ -42,6 +42,11 @@ from app.modules.data.workload_router import router as workload_router  # noqa: 
 
 router.include_router(workload_router)
 
+# Event log untuk process mining (DIG-37) juga di modul terpisah.
+from app.modules.data.event_log_router import router as event_log_router  # noqa: E402
+
+router.include_router(event_log_router)
+
 Db = Annotated[Session, Depends(get_db)]
 ProjectIdPath = Annotated[str, Path(pattern=PROJECT_ID_PATTERN, examples=["PRJ-001"])]
 ComplexityIdPath = Annotated[str, Path(pattern=COMPLEXITY_ID_PATTERN, examples=["CX-M"])]
@@ -410,3 +415,15 @@ def delete_holiday(db: Db, holiday_date: HolidayDatePath) -> Response:
     except (service.HolidayNotFoundError, service.ConflictError) as exc:
         raise to_http(exc) from exc
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# D-10 kejadian perubahan (DIG-149) ada di modul terpisah. Dipasang di akhir berkas supaya
+# tidak bentrok dengan router lain yang ditambahkan di awal (misalnya beban non-proyek).
+from app.modules.data.change_event_router import router as change_event_router  # noqa: E402
+
+router.include_router(change_event_router)
+
+# "Task saya": blocker dan overrun oleh pelaksana task (DIG-153, DIG-154).
+from app.modules.data.my_task_router import router as my_task_router  # noqa: E402
+
+router.include_router(my_task_router)

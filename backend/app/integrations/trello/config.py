@@ -4,11 +4,14 @@ from pathlib import Path
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.core.secrets import secrets_dir
+
 
 class TrelloSettings(BaseSettings):
     """Feature flag dan kredensial konektor Trello API, dibaca dari .env atau environment.
 
     Mati secara default; impor utama tetap memakai berkas ekspor JSON (DIG-118).
+    Kunci dan token juga bisa dibaca dari `SECRETS_DIR` (DIG-125, docs/SECRETS.md).
     """
 
     model_config = SettingsConfigDict(
@@ -26,4 +29,4 @@ class TrelloSettings(BaseSettings):
 
 @lru_cache
 def get_trello_settings() -> TrelloSettings:
-    return TrelloSettings()
+    return TrelloSettings(_secrets_dir=secrets_dir())
