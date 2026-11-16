@@ -4,6 +4,7 @@ import { allowed } from '../../shared/auth/permissions';
 import { ModulePlaceholder } from '../../shared/components/ModulePlaceholder';
 import { AvailabilityPanel } from './availability/AvailabilityPanel';
 import { HolidaysPanel } from './availability/HolidaysPanel';
+import { ChangeEventsPanel } from './changes/ChangeEventsPanel';
 import { ComplexityPanel } from './complexity/ComplexityPanel';
 import { ProjectsPanel } from './projects/ProjectsPanel';
 import { ResourcesPanel } from './resources/ResourcesPanel';
@@ -26,6 +27,7 @@ export function DataPage() {
     {view === 'anggota' && <ResourcesPanel />}
     {view === 'peran' && <RolesPanel />}
     {view === 'beban' && <WorkloadPanel />}
+    {view === 'perubahan' && <ChangeEventsPanel />}
     {view === 'kompleksitas' && <ComplexityPanel />}
     {view === 'ketersediaan' && <AvailabilityPanel />}
     {view === 'libur' && <HolidaysPanel />}

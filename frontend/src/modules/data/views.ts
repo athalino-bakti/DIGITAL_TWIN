@@ -6,6 +6,7 @@ export const dataViews: readonly { key: string; label: string; permission: Permi
   { key: 'anggota', label: 'Anggota', permission: PERM.masterDataRead },
   { key: 'peran', label: 'Peran', permission: PERM.masterDataRead },
   { key: 'beban', label: 'Beban non-proyek', permission: PERM.workloadReadAll },
+  { key: 'perubahan', label: 'Riwayat perubahan', permission: PERM.workloadReadAll },
   { key: 'kompleksitas', label: 'Kompleksitas', permission: PERM.masterDataRead },
   { key: 'ketersediaan', label: 'Ketersediaan', permission: PERM.workloadReadAll },
   { key: 'libur', label: 'Hari libur', permission: PERM.masterDataRead },
