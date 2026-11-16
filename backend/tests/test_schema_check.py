@@ -286,6 +286,29 @@ Kolom | Tipe DD | Tipe PostgreSQL | Wajib | Keterangan
     assert not columns["catatan"].required
 
 
+def test_paragraph_with_pipe_closes_rule_list():
+    markdown = """
+## 6. Salinan Data Dictionary
+
+### D-11 `holidays`
+
+| Kolom | Tipe DD | Tipe PostgreSQL | Wajib | Keterangan |
+| --- | --- | --- | --- | --- |
+| `holiday_date` (PK) | date | DATE | Ya | Tanggal libur |
+
+Aturan di basis data:
+
+- `ck_holidays_satu`: `holiday_date IS NOT NULL`
+
+Catatan: tanggal ditulis `yyyy-mm-dd` | bukan format lain.
+
+- `ck_holidays_bukan_aturan`: `1 = 1`
+"""
+    spec = parse_contract(markdown)["holidays"]
+    assert spec.rules == {"ck_holidays_satu"}
+    assert list(spec.columns) == ["holiday_date"]
+
+
 @requires_db
 def test_changed_check_body_in_database_is_reported(connection):
     connection.execute(
