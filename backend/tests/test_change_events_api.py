@@ -3,6 +3,7 @@
 from datetime import date
 
 import pytest
+from sqlalchemy import text
 
 from app.modules.data.models import Task
 from tests.conftest import REQUIRES_DB, error_fields
@@ -289,3 +290,41 @@ def test_event_id_longer_than_20_characters_is_rejected(client, setup):
     response = client.post(BASE, json=body(setup, event_id="EVT-" + "1" * 17))
     assert response.status_code == 422
     assert error_fields(response) == ["event_id"]
+
+
+# --- tanggal kejadian vs detail kejadian (DATA_CONTRACT 7.3, DIG-221) ---
+
+
+def add_detail(db, event_id, approved=None, resolved=None):
+    db.execute(
+        text(
+            "INSERT INTO change_event_details (event_id, approved_date, resolved_date) "
+            "VALUES (:e, :a, :r)"
+        ),
+        {"e": event_id, "a": approved, "r": resolved},
+    )
+    db.commit()
+
+
+def test_event_date_cannot_move_past_detail_dates(client, db, setup):
+    event_id = create(client, setup, event_date="2026-03-02")["event_id"]
+    add_detail(db, event_id, approved="2026-03-05", resolved="2026-03-10")
+    response = client.patch(f"{BASE}/{event_id}", json={"event_date": "2026-03-06"})
+    assert response.status_code == 422, response.text
+    assert error_fields(response) == ["event_date"]
+    assert client.get(f"{BASE}/{event_id}").json()["event_date"] == "2026-03-02"
+
+
+def test_event_date_may_move_up_to_earliest_detail_date(client, db, setup):
+    event_id = create(client, setup, event_date="2026-03-02")["event_id"]
+    add_detail(db, event_id, approved="2026-03-05", resolved="2026-03-10")
+    response = client.patch(f"{BASE}/{event_id}", json={"event_date": "2026-03-05"})
+    assert response.status_code == 200, response.text
+    assert response.json()["event_date"] == "2026-03-05"
+
+
+def test_other_columns_can_change_when_detail_exists(client, db, setup):
+    event_id = create(client, setup, event_date="2026-03-02")["event_id"]
+    add_detail(db, event_id, resolved="2026-03-02")
+    response = client.patch(f"{BASE}/{event_id}", json={"requested_by": "Kaur"})
+    assert response.status_code == 200, response.text

@@ -22,6 +22,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.modules.data.change_event_detail_rules import check_event_date_change
 from app.modules.data.change_event_schemas import (
     ChangeEventCreate,
     ChangeEventRead,
@@ -291,6 +292,12 @@ def update_change_event(db: Session, event_id: str, payload: ChangeEventUpdate) 
         raise DataValidationError(errors)
     values = {c.key: getattr(event, c.key) for c in ChangeEvent.__table__.columns} | changes
     validate_event(db, values)
+    if "event_date" in changes:
+        # Detail kejadian (persetujuan, tanggal selesai) tidak boleh jadi lebih awal dari
+        # tanggal kejadian yang baru (DATA_CONTRACT 7.3).
+        errors = check_event_date_change(db, event_id, values["event_date"])
+        if errors:
+            raise DataValidationError(errors)
     for field, value in changes.items():
         setattr(event, field, value)
     commit(db)
