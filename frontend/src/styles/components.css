@@ -274,6 +274,10 @@ fieldset.field legend { font: var(--text-label); color: var(--color-heading); ma
 .toolbar-filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-5); }
 .toolbar-select { height: 36px; padding: 0 var(--space-4); font: var(--text-body); color: var(--color-heading); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-control); }
 .toolbar-select:focus { outline: 2px solid var(--color-primary); outline-offset: -1px; }
+/* Alias identitas (DIG-112) */
+.alias-section-title { margin: 0; padding: var(--space-6) var(--space-7) var(--space-4); font: var(--text-title); color: var(--color-heading); }
+.alias-empty { padding: 0 var(--space-7) var(--space-4); font: var(--text-body-sm); color: var(--color-body); }
+.alias-add { white-space: nowrap; }
 .calendar { padding: var(--space-5) var(--space-7) var(--space-6); border-bottom: 1px solid var(--color-border); }
 .calendar-head, .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--space-2); }
 .calendar-head { margin-bottom: var(--space-2); }
