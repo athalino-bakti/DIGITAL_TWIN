@@ -23,6 +23,17 @@ EXPECTED = {
     ("GET", "/projects/{project_id}"): Perm.MASTER_DATA_READ,
     ("PATCH", "/projects/{project_id}"): Perm.MASTER_DATA_WRITE,
     ("DELETE", "/projects/{project_id}"): Perm.MASTER_DATA_WRITE,
+    # D-10 kejadian perubahan (DIG-149): FR-05.
+    ("GET", "/change-events"): Perm.WORKLOAD_READ_ALL,
+    ("GET", "/change-events/{event_id}"): Perm.WORKLOAD_READ_ALL,
+    ("POST", "/change-events"): Perm.CHANGE_EVENT_WRITE,
+    ("PATCH", "/change-events/{event_id}"): Perm.CHANGE_EVENT_WRITE,
+    ("DELETE", "/change-events/{event_id}"): Perm.CHANGE_EVENT_WRITE,
+    # "Task saya" (DIG-153): blocker dan overrun oleh pelaksana task; deteksi otomatis DIG-154.
+    ("GET", "/my-tasks"): Perm.WORKLOAD_READ_OWN,
+    ("POST", "/my-tasks/{task_id}/events"): Perm.CHANGE_EVENT_WRITE_OWN,
+    ("POST", "/my-tasks/{task_id}/events/{event_id}/resolve"): Perm.CHANGE_EVENT_WRITE_OWN,
+    ("POST", "/overrun-detection"): Perm.CHANGE_EVENT_WRITE,
     ("GET", "/complexity-levels"): Perm.MASTER_DATA_READ,
     ("PATCH", "/complexity-levels/{complexity_id}"): Perm.MASTER_DATA_WRITE,
     ("GET", "/resources"): Perm.MASTER_DATA_READ,
@@ -135,6 +146,13 @@ CASES = [
     ("anggota_tim", "get", "/roles", None, True),
     ("system_analyst", "patch", "/roles/ROLE-BE", {}, False),
     ("admin_data", "patch", "/roles/ROLE-BE", {}, True),
+    # D-10: dicatat Kaur/Asman dan System Analyst (FR-05).
+    ("anggota_tim", "get", "/change-events", None, False),
+    ("kaur_asman", "get", "/change-events", None, True),
+    ("anggota_tim", "post", "/change-events", {}, False),
+    ("admin_data", "post", "/change-events", {}, False),
+    ("kaur_asman", "post", "/change-events", {}, True),
+    ("system_analyst", "delete", "/change-events/EVT-999", None, True),
     # D-09: data ketidakhadiran seluruh anggota (DIG-19) dan FR-06.
     ("anggota_tim", "get", "/availability", None, False),
     ("admin_data", "get", "/availability", None, False),
@@ -165,6 +183,16 @@ CASES = [
     ("admin_data", "delete", "/workload-items/WLI-9999", None, True),
     ("kaur_asman", "post", "/workload-items/import", {"content": "", "dry_run": True}, False),
     ("admin_data", "post", "/workload-items/import", {"content": "", "dry_run": True}, True),
+    # DIG-153: task saya untuk semua yang punya beban sendiri; mencatat hanya anggota tim.
+    ("admin_data", "get", "/my-tasks", None, False),
+    ("anggota_tim", "get", "/my-tasks", None, True),
+    ("kaur_asman", "get", "/my-tasks", None, True),
+    ("system_analyst", "post", "/my-tasks/TSK-9999/events", {"event_type": "blocker"}, False),
+    ("anggota_tim", "post", "/my-tasks/TSK-9999/events", {"event_type": "blocker"}, True),
+    ("anggota_tim", "post", "/my-tasks/TSK-9999/events/EVT-999/resolve", {}, True),
+    ("anggota_tim", "post", "/overrun-detection", None, False),
+    ("admin_data", "post", "/overrun-detection", None, False),
+    ("system_analyst", "post", "/overrun-detection", None, True),
 ]
 
 
