@@ -18,6 +18,7 @@ from sqlalchemy import Boolean, Date, Double, Integer
 import app.modules.data.models  # noqa: F401  (mendaftarkan D-01 s.d. D-11 ke metadata)
 from app.db.base import Base
 from app.modules.data import enums
+from app.modules.data.quality.dates import ISO, parse_date
 from app.modules.data.quality.engine import (
     PERINGATAN,
     TOLAK,
@@ -307,6 +308,89 @@ def _register_values(table: str) -> None:
 
 for _table in VALUE_RULES:
     _register_values(_table)
+
+
+# --------------------------------------------------------------------------- tanggal (DIG-141)
+
+# Kolom akhir tidak boleh lebih awal dari kolom awal (kontrak bagian 6, ck_*_after_*).
+DATE_ORDER = [
+    ("projects", "start_date", "target_launch_date"),
+    ("projects", "start_date", "actual_launch_date"),
+    ("tasks", "planned_start", "planned_finish"),
+    ("tasks", "actual_start", "actual_finish"),
+    ("assignments", "assigned_date", "released_date"),
+    ("workload_items", "received_date", "started_date"),
+    ("workload_items", "received_date", "resolved_date"),
+    ("workload_items", "started_date", "resolved_date"),
+    ("availability", "date_start", "date_end"),
+]
+
+
+def day(row: SourceRow, column: str):
+    """Tanggal ISO yang terbaca, atau None (kosong atau salah format, dicatat 001/007)."""
+    return parse_date(row.values.get(column), ISO)
+
+
+def _register_dates(table: str) -> None:
+    columns = [c for c, kind in KINDS[table].items() if kind == "date"]
+    if not columns:
+        return
+
+    @rule(table, 7, "consistency", TOLAK, "Tanggal berformat YYYY-MM-DD")
+    def date_format(rows, ctx):
+        for row in rows:
+            for column in columns:
+                value = row.values.get(column, "")
+                if value and parse_date(value, ISO) is None:
+                    yield Hit(row, column, value, f"{column} {value!r} bukan tanggal {ISO.label}")
+
+    pairs = [(start, end) for t, start, end in DATE_ORDER if t == table]
+    if not pairs:
+        return
+
+    @rule(table, 9, "consistency", TOLAK, "Tanggal akhir tidak lebih awal dari tanggal awal")
+    def date_order(rows, ctx):
+        for row in rows:
+            for start, end in pairs:
+                first, last = day(row, start), day(row, end)
+                if first and last and last < first:
+                    yield Hit(
+                        row, end, row.values[end], f"{end} {last} lebih awal dari {start} {first}"
+                    )
+
+
+for _table in TABLES:
+    _register_dates(_table)
+
+
+@rule("tasks", 11, "consistency", TOLAK, "actual_finish butuh actual_start")
+def finish_needs_start(rows, ctx):
+    for row in rows:
+        if not blank(row.values.get("actual_finish")) and blank(row.values.get("actual_start")):
+            yield Hit(row, "actual_start", "", "actual_finish terisi tetapi actual_start kosong")
+
+
+@rule("tasks", 12, "consistency", PERINGATAN, "Tanggal rencana tidak jatuh di hari libur")
+def planned_on_holiday(rows, ctx):
+    for row in rows:
+        for column in ("planned_start", "planned_finish"):
+            if (value := day(row, column)) and value in ctx.holidays:
+                yield Hit(row, column, row.values[column], f"{column} {value} jatuh di hari libur")
+
+
+@rule("tasks", 13, "consistency", PERINGATAN, "estimated_days dalam rentang level kompleksitasnya")
+def estimate_in_range(rows, ctx):
+    for row in rows:
+        estimate = number(row, "estimated_days")
+        bounds = ctx.complexity_ranges.get(row.values.get("complexity_id", ""))
+        if estimate is not None and bounds and not bounds[0] <= estimate <= bounds[1]:
+            yield Hit(
+                row,
+                "estimated_days",
+                row.values["estimated_days"],
+                f"estimated_days {estimate:g} di luar {bounds[0]:g} s.d. {bounds[1]:g} hari "
+                f"untuk {row.values['complexity_id']}",
+            )
 
 
 # --------------------------------------------------------------------------- khusus tabel

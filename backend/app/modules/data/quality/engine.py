@@ -12,7 +12,11 @@ Keluaran `Report` disusun supaya bisa langsung disimpan DIG-145:
 
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
+from datetime import date
+from functools import cached_property
 from typing import Any, Literal
+
+from app.modules.data.quality.dates import ISO, parse_date
 
 Level = Literal["tolak", "peringatan"]
 Characteristic = Literal["completeness", "consistency", "currentness", "traceability"]
@@ -129,6 +133,25 @@ class Context:
         if table not in self._keys:
             self._keys[table] = {row.key for row in self.tables.get(table, []) if row.key}
         return self._keys[table]
+
+    @cached_property
+    def holidays(self) -> set[date]:
+        """Tanggal D-11 holidays yang terbaca (baris berformat salah dicatat aturan 007)."""
+        days = (
+            parse_date(r.values.get("holiday_date"), ISO) for r in self.tables.get("holidays", [])
+        )
+        return {day for day in days if day}
+
+    @cached_property
+    def complexity_ranges(self) -> dict[str, tuple[float, float]]:
+        """complexity_id -> (min_days, max_days) dari D-04 yang angkanya terbaca."""
+        ranges = {}
+        for row in self.tables.get("complexity_levels", []):
+            try:
+                ranges[row.key] = (float(row.values["min_days"]), float(row.values["max_days"]))
+            except (KeyError, ValueError):
+                continue
+        return ranges
 
 
 RULES: dict[str, Rule] = {}

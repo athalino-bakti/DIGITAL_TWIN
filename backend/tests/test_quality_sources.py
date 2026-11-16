@@ -84,6 +84,8 @@ def test_workbook_sheets_with_csv_suffix_and_typed_cells(tmp_path):
         (4, "17/08/2026"),
     ]
     assert tables["holidays"][1].values["holiday_date"] == "17/08/2026"  # teks tetap apa adanya
+    found = {f.rule_id for f in validate_final_sources(tables).findings}
+    assert "DQ-HOL-007" in found
     task = tables["tasks"][0].values
     assert (task["priority_rank"], task["estimated_days"], task["dod_fulfilled"]) == (
         "1",
