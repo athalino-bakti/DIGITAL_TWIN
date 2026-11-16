@@ -21,11 +21,14 @@ trap 'dropdb --if-exists "$check" >/dev/null 2>&1 || true' EXIT
 echo "uji restore $(basename "$dump") ke $check"
 sh "$(dirname "$0")/restore.sh" "$dump" "$check" >/dev/null
 
-counts() {  # counts <basis data>: "tabel jumlah" per baris untuk semua tabel schema public
-  psql -d "$1" -At -F ' ' -c "SELECT table_name FROM information_schema.tables
-    WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name" |
-  while read -r table; do
-    echo "$table $(psql -d "$1" -Atc "SELECT count(*) FROM public.\"$table\"")"
+counts() {  # counts <basis data>: "schema.tabel jumlah" untuk semua tabel aplikasi
+  # Semua schema milik aplikasi, termasuk `twinner` (#14), bukan hanya public.
+  psql -d "$1" -At -F ' ' -c "SELECT table_schema, table_name FROM information_schema.tables
+    WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
+      AND table_schema NOT LIKE 'pg\_%' AND table_type = 'BASE TABLE'
+    ORDER BY table_schema, table_name" |
+  while read -r schema table; do
+    echo "$schema.$table $(psql -d "$1" -Atc "SELECT count(*) FROM \"$schema\".\"$table\"")"
   done
 }
 
