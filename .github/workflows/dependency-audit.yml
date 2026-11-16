@@ -74,5 +74,11 @@ jobs:
         run: npm audit --audit-level=moderate
 
       # Tanda tangan registry memastikan paket di package-lock.json asli dari npm.
+      # Memakai npm 11: npm 10 bawaan Node 22.12 gagal EMISSINGSIGNATUREKEY untuk paket yang
+      # attestation-nya tidak bisa ia cocokkan dengan kunci registry (misalnya magic-string 1.4.5);
+      # npm 11 juga memverifikasi attestation Sigstore tanpa kunci registry (npm/cli#9026).
+      # Versi npm dipin supaya hasilnya tidak berubah sendiri.
       - name: Verifikasi tanda tangan paket
-        run: npm ci --ignore-scripts --no-fund && npm audit signatures
+        run: |
+          npm ci --ignore-scripts --no-fund
+          npx --yes npm@11.21.2 audit signatures

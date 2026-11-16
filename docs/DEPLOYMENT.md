@@ -46,6 +46,7 @@ volume basis data.
 | `APP_ENV` | `staging` | `staging` atau `production`. Image tanpa compose memakai `production`. |
 | `WEB_PORT` | `8080` | Port di host untuk frontend. |
 | `IMAGE_TAG` | `local` | Tag image `jc-api` dan `jc-web`. |
+| `STRICT_TRANSPORT_SECURITY` | kosong | Header HSTS dari nginx. Isi `max-age=31536000` hanya setelah situs dilayani lewat HTTPS. |
 
 API tidak membuka port ke host; semua request lewat nginx. Basis data juga hanya bisa dicapai
 dari jaringan internal compose.
@@ -60,8 +61,10 @@ dari jaringan internal compose.
   begitu klien tidak bisa memalsukan alamat untuk menghindari batas login per IP. Bila di depan
   nginx nanti ada reverse proxy TLS (DIG-206), alamat aslinya perlu diteruskan dengan modul
   `real_ip` nginx dari proxy itu saja.
-- **Header keamanan dasar** (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`)
-  dipasang di nginx; versi nginx tidak ditampilkan. CSP dan pemeriksaan OWASP di DIG-208.
+- **Header keamanan** (CSP, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`,
+  `Permissions-Policy`, `Cross-Origin-Opener-Policy`) dipasang di nginx; versi nginx tidak
+  ditampilkan. HSTS diaktifkan lewat `STRICT_TRANSPORT_SECURITY` setelah HTTPS ada. Rincian dan
+  pemeriksaan OWASP: docs/SECURITY_CHECKLIST.md (DIG-208).
 - **Cache.** Berkas di `/assets/` bernama hash dan disimpan browser setahun; `index.html`
   selalu diperiksa ulang, jadi rilis baru langsung terpakai.
 - **Migrasi terpisah dari API.** Container `migrate` berjalan sekali dan API baru dinyalakan

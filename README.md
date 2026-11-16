@@ -180,7 +180,7 @@ $env:TEST_DATABASE_URL = "postgresql+psycopg://puti:puti_local@localhost:5432/di
 
 ### Image produksi (Docker)
 
-`backend/Dockerfile`, `frontend/Dockerfile`, dan `compose.prod.yaml` mengemas API, frontend nginx, migrasi, dan PostgreSQL untuk staging. Cara menjalankan dan alasan desainnya: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+`backend/Dockerfile`, `frontend/Dockerfile`, dan `compose.prod.yaml` mengemas API, frontend nginx, migrasi, dan PostgreSQL untuk staging. Cara menjalankan dan alasan desainnya: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Header keamanan dan pemeriksaan OWASP Top 10: [docs/SECURITY_CHECKLIST.md](docs/SECURITY_CHECKLIST.md).
 
 ## Data sintetis
 

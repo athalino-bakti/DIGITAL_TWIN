@@ -62,14 +62,24 @@ jobs:
           # Endpoint data butuh login.
           test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/api/v1/data/projects)" = 401
 
-      - name: Header keamanan dasar
+      - name: Header keamanan (DIG-208)
         run: |
           set -euo pipefail
-          headers=$(curl -fsSI http://localhost:8080/)
-          echo "$headers"
-          echo "$headers" | grep -qi '^x-content-type-options: nosniff'
-          echo "$headers" | grep -qi '^x-frame-options: deny'
-          ! echo "$headers" | grep -qi '^server: nginx/'
+          for path in / /api/v1/health; do
+            headers=$(curl -fsS -D - -o /dev/null "http://localhost:8080$path")
+            echo "== $path"; echo "$headers"
+            echo "$headers" | grep -qi "^content-security-policy: default-src 'self'; script-src 'self';"
+            echo "$headers" | grep -qi '^x-content-type-options: nosniff'
+            echo "$headers" | grep -qi '^x-frame-options: deny'
+            echo "$headers" | grep -qi '^referrer-policy: strict-origin-when-cross-origin'
+            echo "$headers" | grep -qi '^permissions-policy: camera=()'
+            echo "$headers" | grep -qi '^cross-origin-opener-policy: same-origin'
+            ! echo "$headers" | grep -qi '^server: nginx/'
+            # HSTS hanya setelah HTTPS (DIG-206); header yang sama tidak boleh terkirim dua kali.
+            ! echo "$headers" | grep -qi '^strict-transport-security:'
+            test "$(echo "$headers" | grep -ci '^x-frame-options:')" = 1
+          done
+          curl -fsS -D - -o /dev/null http://localhost:8080/api/v1/health | grep -qi '^cache-control: no-store'
 
       - name: Container berjalan tanpa root
         run: |

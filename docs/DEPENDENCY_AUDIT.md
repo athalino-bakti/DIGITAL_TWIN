@@ -10,7 +10,7 @@ dipakai, tanpa ada perubahan kode.
 | --- | --- | --- | --- |
 | Audit Python | `pip-audit` 2.10.1 (basis data PyPI/OSV) | Semua versi di `backend/constraints.txt`, ditambah paket yang terpasang di Linux tetapi tidak ada di constraints (misalnya `uvloop`) | Ada celah apa pun |
 | Audit Node | `npm audit` | Semua paket di `frontend/package-lock.json`, termasuk alat build dan tes | Ada celah tingkat *moderate* ke atas |
-| Audit Node | `npm audit signatures` | Tanda tangan registry setiap paket | Ada paket yang tanda tangannya tidak sah |
+| Audit Node | `npm audit signatures` (npm 11, lihat catatan di workflow) | Tanda tangan registry dan provenance setiap paket | Ada paket yang tanda tangannya tidak sah |
 
 Alat build dan tes (Vite, Vitest) ikut diaudit karena keduanya menjalankan kode di laptop tim
 dan di runner CI, walaupun tidak ikut ke hasil build yang dipakai pengguna.
@@ -61,3 +61,4 @@ terjadwal.
 | Tanggal | Temuan | Tindakan |
 | --- | --- | --- |
 | 2026-11-15 | `certifi` 2026.7.22 (PYSEC-2026-4320), `opentelemetry-api` 1.45.0 (CVE-2026-114603, CVE-2026-126360), `vite` 7.3.6 (5 advisory termasuk GHSA-9jrq-w75r-8gcw), `vitest` 3.2.7 dengan `tinypool` dan `@vitest/mocker` (2 kritis, 1 moderate) | `certifi` 2026.10.23, `opentelemetry-api` 1.45.2, `vite` 7.3.8, `vitest` 5.1.0. Build, 47 tes frontend, dan tes backend tetap lulus. |
+| 2026-11-16 | `npm audit signatures` gagal `EMISSINGSIGNATUREKEY` untuk `magic-string` 1.4.5: attestation provenance-nya tidak bisa dicocokkan npm 10 bawaan Node 22.12 dengan kunci registry | Langkah verifikasi memakai npm 11.21.2 lewat `npx`; paketnya tidak diubah |
