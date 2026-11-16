@@ -1,0 +1,78 @@
+name: Audit dependency
+
+# DIG-209: cari celah keamanan yang sudah diumumkan pada dependency backend dan frontend.
+# Jalan di setiap pull request, setelah merge ke main, dan seminggu sekali, karena celah baru
+# bisa diumumkan untuk versi yang sudah lama dipakai tanpa ada perubahan kode.
+# Cara menindaklanjuti temuan: docs/DEPENDENCY_AUDIT.md.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "37 1 * * 1" # Senin 08.37 WIB
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: audit-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Audit Python (pip-audit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            backend/pyproject.toml
+            backend/constraints.txt
+
+      - name: Install dependency aplikasi
+        run: python -m pip install -c constraints.txt -e ".[dev]"
+
+      # Yang diaudit: semua versi di constraints.txt (termasuk paket khusus Windows yang
+      # dipakai di laptop tim) dan paket yang benar-benar terpasang di Linux (misalnya
+      # uvloop). pip-audit dijalankan terpisah lewat pipx supaya dependency-nya sendiri
+      # tidak ikut diaudit.
+      - name: pip-audit constraints.txt
+        run: pipx run pip-audit==2.10.1 -r constraints.txt --no-deps --disable-pip --desc on
+
+      - name: pip-audit paket terpasang
+        run: |
+          python -m pip freeze --exclude-editable > "$RUNNER_TEMP/terpasang.txt"
+          pipx run pip-audit==2.10.1 -r "$RUNNER_TEMP/terpasang.txt" --no-deps --disable-pip --desc on
+
+  node:
+    name: Audit Node (npm audit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.12"
+
+      # Gagal untuk tingkat moderate ke atas di dependency mana pun, termasuk alat build dan
+      # tes, karena alat itu menjalankan kode di laptop tim dan runner CI.
+      - name: npm audit
+        run: npm audit --audit-level=moderate
+
+      # Tanda tangan registry memastikan paket di package-lock.json asli dari npm.
+      - name: Verifikasi tanda tangan paket
+        run: npm ci --ignore-scripts --no-fund && npm audit signatures

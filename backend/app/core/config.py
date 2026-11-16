@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     login_max_failures_per_user: int = Field(default=5, ge=1)
     login_max_failures_per_ip: int = Field(default=20, ge=1)
     login_lockout_minutes: int = Field(default=15, ge=1, le=24 * 60)
+    # Deteksi overrun otomatis (DIG-154) membuat kejadian D-10 untuk semua task yang lewat
+    # rencana; di dataset dosbim 557 sekaligus. Mati sampai tim sepakat (review PR #39);
+    # dry run tetap bisa dipakai.
+    overrun_detection_enabled: bool = False
 
     @model_validator(mode="after")
     def check_jwt_secret(self) -> "Settings":

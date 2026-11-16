@@ -124,6 +124,10 @@ Dari `backend/`, setelah `alembic upgrade head`:
 
 Script ini membandingkan tabel D-01 sampai D-11 di basis data dengan bagian 6 `docs/DATA_CONTRACT.md`: daftar kolom, tipe, wajib/boleh kosong, default, primary key, foreign key, serta nama aturan `ck_`, `uq_`, dan `ex_` dua arah. Hasilnya `Cocok: ...` (kode keluar 0) atau daftar selisih (kode keluar 1). Tes `tests/test_schema_check.py` menjalankan pemeriksaan yang sama di CI, jadi migrasi yang mengubah tabel Data Dictionary harus disertai pembaruan DATA_CONTRACT di pull request yang sama, dan sebaliknya.
 
+### Audit dependency
+
+Workflow *Audit dependency* memeriksa celah keamanan library backend (`pip-audit`) dan frontend (`npm audit`) di setiap pull request dan setiap Senin. Cara menjalankan di laptop dan menindaklanjuti temuan: [docs/DEPENDENCY_AUDIT.md](docs/DEPENDENCY_AUDIT.md).
+
 ## Migrasi saat modul mulai dibuat
 
 Tambahkan model pada folder modul dan import model tersebut di `backend/migrations/env.py` agar Alembic mengenali metadata. Dari `backend/` dengan PostgreSQL aktif:
@@ -173,6 +177,10 @@ $env:TEST_DATABASE_URL = "postgresql+psycopg://puti:puti_local@localhost:5432/di
 ## Build frontend
 
 `npm run build` menghasilkan `frontend/dist`. Hosting frontend perlu fallback ke `index.html` untuk deep link React Router. Proxy Vite hanya untuk development; saat deployment arahkan `/api` ke FastAPI melalui reverse proxy, atau set `VITE_API_BASE_URL` saat build dan sesuaikan `CORS_ORIGINS`. Compose saat ini hanya untuk database lokal.
+
+### Image produksi (Docker)
+
+`backend/Dockerfile`, `frontend/Dockerfile`, dan `compose.prod.yaml` mengemas API, frontend nginx, migrasi, dan PostgreSQL untuk staging. Cara menjalankan dan alasan desainnya: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Data sintetis
 

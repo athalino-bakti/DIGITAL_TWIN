@@ -43,6 +43,7 @@ from app.modules.data.takeover_schemas import (
 )
 
 CLOSED_TASK_STATUSES = (TaskStatus.DONE, TaskStatus.DROPPED)
+IDLE_TASK_STATUSES = (*CLOSED_TASK_STATUSES, TaskStatus.ON_HOLD)
 MATCH_ORDER = {"primary": 0, "secondary": 1, "cross": 2}
 
 
@@ -126,10 +127,14 @@ def replacement_candidates(db: Session, task_id: str, on: date) -> list[Replacem
             )
         )
     )
+    # Beban = penugasan aktif pada task yang masih berjalan. Task selesai, dibatalkan, atau
+    # ditunda (misalnya lewat efek CR, DIG-150) tidak menyita kapasitas walau penugasannya
+    # belum dilepas.
     load = dict(
         db.execute(
             select(Assignment.resource_id, func.count())
-            .where(Assignment.released_date.is_(None))
+            .join(Task, Task.task_id == Assignment.task_id)
+            .where(Assignment.released_date.is_(None), Task.status.not_in(IDLE_TASK_STATUSES))
             .group_by(Assignment.resource_id)
         ).all()
     )
@@ -286,13 +291,14 @@ def affected_tasks(db: Session, availability_id: str) -> list[AffectedTask]:
         return []
     finish = func.coalesce(Task.actual_finish, Task.planned_finish)
     query = (
-        select(Task, Project.project_name, Assignment.assignment_id)
+        select(Task, Project.project_name, Assignment.assignment_id, Assignment.assigned_date)
         .join(Assignment, Assignment.task_id == Task.task_id)
         .join(Project, Project.project_id == Task.project_id)
         .where(
             Assignment.resource_id == item.resource_id,
             Assignment.assigned_date <= item.date_end,
-            or_(Assignment.released_date.is_(None), Assignment.released_date >= item.date_start),
+            # Dialihkan pada hari pertama ketidakhadiran = penugasan sudah pindah, tidak terdampak.
+            or_(Assignment.released_date.is_(None), Assignment.released_date > item.date_start),
             Task.status.not_in(CLOSED_TASK_STATUSES),
             Task.planned_start <= item.date_end,
             finish >= item.date_start,
@@ -310,6 +316,7 @@ def affected_tasks(db: Session, availability_id: str) -> list[AffectedTask]:
             planned_start=task.planned_start,
             planned_finish=task.planned_finish,
             assignment_id=assignment_id,
+            assigned_date=assigned_date,
         )
-        for task, project_name, assignment_id in db.execute(query)
+        for task, project_name, assignment_id, assigned_date in db.execute(query)
     ]
