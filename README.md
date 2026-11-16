@@ -67,6 +67,8 @@ Liveness tetap `200` saat database belum aktif; readiness mengembalikan `503`. I
 
 `constraints.txt` menyimpan versi dependency yang telah diuji. Perbarui file ini bersama perubahan dependency di `pyproject.toml`.
 
+Kredensial (JWT, password basis data, token Trello/TeamGit) tidak pernah di-commit. Di lokal isi lewat `backend/.env`; di server lewat berkas rahasia `SECRETS_DIR`. Aturan lengkap dan cara rotasinya ada di [docs/SECRETS.md](docs/SECRETS.md).
+
 ### 3. Frontend — terminal kedua
 
 ```powershell
@@ -98,6 +100,20 @@ Dari `backend/`:
 
 Tes health memakai dependency override untuk menguji status sukses/gagal tanpa PostgreSQL. Setelah database aktif, periksa koneksi nyata dengan `Invoke-RestMethod http://localhost:8000/api/v1/health/ready`. `alembic heads` harus menampilkan tepat satu revisi.
 
+### Konektivitas ke Trello dan TeamGit
+
+Jalankan di server yang akan menjalankan impor, dari `backend/`:
+
+```powershell
+.\.venv\Scripts\python.exe -m app.integrations.connectivity
+```
+
+Per tujuan diperiksa DNS, port 443, HTTPS (termasuk sertifikat TLS), lalu kredensial Trello bila `TRELLO_API_ENABLED=true`. Di belakang proxy, langkah DNS/TCP langsung dilewati dan HTTPS memakai proxy. Tujuan yang belum dikonfigurasi (misalnya `TEAMGIT_BASE_URL` kosong) ditandai "dilewati". Kode keluar `1` bila ada langkah yang gagal. Key dan token tidak pernah ditampilkan.
+
+### Impor terjadwal
+
+`python -m app.pipeline.run trello` menjalankan satu impor Trello dengan retry, mencatatnya di tabel `import_job`, dan mengirim notifikasi bila gagal. Contoh cron/systemd timer, konfigurasi, dan cara memantau ada di [docs/IMPORT_PIPELINE.md](docs/IMPORT_PIPELINE.md).
+
 ### Skema basis data vs Data Dictionary
 
 Dari `backend/`, setelah `alembic upgrade head`:
@@ -106,7 +122,11 @@ Dari `backend/`, setelah `alembic upgrade head`:
 .\.venv\Scripts\python.exe -m app.qa.schema_check
 ```
 
-Script ini membandingkan tabel D-01 sampai D-11 di basis data dengan bagian 6 `docs/DATA_CONTRACT.md`: daftar kolom, tipe, wajib/boleh kosong, default, primary key, foreign key, serta nama aturan `ck_`, `uq_`, dan `ex_` dua arah. Hasilnya `Cocok: ...` (kode keluar 0) atau daftar selisih (kode keluar 1). Tes `tests/test_schema_check.py` menjalankan pemeriksaan yang sama di CI, jadi migrasi yang mengubah tabel Data Dictionary harus disertai pembaruan DATA_CONTRACT di pull request yang sama, dan sebaliknya.
+Script ini membandingkan tabel D-01 sampai D-11 di basis data dengan bagian 6 `docs/DATA_CONTRACT.md`: daftar kolom, tipe, wajib/boleh kosong, default, primary key, foreign key beserta aksi `ON DELETE` (tanpa keterangan berarti `NO ACTION`), nama aturan `ck_`, `uq_`, dan `ex_` dua arah, serta isi setiap aturan `ck_` (ekspresi dokumen dan basis data dibandingkan setelah sama-sama ditulis ulang PostgreSQL). Hasilnya `Cocok: ...` (kode keluar 0) atau daftar selisih (kode keluar 1). Tes `tests/test_schema_check.py` menjalankan pemeriksaan yang sama di CI, jadi migrasi yang mengubah tabel Data Dictionary harus disertai pembaruan DATA_CONTRACT di pull request yang sama, dan sebaliknya.
+
+### Audit dependency
+
+Workflow *Audit dependency* memeriksa celah keamanan library backend (`pip-audit`) dan frontend (`npm audit`) di setiap pull request dan setiap Senin. Cara menjalankan di laptop dan menindaklanjuti temuan: [docs/DEPENDENCY_AUDIT.md](docs/DEPENDENCY_AUDIT.md).
 
 ## Migrasi saat modul mulai dibuat
 
@@ -143,6 +163,8 @@ $env:MIGRATION_TEST_DATABASE_URL = "postgresql+psycopg://puti:puti_local@localho
 
 Saat menulis migrasi, pastikan `downgrade()` membalik `upgrade()` sepenuhnya, termasuk `DROP TYPE` untuk enum PostgreSQL (`sa.Enum(name="...").drop(op.get_bind())`).
 
+Role basis data `jc_app` (aplikasi) dan schema `twinner` (milik tWinner) dibuat migrasi `0014`. Hak akses dan cara mengaktifkan login di staging ada di [docs/DATABASE_ROLES.md](docs/DATABASE_ROLES.md). Migrasi baru tidak perlu menulis `GRANT`: tabel baru otomatis bisa dibaca-tulis `jc_app`.
+
 ### Tes API dengan PostgreSQL
 
 Tes endpoint yang butuh database sungguhan (misalnya `tests/test_projects_api.py`) memakai marker `db` dan variabel `TEST_DATABASE_URL`, dengan aturan nama `_test` yang sama. Job **Migrasi (alembic naik-turun)** juga menjalankannya.
@@ -155,6 +177,10 @@ $env:TEST_DATABASE_URL = "postgresql+psycopg://puti:puti_local@localhost:5432/di
 ## Build frontend
 
 `npm run build` menghasilkan `frontend/dist`. Hosting frontend perlu fallback ke `index.html` untuk deep link React Router. Proxy Vite hanya untuk development; saat deployment arahkan `/api` ke FastAPI melalui reverse proxy, atau set `VITE_API_BASE_URL` saat build dan sesuaikan `CORS_ORIGINS`. Compose saat ini hanya untuk database lokal.
+
+### Image produksi (Docker)
+
+`backend/Dockerfile`, `frontend/Dockerfile`, dan `compose.prod.yaml` mengemas API, frontend nginx, migrasi, dan PostgreSQL untuk staging. Cara menjalankan dan alasan desainnya: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Header keamanan dan pemeriksaan OWASP Top 10: [docs/SECURITY_CHECKLIST.md](docs/SECURITY_CHECKLIST.md).
 
 ## Data sintetis
 

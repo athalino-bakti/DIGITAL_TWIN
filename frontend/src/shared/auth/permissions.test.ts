@@ -13,7 +13,10 @@ const ROLE = {
 };
 const user = (permissions: string[]) => ({ permissions });
 const menu = (permissions: string[]) => allowed(navigation, user(permissions)).map((item) => item.label);
-const tabs = (permissions: string[]) => allowed(dataViews, user(permissions)).map((item) => item.key);
+// Tab "Task saya" dites sendiri di bawah, supaya daftar tab master data tetap ringkas.
+const MY_TASKS = 'task-saya';
+const allTabs = (permissions: string[]) => allowed(dataViews, user(permissions)).map((item) => item.key);
+const tabs = (permissions: string[]) => allTabs(permissions).filter((key) => key !== MY_TASKS);
 
 describe('can', () => {
   it('true hanya untuk izin yang dipegang', () => {
@@ -51,7 +54,7 @@ describe('tab Data per peran', () => {
   const master = ['proyek', 'anggota', 'peran', 'task', 'kompleksitas', 'libur'];
 
   it('Kaur/Asman: master data, beban, dan ketersediaan, tanpa impor', () => {
-    expect(tabs(ROLE.kaur_asman)).toEqual(['proyek', 'anggota', 'peran', 'task', 'beban', 'kompleksitas', 'ketersediaan', 'libur']);
+    expect(tabs(ROLE.kaur_asman)).toEqual(['proyek', 'anggota', 'peran', 'task', 'beban', 'perubahan', 'kompleksitas', 'ketersediaan', 'libur']);
   });
 
   it('anggota tim: master data saja', () => {
@@ -60,5 +63,15 @@ describe('tab Data per peran', () => {
 
   it('admin data: master data dan impor', () => {
     expect(tabs(ROLE.admin_data)).toEqual([...master, 'impor']);
+  });
+});
+
+describe('tab Task saya (DIG-155)', () => {
+  it('tampil untuk peran yang punya beban sendiri, paling akhir', () => {
+    for (const role of [ROLE.anggota_tim, ROLE.kaur_asman, ROLE.system_analyst]) expect(allTabs(role).at(-1)).toBe(MY_TASKS);
+  });
+
+  it('tidak tampil untuk admin data', () => {
+    expect(allTabs(ROLE.admin_data)).not.toContain(MY_TASKS);
   });
 });

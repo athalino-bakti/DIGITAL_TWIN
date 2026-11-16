@@ -1,0 +1,75 @@
+name: Deploy staging
+
+# DIG-205: setelah workflow CI lulus untuk push ke main, server staging mengambil commit itu dan
+# menjalankan ulang container (ops/deploy/deploy.sh). Persiapan server: docs/STAGING.md.
+#
+# Selama server belum disiapkan (variabel repository STAGING_HOST kosong), workflow ini hanya
+# mencatat bahwa deploy dilewati dan tetap hijau.
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false  # jangan hentikan deploy yang sedang berjalan
+
+jobs:
+  deploy:
+    name: Deploy ke staging
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: staging
+      url: ${{ vars.STAGING_URL }}
+    env:
+      HOST: ${{ vars.STAGING_HOST }}
+      SSH_USER: ${{ vars.STAGING_USER || 'jc' }}
+      SSH_PORT: ${{ vars.STAGING_SSH_PORT || '22' }}
+      APP_DIR: ${{ vars.STAGING_PATH || '/opt/jc' }}
+      COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - name: Cek konfigurasi server
+        id: config
+        run: |
+          if [ -z "$HOST" ]; then
+            echo "::notice::Server staging belum disiapkan (variabel STAGING_HOST kosong). Deploy dilewati."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Siapkan kunci SSH
+        if: steps.config.outputs.ready == 'true'
+        env:
+          SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.STAGING_SSH_KNOWN_HOSTS }}
+        run: |
+          set -eu
+          test -n "$SSH_KEY" || { echo "::error::Secret STAGING_SSH_KEY kosong"; exit 1; }
+          test -n "$KNOWN_HOSTS" || { echo "::error::Secret STAGING_SSH_KNOWN_HOSTS kosong"; exit 1; }
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/staging
+          chmod 600 ~/.ssh/staging
+          # Kunci host dipin, jadi koneksi ke server lain yang menyamar ditolak.
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Deploy ${{ env.COMMIT }}
+        if: steps.config.outputs.ready == 'true'
+        run: |
+          ssh -i ~/.ssh/staging -p "$SSH_PORT" -o StrictHostKeyChecking=yes -o BatchMode=yes \
+            "$SSH_USER@$HOST" "cd '$APP_DIR' && sh ops/deploy/deploy.sh '$COMMIT'"
+
+      - name: Ringkasan
+        if: always() && steps.config.outputs.ready == 'true'
+        run: echo "Commit \`$COMMIT\` di-deploy ke ${{ vars.STAGING_URL || 'staging' }}." >> "$GITHUB_STEP_SUMMARY"

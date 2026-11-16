@@ -36,7 +36,9 @@ class ReplacementCandidate(BaseModel):
             "cross: tidak memegang peran itu tetapi cross_role_capable"
         )
     )
-    active_assignments: int = Field(description="Penugasan yang belum dilepas (released_date)")
+    active_assignments: int = Field(
+        description="Penugasan aktif pada task yang masih berjalan (bukan done, dropped, on_hold)"
+    )
 
 
 class TakeoverRequest(BaseModel):
@@ -62,3 +64,6 @@ class AffectedTask(BaseModel):
     planned_start: date
     planned_finish: date
     assignment_id: str
+    assigned_date: date = Field(
+        description="Tanggal penugasan aktif; tanggal pengalihan tidak boleh sebelum ini"
+    )
