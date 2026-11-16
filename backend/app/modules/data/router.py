@@ -42,6 +42,11 @@ from app.modules.data.workload_router import router as workload_router  # noqa: 
 
 router.include_router(workload_router)
 
+# Event log untuk process mining (DIG-37) juga di modul terpisah.
+from app.modules.data.event_log_router import router as event_log_router  # noqa: E402
+
+router.include_router(event_log_router)
+
 Db = Annotated[Session, Depends(get_db)]
 ProjectIdPath = Annotated[str, Path(pattern=PROJECT_ID_PATTERN, examples=["PRJ-001"])]
 ComplexityIdPath = Annotated[str, Path(pattern=COMPLEXITY_ID_PATTERN, examples=["CX-M"])]
