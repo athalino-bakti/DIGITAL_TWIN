@@ -22,6 +22,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.modules.data import manual_change
 from app.modules.data.change_event_detail_rules import check_event_date_change
 from app.modules.data.change_event_schemas import (
     ChangeEventCreate,
@@ -252,7 +253,9 @@ def next_event_id(db: Session) -> str:
     return next_id(list(db.scalars(select(ChangeEvent.event_id))), "EVT")
 
 
-def create_change_event(db: Session, payload: ChangeEventCreate) -> ChangeEventRead:
+def create_change_event(
+    db: Session, payload: ChangeEventCreate, changed_by: int | None = None
+) -> ChangeEventRead:
     effect = payload.task_effect
     values = payload.model_dump(exclude={"task_effect"})
     validate_event(db, values)
@@ -272,10 +275,15 @@ def create_change_event(db: Session, payload: ChangeEventCreate) -> ChangeEventR
     db.add(ChangeEvent(**values))
     if task is not None and effect is not None:
         # Kejadian dan perubahan task tersimpan bersama, atau tidak sama sekali.
+        before = manual_change.snapshot(task)
         if effect.status is not None:
             task.status = TaskStatus(effect.status)
         if effect.priority_rank is not None:
             task.priority_rank = effect.priority_rank
+        # Dicatat supaya impor berikutnya tidak menimpanya tanpa konfirmasi (DIG-162).
+        manual_change.record_task_changes(
+            db, task, before, "change_event", values["event_id"], changed_by
+        )
     commit(db)
     return _read_one(db, values["event_id"])
 
