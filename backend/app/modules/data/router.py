@@ -417,3 +417,8 @@ def delete_holiday(db: Db, holiday_date: HolidayDatePath) -> Response:
 from app.modules.data.change_event_router import router as change_event_router  # noqa: E402
 
 router.include_router(change_event_router)
+
+# "Task saya": blocker dan overrun oleh pelaksana task (DIG-153, DIG-154).
+from app.modules.data.my_task_router import router as my_task_router  # noqa: E402
+
+router.include_router(my_task_router)
