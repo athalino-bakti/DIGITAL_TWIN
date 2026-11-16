@@ -9,6 +9,9 @@ __pycache__/
 .env
 .env.*
 !.env.example
+# Konfigurasi dan penanda deploy di server staging (docs/STAGING.md).
+staging.env
+.deployed
 *.tsbuildinfo
 .DS_Store
 *.log
