@@ -6,7 +6,7 @@ trello, teamgit) menunjuk satu resource_id; satu anggota boleh punya banyak alia
 terhapus bersama anggotanya. Hak jc_app berlaku lewat default privileges (0014), jadi tanpa GRANT.
 
 Revision ID: 0020
-Revises: 0018
+Revises: 0019
 """
 
 from typing import Sequence, Union
@@ -15,8 +15,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0020"
-# Saat PR ini di-rebase setelah migrasi lain masuk ke main, ganti ke head terbaru.
-down_revision: Union[str, Sequence[str], None] = "0018"
+down_revision: Union[str, Sequence[str], None] = "0019"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
