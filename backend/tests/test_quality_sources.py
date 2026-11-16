@@ -4,7 +4,6 @@ import csv
 from datetime import date, datetime
 
 import pytest
-from openpyxl import Workbook
 from sqlalchemy import text
 
 from app.modules.data.quality.rules import COLUMNS, validate_final_sources
@@ -65,6 +64,7 @@ def test_missing_files_are_skipped_and_missing_columns_are_empty(tmp_path):
 
 
 def test_workbook_sheets_with_csv_suffix_and_typed_cells(tmp_path):
+    Workbook = pytest.importorskip("openpyxl").Workbook  # dependensi dari DIG-25
     book = Workbook()
     sheet = book.active
     sheet.title = "holidays_csv"

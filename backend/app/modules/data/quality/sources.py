@@ -10,7 +10,6 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
-from openpyxl import load_workbook
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -61,7 +60,13 @@ def read_csv_folder(folder: Path) -> dict[str, list[SourceRow]]:
 
 def read_workbook(path: Path) -> dict[str, list[SourceRow]]:
     """Workbook dengan sheet `<tabel>` atau `<tabel>_csv` (dataset dummy dosbim). Baris yang
-    semua selnya kosong dilewati; nomor baris mengikuti nomor baris sheet."""
+    semua selnya kosong dilewati; nomor baris mengikuti nomor baris sheet.
+
+    Butuh openpyxl, yang menjadi dependensi aplikasi bersama unggah Project Plan (DIG-25).
+    Diimpor di sini supaya adapter lain tetap jalan tanpa paket itu.
+    """
+    from openpyxl import load_workbook
+
     book = load_workbook(path, read_only=True, data_only=True)
     try:
         tables = {}
