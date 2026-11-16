@@ -9,9 +9,22 @@ sementara, mencatat setiap jalannya di tabel `import_job`, dan mengirim notifika
 | Log terstruktur dan pemantauan | DIG-128 | `backend/app/pipeline/logging.py`, tabel `import_job`, `GET /api/v1/data/import-jobs` |
 | Notifikasi kegagalan | DIG-129 | `backend/app/pipeline/notify.py` |
 
-Sumber yang sudah ada jobnya: `trello` (Trello API, DIG-119). `project_plan` dan `teamgit` sudah
-diizinkan di tabel `import_job`; jobnya didaftarkan di `JOBS` (`jobs.py`) begitu importernya
-selesai (DIG-25, DIG-27).
+Sumber yang sudah ada jobnya:
+
+- `trello` (Trello API, DIG-119): terjadwal, terdaftar di `JOBS` (`jobs.py`).
+- `project_plan` (DIG-25): unggah manual lewat `POST /api/v1/data/imports/project-plan`. Tidak
+  ada sumber yang bisa ditarik terjadwal, jadi tidak terdaftar di `JOBS`; endpoint memanggil
+  `run_job("project_plan", job_fn=...)` dengan isi berkas yang sudah diterima. Lihat bagian
+  [Unggah Project Plan](#unggah-project-plan-dig-25).
+- `teamgit` sudah diizinkan di tabel `import_job`; jobnya didaftarkan di `JOBS` begitu
+  importernya selesai (DIG-27).
+
+Setiap baris staging menunjuk job yang menulisnya lewat kolom `import_job_id` (DIG-113):
+
+| Tabel | `import_job_id` | Bila job dihapus |
+| --- | --- | --- |
+| `staging_project_plan` | wajib; satu unggahan = satu batch | barisnya ikut terhapus (CASCADE) |
+| `staging_trello_action` | job pertama yang menyimpan action; kosong untuk baris sebelum DIG-113 | action tetap, kolomnya dikosongkan (SET NULL) |
 
 ## Menjalankan manual
 
@@ -55,6 +68,34 @@ menandainya `stale: true`.
 
 Impor Trello aman diulang: action yang sudah ada tidak ditulis dua kali (DIG-118), sehingga
 jadwal yang tumpang tindih atau jalan ulang manual tidak menggandakan data.
+
+## Unggah Project Plan (DIG-25)
+
+`POST /api/v1/data/imports/project-plan`, `multipart/form-data`, izin `import:run`
+(Administrator Data).
+
+| Field | Keterangan |
+| --- | --- |
+| `file` | `.csv` (UTF-8, pemisah `,` atau `;`) atau `.xlsx`, paling besar 5 MB dan 10.000 baris data |
+| `project_id` | `PRJ-xxx`; kosong = diambil dari nama berkas `project_plan_PRJ-xxx` |
+| `dry_run` | bawaan `true`: pratinjau saja, tanpa job dan tanpa menulis staging |
+| `sheet` | sheet XLSX; kosong = sheet pertama |
+| `column_map` | JSON `{"judul kolom": "atribut" atau null}` yang menimpa pemetaan bawaan |
+
+Alur:
+
+1. Pratinjau (`dry_run=true`) menampilkan pemetaan kolom, kolom yang tidak terpetakan, kolom
+   wajib yang hilang, 20 baris pertama, dan masalah struktur. Bila berkas identik dengan impor
+   sukses terakhir proyek itu, `same_file_job_id` terisi sebagai peringatan.
+2. Impor (`dry_run=false`) menjalankan job `project_plan` dengan satu percobaan dan tanpa
+   notifikasi webhook (pengunggah melihat hasilnya langsung). Berkas yang strukturnya rusak
+   tetap tercatat sebagai job `failed` dan dibalas 422 beserta `job_id`.
+3. Setiap unggahan menjadi batch baru di `staging_project_plan`. ETL DIG-29 memakai job sukses
+   terakhir per `project_id`.
+
+Nilai sel disimpan apa adanya sebagai teks; normalisasi tanggal, status, dan PIC ada di DIG-29,
+validasi di DIG-31. Sel XLSX bertipe tanggal ditulis ISO (`2026-09-14`) dan angka dengan titik
+desimal; jumlahnya per kolom ada di `typed_cells`.
 
 ## Konfigurasi
 
