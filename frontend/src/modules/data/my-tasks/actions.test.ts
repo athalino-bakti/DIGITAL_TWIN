@@ -42,6 +42,15 @@ describe('actionsFor', () => {
     expect(first.mode === 'resolve' && first.event.event_id).toBe('EVT-001');
   });
 
+  it('task yang belum dimulai atau ditunda tidak bisa ditandai terhambat', () => {
+    expect(labels(task({ status: 'not_started' }))).toEqual([]);
+    expect(labels(task({ status: 'on_hold', is_past_plan: true }))).toEqual(['Catat overrun']);
+  });
+
+  it('task terhambat tanpa hambatan terbuka tetap bisa dicatat hambatannya', () => {
+    expect(labels(task({ status: 'blocked' }))).toEqual(['Tandai terhambat']);
+  });
+
   it('overrun terbuka tetap bisa diselesaikan walau task tidak lagi lewat rencana', () => {
     expect(labels(task({ open_overrun: event('overrun') }))).toEqual(['Tandai terhambat', 'Overrun selesai']);
   });
@@ -56,9 +65,8 @@ describe('effectNote', () => {
     expect(effectNote(task({ status: 'in_qa' }), record)).toContain('berubah menjadi Terhambat');
   });
 
-  it('task yang belum dikerjakan tidak berubah status', () => {
-    expect(effectNote(task({ status: 'not_started' }), record)).toContain('status task tetap');
-    expect(effectNote(task({ status: 'on_hold' }), record)).toContain('status task tetap');
+  it('task yang sudah terhambat tidak berubah status lagi', () => {
+    expect(effectNote(task({ status: 'blocked' }), record)).toContain('sudah berstatus Terhambat');
   });
 
   it('menyelesaikan hambatan mengembalikan task yang terhambat', () => {

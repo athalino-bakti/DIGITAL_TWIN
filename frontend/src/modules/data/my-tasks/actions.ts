@@ -7,11 +7,14 @@ export type TaskAction =
 
 // Status yang berarti task sedang dikerjakan; hanya ini yang berubah menjadi terhambat.
 const BLOCKABLE = new Set(['in_progress', 'in_qa']);
+// Hambatan bisa dicatat pada task yang sedang dikerjakan atau sudah terhambat. Task yang
+// belum dimulai atau ditunda ditolak backend (409), jadi tombolnya tidak ditampilkan.
+const CAN_BLOCK = new Set([...BLOCKABLE, 'blocked']);
 
 export function actionsFor(task: MyTask): TaskAction[] {
   const actions: TaskAction[] = [];
   if (task.open_blocker) actions.push({ kind: 'blocker', mode: 'resolve', label: 'Hambatan selesai', event: task.open_blocker });
-  else actions.push({ kind: 'blocker', mode: 'record', label: 'Tandai terhambat' });
+  else if (CAN_BLOCK.has(task.status)) actions.push({ kind: 'blocker', mode: 'record', label: 'Tandai terhambat' });
   if (task.open_overrun) actions.push({ kind: 'overrun', mode: 'resolve', label: 'Overrun selesai', event: task.open_overrun });
   else if (task.is_past_plan) actions.push({ kind: 'overrun', mode: 'record', label: 'Catat overrun' });
   return actions;
@@ -30,8 +33,7 @@ export function effectNote(task: MyTask, action: TaskAction): string {
       : 'Hambatan ditandai selesai. Status task tidak berubah.';
   }
   if (BLOCKABLE.has(task.status)) return 'Hambatan dicatat dan status task berubah menjadi Terhambat.';
-  if (task.status === 'blocked') return 'Hambatan dicatat. Task sudah berstatus Terhambat.';
-  return 'Hambatan dicatat, tetapi status task tetap karena task belum dikerjakan.';
+  return 'Hambatan dicatat. Task sudah berstatus Terhambat.';
 }
 
 /** Batas tanggal yang boleh dipilih: tidak di masa depan, dan selesai tidak sebelum kejadiannya. */

@@ -12,8 +12,15 @@ mengikutinya dan aturan tebakan pernah menolak data baseline (hotfix D-08, DIG-3
 - `requested_by` di dataset berisi jabatan (Kaur, System Analyst, ...), bukan pelaksana task.
   Kolomnya teks bebas, jadi di sini diisi nama anggota yang mencatat.
 
-Status blocked di dataset selalu punya `actual_start` (aturan status DIG-161), sehingga
-blocker pada task yang belum dimulai tetap tercatat tetapi statusnya tidak diubah.
+Status blocked di dataset selalu punya `actual_start` (aturan status DIG-161). Karena itu
+blocker hanya bisa dicatat lewat modul ini pada task yang sedang dikerjakan (in_progress, in_qa)
+atau sudah blocked; task not_started dan on_hold ditolak 409 (review Bagas di PR #39), supaya
+tidak ada blocker yang tercatat tanpa pernah tampil dan bisa ditutup.
+
+Satu task hanya punya satu blocker aktif dari modul ini: blocker baru ditolak selama task
+blocked dan masih punya blocker terbuka. Saat blocker ditandai selesai, task kembali
+in_progress bila blocker itu yang terbaru di antara blocker terbuka task tersebut. Blocker
+lama dari data impor yang tidak pernah ditutup tidak menahan task tetap blocked.
 """
 
 from datetime import date, timedelta
@@ -51,6 +58,11 @@ ONE_DAY = timedelta(days=1)
 CLOSED = frozenset({TaskStatus.DONE, TaskStatus.DROPPED})
 # Status yang berarti task sedang dikerjakan, sehingga blocker menghentikannya.
 BLOCKABLE = frozenset({TaskStatus.IN_PROGRESS, TaskStatus.IN_QA})
+# Task yang belum atau tidak sedang dikerjakan; hambatannya belum bisa dicatat di sini.
+NOT_WORKING = {
+    TaskStatus.NOT_STARTED: "Task belum dimulai. Catat hambatan setelah task mulai dikerjakan.",
+    TaskStatus.ON_HOLD: "Task sedang ditunda. Catat hambatan setelah task dilanjutkan.",
+}
 MEMBER_EVENTS = (ChangeEventType.BLOCKER, ChangeEventType.OVERRUN)
 SYSTEM_REQUESTER = "Sistem"
 EVENT_LABEL = {ChangeEventType.BLOCKER: "blocker", ChangeEventType.OVERRUN: "overrun"}
@@ -214,6 +226,8 @@ def record_event(
     if status in CLOSED:
         state = "selesai" if status == TaskStatus.DONE else "dibatalkan"
         raise ConflictError(f"Task sudah {state}, {EVENT_LABEL[event_type]} tidak bisa dicatat")
+    if event_type == ChangeEventType.BLOCKER and status in NOT_WORKING:
+        raise ConflictError(NOT_WORKING[status])
     existing = open_events(db, [task_id]).get((task_id, event_type))
     if event_type == ChangeEventType.BLOCKER:
         existing = open_blocker(status, existing)
@@ -271,17 +285,23 @@ def resolve_event(
     errors = [error for error in errors if error.field == "resolved_date"]
     if errors:
         raise DataValidationError(errors)
+    # Blocker yang menahan task adalah blocker terbuka terbaru. Blocker terbuka yang lebih lama
+    # (misalnya dari data impor tanpa resolved_date) tidak ikut menahan task.
+    latest = open_events(db, [task_id]).get((task_id, ChangeEventType.BLOCKER))
     if detail is None:
         db.add(ChangeEventDetail(event_id=event_id, resolved_date=resolved_date))
     else:
         detail.resolved_date = resolved_date
     before = task.status
-    if event.event_type == ChangeEventType.BLOCKER and task.status == TaskStatus.BLOCKED:
-        db.flush()
-        if open_events(db, [task_id]).get((task_id, ChangeEventType.BLOCKER)) is None:
-            # Status sebelum blocker tidak tersimpan di mana pun (belum ada audit_log), jadi
-            # task kembali ke in_progress. Task blocked selalu punya actual_start.
-            task.status = TaskStatus.IN_PROGRESS
+    is_latest = latest is not None and latest.event_id == event_id
+    if (
+        event.event_type == ChangeEventType.BLOCKER
+        and task.status == TaskStatus.BLOCKED
+        and is_latest
+    ):
+        # Status sebelum blocker tidak tersimpan di mana pun (belum ada audit_log, lihat
+        # DIG-162), jadi task kembali ke in_progress. Task blocked selalu punya actual_start.
+        task.status = TaskStatus.IN_PROGRESS
     commit(db)
     return result(event, resolved_date, task, before)
 

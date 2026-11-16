@@ -7,6 +7,8 @@ Dari folder backend:
 
 Membuat kejadian overrun (D-10) untuk task yang lewat planned_finish, belum selesai, dan
 belum punya kejadian overrun. Aman dijalankan berulang, misalnya sekali sehari.
+
+Tanpa --dry-run hanya jalan bila OVERRUN_DETECTION_ENABLED=true (kode keluar 2 bila belum).
 """
 
 import argparse
@@ -15,6 +17,7 @@ from datetime import date
 
 # Semua model harus terdaftar di metadata saat CLI ini jalan sendiri tanpa app.main.
 import app.modules.auth.models  # noqa: F401
+from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.modules.data.my_task_service import detect_overruns
 
@@ -29,6 +32,13 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError:
         print("--as-of harus berformat YYYY-MM-DD", file=sys.stderr)
         return 1
+    if not args.dry_run and not get_settings().overrun_detection_enabled:
+        print(
+            "Deteksi overrun otomatis belum diaktifkan (OVERRUN_DETECTION_ENABLED=true). "
+            "Pakai --dry-run untuk melihat jumlahnya.",
+            file=sys.stderr,
+        )
+        return 2
     with SessionLocal() as db:
         outcome = detect_overruns(db, as_of, args.dry_run)
     verb = "akan dibuat (dry run)" if outcome.dry_run else "dibuat"

@@ -1,5 +1,6 @@
 """DIG-34 (DIG-153, DIG-154): blocker dan overrun oleh pelaksana task, PostgreSQL sungguhan."""
 
+import os
 import subprocess
 import sys
 from datetime import date, timedelta
@@ -189,11 +190,31 @@ def test_blocker_blocks_task_and_is_listed_as_open(client, db, team):
     assert mine["TSK-0001"]["status"] == "blocked"
 
 
-def test_blocker_on_task_not_started_is_recorded_without_status_change(client, db, team):
+@pytest.mark.parametrize(
+    ("status", "message"), [("not_started", "belum dimulai"), ("on_hold", "ditunda")]
+)
+def test_blocker_on_task_not_being_worked_on_is_rejected(client, db, team, status, message):
+    # Review PR #39: blocker yang tidak mengubah status tidak pernah tampil, jadi bisa tercatat
+    # berkali-kali dan tidak pernah ditutup.
+    db.execute(update(Task).where(Task.task_id == "TSK-0002").values(status=status))
+    db.commit()
     response = record(client, team["sari"], "TSK-0002")
+    assert response.status_code == 409
+    assert message in response.json()["detail"]["msg"]
+    assert db.scalar(select(ChangeEvent.event_id)) is None
+    # Overrun tetap boleh dicatat pada task yang belum dikerjakan.
+    assert record(client, team["sari"], "TSK-0002", event_type="overrun").status_code == 201
+
+
+def test_blocker_on_task_already_blocked_without_open_blocker_is_recorded(client, db, team):
+    db.execute(update(Task).where(Task.task_id == "TSK-0001").values(status="blocked"))
+    db.commit()
+    response = record(client, team["sari"])
     assert response.status_code == 201, response.text
-    assert response.json()["task_status_changed"] is False
-    assert status_of(db, "TSK-0002") == "not_started"
+    assert (response.json()["task_status"], response.json()["task_status_changed"]) == (
+        "blocked",
+        False,
+    )
 
 
 def test_only_the_assignee_may_record(client, db, team):
@@ -276,6 +297,59 @@ def test_resolving_blocker_fills_detail_and_resumes_task(client, db, team):
     assert mine["TSK-0001"]["open_blocker"] is None
 
 
+def old_blocker(db, team, event_id="EVT-900", on=date(2026, 2, 1), requested_by="Kaur"):
+    """Blocker dari data impor yang tidak pernah ditutup (tanpa change_event_details)."""
+    db.add(
+        ChangeEvent(
+            event_id=event_id,
+            project_id=team["project"],
+            event_type="blocker",
+            event_date=on,
+            requested_by=requested_by,
+            affected_task_id="TSK-0001",
+        )
+    )
+    db.commit()
+
+
+def test_old_open_blocker_does_not_keep_task_blocked(client, db, team):
+    # Review PR #39 nomor 1: EVT-900 lama milik Kaur tidak boleh menahan task tetap blocked.
+    old_blocker(db, team)
+    new = record(client, team["sari"]).json()["event_id"]
+    assert status_of(db, "TSK-0001") == "blocked"
+    response = resolve(client, team["sari"], new)
+    assert response.status_code == 200, response.text
+    assert (response.json()["task_status"], response.json()["task_status_changed"]) == (
+        "in_progress",
+        True,
+    )
+    mine = {t["task_id"]: t for t in client.get(MINE, headers=team["sari"]).json()["tasks"]}
+    assert mine["TSK-0001"]["open_blocker"] is None
+    assert mine["TSK-0001"]["status"] == "in_progress"
+
+
+def test_resolving_an_older_blocker_keeps_task_blocked_by_the_newer_one(client, db, team):
+    old_blocker(db, team)
+    new = record(client, team["sari"]).json()["event_id"]
+    response = resolve(client, team["sari"], "EVT-900")
+    assert response.status_code == 200, response.text
+    assert response.json()["task_status_changed"] is False
+    assert status_of(db, "TSK-0001") == "blocked"
+    mine = {t["task_id"]: t for t in client.get(MINE, headers=team["sari"]).json()["tasks"]}
+    assert mine["TSK-0001"]["open_blocker"]["event_id"] == new
+
+
+def test_blocked_task_with_only_an_old_blocker_can_be_unblocked(client, db, team):
+    # Task blocked dari data impor dengan satu blocker lama: blocker itu yang tampil dan
+    # menutupnya mengembalikan task.
+    old_blocker(db, team)
+    db.execute(update(Task).where(Task.task_id == "TSK-0001").values(status="blocked"))
+    db.commit()
+    mine = {t["task_id"]: t for t in client.get(MINE, headers=team["sari"]).json()["tasks"]}
+    assert mine["TSK-0001"]["open_blocker"]["event_id"] == "EVT-900"
+    assert resolve(client, team["sari"], "EVT-900").json()["task_status"] == "in_progress"
+
+
 def test_resolve_rules(client, team):
     event_id = record(client, team["sari"], event_date=days_ago(2).isoformat()).json()["event_id"]
     early = resolve(client, team["sari"], event_id, resolved_date=days_ago(3).isoformat())
@@ -333,13 +407,29 @@ def test_resolving_overrun_does_not_change_status(client, db, team):
 # --- deteksi overrun otomatis (DIG-154) ---
 
 
+@pytest.fixture
+def detection_on(monkeypatch):
+    from app.modules.data import my_task_router
+
+    monkeypatch.setattr(my_task_router, "detection_enabled", lambda: True)
+
+
+def test_detection_is_off_by_default_except_dry_run(client, db, team):
+    response = client.post(f"{DATA}/overrun-detection")
+    assert response.status_code == 409
+    assert "OVERRUN_DETECTION_ENABLED" in response.json()["detail"]
+    dry = client.post(f"{DATA}/overrun-detection", params={"dry_run": True})
+    assert (dry.status_code, dry.json()["created_count"]) == (200, 1)
+    assert db.scalar(select(ChangeEvent.event_id)) is None
+
+
 def overruns(db) -> dict[str, ChangeEvent]:
     db.expire_all()
     rows = db.scalars(select(ChangeEvent).where(ChangeEvent.event_type == "overrun"))
     return {event.affected_task_id: event for event in rows}
 
 
-def test_detection_creates_one_overrun_per_late_open_task(client, db, team):
+def test_detection_creates_one_overrun_per_late_open_task(client, db, team, detection_on):
     task(db, "TSK-0006", team["project"], status="done", finish=days_ago(20))
     task(db, "TSK-0007", team["project"], status="dropped", finish=days_ago(20))
     task(db, "TSK-0008", team["project"], status="on_hold", finish=days_ago(20))
@@ -359,7 +449,7 @@ def test_detection_creates_one_overrun_per_late_open_task(client, db, team):
     assert status_of(db, "TSK-0005") == "in_progress"
 
 
-def test_dry_run_counts_without_saving(client, db, team):
+def test_dry_run_counts_without_saving(client, db, team, detection_on):
     body = client.post(f"{DATA}/overrun-detection", params={"dry_run": True}).json()
     assert (body["dry_run"], body["created_count"]) == (True, 1)
     assert (body["task_ids"], body["event_ids"]) == (["TSK-0005"], [])
@@ -369,14 +459,14 @@ def test_dry_run_counts_without_saving(client, db, team):
     assert (real["dry_run"], real["created_count"]) == (False, 1)
 
 
-def test_detection_is_idempotent(client, db, team):
+def test_detection_is_idempotent(client, db, team, detection_on):
     assert client.post(f"{DATA}/overrun-detection").json()["created_count"] == 1
     second = client.post(f"{DATA}/overrun-detection").json()
     assert (second["created_count"], second["event_ids"]) == (0, [])
     assert len(overruns(db)) == 1
 
 
-def test_detection_skips_task_with_overrun_recorded_by_member(client, db, team):
+def test_detection_skips_task_with_overrun_recorded_by_member(client, db, team, detection_on):
     record(client, team["sari"], "TSK-0005", event_type="overrun")
     assert client.post(f"{DATA}/overrun-detection").json()["created_count"] == 0
 
@@ -391,10 +481,23 @@ def test_detection_dates_overrun_on_first_working_day_after_plan(db, team):
     assert overruns(db)["TSK-0010"].event_date == date(2026, 3, 10)
 
 
-def test_detection_ids_continue_after_existing_events(client, db, team):
+def test_detection_ids_continue_after_existing_events(client, db, team, detection_on):
     record(client, team["sari"])  # EVT-001
     ids = client.post(f"{DATA}/overrun-detection").json()["event_ids"]
     assert ids == ["EVT-002"]
+
+
+def test_cli_refuses_without_flag_unless_dry_run():
+    result = subprocess.run(
+        [sys.executable, "-m", "app.modules.data.detect_overruns"],
+        cwd=BACKEND,
+        capture_output=True,
+        text=True,
+        check=False,
+        env={**os.environ, "OVERRUN_DETECTION_ENABLED": "false"},
+    )
+    assert result.returncode == 2, result.stderr
+    assert "OVERRUN_DETECTION_ENABLED" in result.stderr
 
 
 def test_cli_runs_standalone_and_rejects_bad_date():

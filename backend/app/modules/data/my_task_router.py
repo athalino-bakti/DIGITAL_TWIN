@@ -10,6 +10,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.db.session import get_db
 from app.modules.auth.dependencies import require_permission
 from app.modules.auth.models import AppUser
@@ -28,6 +29,16 @@ from app.modules.data.my_task_schemas import (
     OverrunDetection,
 )
 from app.modules.data.service import ConflictError, DataValidationError, NotFoundError
+
+DETECTION_OFF = (
+    "Deteksi overrun otomatis belum diaktifkan (OVERRUN_DETECTION_ENABLED). "
+    "Pakai dry_run=true untuk melihat jumlah kejadian yang akan dibuat."
+)
+
+
+def detection_enabled() -> bool:
+    return get_settings().overrun_detection_enabled
+
 
 router = APIRouter()
 
@@ -106,6 +117,7 @@ def resolve_event(
     "/overrun-detection",
     dependencies=EVENT_WRITE,
     response_model=OverrunDetection,
+    responses={status.HTTP_409_CONFLICT: {"description": "Deteksi otomatis belum diaktifkan"}},
     summary="Buat kejadian overrun untuk task yang lewat rencana dan belum punya",
 )
 def detect_overruns(
@@ -114,7 +126,11 @@ def detect_overruns(
         bool, Query(description="Hanya menghitung, tidak menyimpan apa pun")
     ] = False,
 ) -> OverrunDetection:
-    """Aman dijalankan berulang. Jalankan dengan `dry_run=true` dulu pada data lama untuk
+    """Tanpa `dry_run` hanya jalan bila OVERRUN_DETECTION_ENABLED=true; selain itu 409.
+
+    Aman dijalankan berulang. Jalankan dengan `dry_run=true` dulu pada data lama untuk
     melihat berapa kejadian yang akan dibuat. Perintah yang sama tersedia untuk scheduler:
     `python -m app.modules.data.detect_overruns`."""
+    if not dry_run and not detection_enabled():
+        raise HTTPException(status.HTTP_409_CONFLICT, detail=DETECTION_OFF)
     return service.detect_overruns(db, date.today(), dry_run)
