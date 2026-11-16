@@ -73,6 +73,11 @@ Pasang juga jadwal backup (docs/BACKUP.md) setelah PR backup masuk.
 3. Hapus kunci privat dari server setelah disalin ke GitHub:
    `sudo -u jc rm /home/jc/.ssh/github_deploy`.
 
+4. Supaya deploy otomatis bisa ditahan, misalnya saat demo atau sesi review bersama PuTI:
+   di environment `staging`, aktifkan **Required reviewers** dan pilih anggota tim. Setiap
+   deploy lalu menunggu persetujuan di tab Actions; tanpa persetujuan, staging tetap di versi
+   lama. Matikan lagi setelah demo bila deploy ingin kembali langsung jalan.
+
 ## Alur deploy
 
 1. PR di-merge ke `main`; workflow `CI` berjalan.
