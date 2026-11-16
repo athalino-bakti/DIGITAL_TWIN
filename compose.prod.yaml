@@ -55,6 +55,9 @@ services:
   web:
     image: jc-web:${IMAGE_TAG:-local}
     build: ./frontend
+    environment:
+      # Isi "max-age=31536000" hanya bila situs sudah dilayani lewat HTTPS (DIG-206).
+      STRICT_TRANSPORT_SECURITY: ${STRICT_TRANSPORT_SECURITY:-}
     ports:
       - "${WEB_PORT:-8080}:8080"
     depends_on:

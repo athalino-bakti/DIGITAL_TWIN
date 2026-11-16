@@ -11,10 +11,21 @@ server {
     # Unggah file impor (Project Plan, workload) lewat API.
     client_max_body_size 10m;
 
-    # Header dasar. CSP dan pemeriksaan lengkapnya di DIG-208.
+    # Header keamanan (DIG-208, docs/SECURITY_CHECKLIST.md). Berlaku juga untuk respons API
+    # yang diteruskan, karena tidak ada add_header di blok location.
+    #
+    # CSP: hanya skrip dan gaya dari origin sendiri, ditambah Google Fonts (index.html). Token
+    # login disimpan di localStorage, jadi CSP ini lapisan utama bila ada celah XSS.
+    # img-src memuat data: karena Vite menyisipkan ikon SVG kecil sebagai data URI.
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "DENY" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()" always;
+    add_header Cross-Origin-Opener-Policy "same-origin" always;
+    # Kosong (bawaan) = tidak dikirim. Isi "max-age=31536000" hanya setelah situs dilayani
+    # lewat HTTPS (DIG-206); browser akan menolak HTTP ke domain itu selama max-age.
+    add_header Strict-Transport-Security "${STRICT_TRANSPORT_SECURITY}" always;
 
     gzip on;
     gzip_types text/css application/javascript application/json image/svg+xml;
@@ -28,6 +39,12 @@ server {
         proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_read_timeout 120s;
+        # API memasang header yang sama (app/core/security_headers.py) untuk saat dibuka
+        # tanpa nginx. Di sini versi nginx yang dipakai, supaya tidak terkirim dua kali.
+        proxy_hide_header Content-Security-Policy;
+        proxy_hide_header X-Content-Type-Options;
+        proxy_hide_header X-Frame-Options;
+        proxy_hide_header Referrer-Policy;
     }
 
     # Berkas hasil build bernama hash, jadi aman disimpan lama di browser.

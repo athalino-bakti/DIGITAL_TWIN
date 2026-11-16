@@ -15,6 +15,8 @@ RUN npm run build
 FROM nginxinc/nginx-unprivileged:1.29-alpine
 # Alamat API di jaringan internal; diisikan ke template nginx saat container mulai.
 ENV API_UPSTREAM=api:8000
+# Header HSTS; kosong sampai situs dilayani lewat HTTPS (DIG-206).
+ENV STRICT_TRANSPORT_SECURITY=""
 COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /src/dist /usr/share/nginx/html
 EXPOSE 8080
