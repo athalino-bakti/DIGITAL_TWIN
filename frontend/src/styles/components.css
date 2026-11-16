@@ -262,6 +262,40 @@ span.calendar-date, span.calendar-date:hover { cursor: default; background: none
   .month-nav strong { min-width: 0; }
 }
 
+/* --- Process map (DIG-170, DIG-171) --- */
+.pm-toolbar { align-items: flex-start; }
+.pm-date { display: inline-flex; align-items: center; gap: var(--space-3); font: var(--text-label); color: var(--color-heading); }
+.pm-filter { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4) var(--space-7); padding: var(--space-4) var(--space-7); border-bottom: 1px solid var(--color-border); }
+.pm-filter label { display: flex; flex-direction: column; gap: var(--space-2); flex: 1 1 320px; max-width: 520px; font: var(--text-label); color: var(--color-heading); }
+.pm-filter input[type="range"] { width: 100%; accent-color: var(--color-primary); }
+.pm-canvas { overflow: auto; max-height: 70vh; background: var(--color-bg); border-bottom: 1px solid var(--color-border); transition: opacity .15s; }
+.pm-canvas.is-busy { opacity: .7; }
+/* Graf mengecil mengikuti lebar panel, paling kecil 80% atau 720px (diatur di komponen) supaya teks tetap terbaca; sisanya digulir. */
+.pm-svg { display: block; width: 100%; height: auto; margin: 0 auto; }
+.pm-edge path { fill: none; stroke: var(--color-info); stroke-opacity: .55; }
+.pm-edge.edge-back path { stroke-dasharray: 6 4; }
+.pm-edge.edge-terminal path { stroke: var(--color-muted); stroke-width: 1.25; stroke-dasharray: 3 3; }
+.pm-edge.is-touched path { stroke: var(--color-primary); stroke-opacity: 1; }
+.pm-arrow path { fill: var(--color-info); }
+.pm-arrow.arrow-terminal path { fill: var(--color-muted); }
+.pm-label-bg { fill: var(--color-surface); stroke: var(--color-border); }
+.pm-label { font: var(--text-caption); font-weight: 600; fill: var(--color-heading); }
+.pm-node { cursor: pointer; outline: none; }
+.pm-node rect { fill: var(--color-surface); stroke: var(--color-info); stroke-width: 1.5; }
+.pm-node:hover rect { stroke-width: 2.5; }
+.pm-node:focus-visible rect { stroke: var(--color-heading); stroke-width: 3; }
+.pm-node.is-selected rect { fill: var(--color-info); }
+.pm-node.is-selected text { fill: #fff; }
+.pm-node-name { font: var(--text-title); font-size: 13px; fill: var(--color-heading); }
+.pm-node-count { font: var(--text-caption); fill: var(--color-body); }
+.pm-terminal circle { fill: var(--color-surface); stroke: var(--color-muted); stroke-width: 2; }
+.pm-terminal.is-end circle { stroke-width: 4; }
+.pm-terminal text { font: var(--text-caption); fill: var(--color-muted); }
+.pm-svg.has-focus .pm-edge:not(.is-touched) { opacity: .2; }
+.pm-node.is-faded { opacity: .35; }
+.pm-hint { margin: 0; padding: var(--space-4) var(--space-7); font: var(--text-body-sm); color: var(--color-body); border-bottom: 1px solid var(--color-border); }
+@media (max-width: 760px) { .pm-filter, .pm-hint { padding-left: var(--space-5); padding-right: var(--space-5); } }
+
 /* --- Responsive --- */
 @media (max-width: 1100px) {
   :root { --content-gutter: var(--space-7); }
