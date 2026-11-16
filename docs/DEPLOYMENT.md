@@ -12,8 +12,8 @@ yang menjalankan `alembic upgrade head` sebelum API dinyalakan. Workflow `Docker
 (`.github/workflows/docker.yml`) mem-build dan menguji susunan yang sama di setiap pull request
 yang mengubah backend atau frontend.
 
-Konfigurasi server staging (rahasia lewat `SECRETS_DIR`, domain, HTTPS, deploy dari CI,
-backup) menyusul di DIG-204 s.d. DIG-206, DIG-217, dan DIG-218.
+Konfigurasi server staging (rahasia lewat `SECRETS_DIR`, domain, HTTPS, deploy dari CI)
+menyusul di DIG-204 s.d. DIG-206 dan DIG-217. Backup dan uji restore: docs/BACKUP.md (DIG-218).
 
 ## Menjalankan di laptop
 

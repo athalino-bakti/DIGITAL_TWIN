@@ -80,6 +80,19 @@ jobs:
       - name: Migrasi sampai head
         run: docker compose run --rm migrate alembic current | grep -q '(head)'
 
+      - name: Backup dan uji restore (DIG-218)
+        run: |
+          set -euo pipefail
+          # Isi sedikit data supaya ada yang dibandingkan.
+          docker compose exec -T db psql -U puti -d digital_twin -v ON_ERROR_STOP=1 -c \
+            "INSERT INTO holidays (holiday_date, holiday_name) VALUES ('2026-12-25', 'Natal')"
+          docker compose run --rm backup
+          docker compose run --rm --entrypoint sh backup /ops/verify-restore.sh --strict
+          # Folder dan berkas backup hanya bisa dibaca root (umask 077).
+          sudo ls -l backups/daily
+          test "$(sudo sh -c 'stat -c %a backups/daily/*.dump' | sort -u)" = 600
+          test "$(sudo stat -c %a backups/daily)" = 700
+
       - name: Log bila gagal
         if: failure()
         run: docker compose logs --no-color
