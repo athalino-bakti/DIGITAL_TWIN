@@ -4,7 +4,8 @@
 #
 #   POSTGRES_PASSWORD=... JWT_SECRET_KEY=... docker compose -f compose.prod.yaml up -d --build
 #
-# Lalu buka http://localhost:8080. Penjelasan lengkap: docs/DEPLOYMENT.md.
+# Lalu buka http://localhost:8080. Penjelasan lengkap: docs/DEPLOYMENT.md; backup dan restore:
+# docs/BACKUP.md.
 
 name: jc-prod
 
@@ -65,6 +66,30 @@ services:
         condition: service_healthy
     networks: [internal]
     restart: unless-stopped
+
+  # Backup dan uji restore (DIG-218), tidak ikut `up`. Dijalankan terjadwal dari host:
+  #   docker compose -f compose.prod.yaml run --rm backup
+  # Lihat docs/BACKUP.md.
+  backup:
+    image: postgres:17-alpine
+    profiles: ["ops"]
+    entrypoint: ["sh", "/ops/backup.sh"]
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER:-puti}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:-digital_twin}
+      BACKUP_KEEP_DAILY: ${BACKUP_KEEP_DAILY:-7}
+      BACKUP_KEEP_WEEKLY: ${BACKUP_KEEP_WEEKLY:-4}
+      TZ: Asia/Jakarta
+    volumes:
+      - ./ops/backup:/ops:ro
+      - ${BACKUP_DIR:-./backups}:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [internal]
+    restart: "no"
 
 networks:
   internal:
