@@ -44,7 +44,14 @@ Dari folder `backend/`:
    ditolak, papan tidak ada, konektor nonaktif, konfigurasi kosong) langsung gagal.
 5. Baris job ditutup `succeeded` atau `failed` dengan jumlah percobaan, baris dibaca/ditulis,
    rincian per papan, dan pesan error. Token dan URL webhook disamarkan menjadi `***`.
+   Penutupan ini hanya berlaku bila baris masih `running`: job sah yang berjalan lebih lama
+   dari `IMPORT_STALE_MINUTES` dan sudah ditutup `failed` oleh job berikutnya tidak ditimpa,
+   melainkan memicu log WARNING dan notifikasi agar batasnya dinaikkan.
 6. Bila gagal: log level `ERROR` dan notifikasi webhook.
+
+Pilih `IMPORT_STALE_MINUTES` jauh di atas durasi job terlama. Job yang prosesnya mati baru
+ditutup saat job sumber yang sama berikutnya dimulai; sampai saat itu endpoint pemantauan
+menandainya `stale: true`.
 
 Impor Trello aman diulang: action yang sudah ada tidak ditulis dua kali (DIG-118), sehingga
 jadwal yang tumpang tindih atau jalan ulang manual tidak menggandakan data.
@@ -117,6 +124,8 @@ Aktifkan dengan `systemctl enable --now jc-import-trello.timer`; log dibaca deng
   lebih dulu. Izin `data_quality:read` (System Analyst, admin data, admin IT).
 - `GET /api/v1/data/import-jobs/{job_id}`: satu job beserta `details` per papan (action dibaca,
   ditulis, sudah ada, dilewati per alasan).
+- Field `stale` bernilai `true` untuk job yang masih `running` tetapi sudah lebih lama dari
+  `IMPORT_STALE_MINUTES`: prosesnya kemungkinan mati dan perlu dicek.
 - Basis data langsung:
 
 ```sql
@@ -128,3 +137,6 @@ LIMIT 20;
 
 Log berformat JSON memuat `job_id`, `source`, `trigger`, `status`, `attempts`, `duration_ms`,
 `rows_read`, `rows_written`, dan `error`, sehingga bisa disaring tanpa membaca teks bebas.
+
+Logger `httpx` dan `httpcore` dibatasi ke WARNING berapa pun `LOG_LEVEL`-nya, karena di level
+INFO keduanya mencatat URL setiap request, termasuk URL webhook notifikasi yang rahasia.

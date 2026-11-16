@@ -10,6 +10,11 @@ import logging
 import sys
 from datetime import UTC, datetime
 
+# httpx dan httpcore mencatat setiap request di level INFO/DEBUG lengkap dengan URL-nya. URL
+# webhook notifikasi adalah rahasia (path-nya berisi token), jadi kedua logger ini hanya boleh
+# menulis WARNING ke atas, berapa pun LOG_LEVEL. Kredensial Trello aman karena lewat header.
+QUIET_LOGGERS = ("httpx", "httpcore")
+
 # Atribut bawaan LogRecord; selain ini dianggap field tambahan dari `extra=`.
 _STANDARD = set(vars(logging.makeLogRecord({}))) | {"message", "asctime"}
 
@@ -45,3 +50,5 @@ def configure_logging(fmt: str = "text", level: str = "INFO") -> None:
     root = logging.getLogger()
     root.handlers[:] = [handler]
     root.setLevel(level.upper())
+    for name in QUIET_LOGGERS:
+        logging.getLogger(name).setLevel(logging.WARNING)

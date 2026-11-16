@@ -134,18 +134,44 @@ def run_job(
         sleep(settings.import_retry_delay_seconds * 2 ** (attempt - 1))
 
     duration_ms = round((time.monotonic() - started) * 1000)
+    if outcome is not None:
+        result = {
+            "status": "succeeded",
+            "rows_read": outcome.rows_read,
+            "rows_written": outcome.rows_written,
+            "details": outcome.details,
+        }
+    else:
+        result = {"status": "failed", "error": error}
     with session_factory() as db:
-        job = db.get(ImportJob, job.job_id)
-        job.finished_at = func.now()
-        if outcome is not None:
-            job.status = "succeeded"
-            job.rows_read, job.rows_written = outcome.rows_read, outcome.rows_written
-            job.details = outcome.details
-        else:
-            job.status = "failed"
-            job.error = error
+        # Hanya menutup job yang masih running. Bila job ini sudah ditutup sebagai macet oleh
+        # job berikutnya (berjalan lebih lama dari IMPORT_STALE_MINUTES), catatan itu tidak
+        # ditimpa diam-diam.
+        closed = db.execute(
+            update(ImportJob)
+            .where(ImportJob.job_id == job.job_id, ImportJob.status == "running")
+            .values(finished_at=func.now(), **result)
+        ).rowcount
         db.commit()
-        db.refresh(job)
+        job = db.get(ImportJob, job.job_id)
+
+    if not closed:
+        message = (
+            f"Job {source} #{job.job_id} selesai ({result['status']}) setelah sudah ditutup "
+            f"sebagai macet; hasilnya tidak dicatat. Naikkan IMPORT_STALE_MINUTES di atas "
+            f"durasi job terlama."
+        )
+        logger.warning(
+            "job selesai setelah ditutup sebagai macet",
+            extra={
+                **log,
+                "duration_ms": duration_ms,
+                "result_status": result["status"],
+                "rows_written": result.get("rows_written"),
+            },
+        )
+        notifier(settings, f"[J&C] {message}")
+        return job
 
     summary = {**log, "status": job.status, "attempts": job.attempts, "duration_ms": duration_ms}
     if job.status == "succeeded":

@@ -239,6 +239,34 @@ def test_job_receives_its_own_job_id(jobs_db):
     assert seen == [recorded.job_id, recorded.job_id]  # sama di setiap percobaan
 
 
+def test_job_closed_as_stale_while_running_is_not_overwritten(jobs_db):
+    """Job sah yang lebih lama dari IMPORT_STALE_MINUTES ditutup failed oleh job berikutnya;
+    saat selesai, catatan itu tidak ditimpa menjadi succeeded (review #34)."""
+    rec = Recorder()
+
+    def job(db, settings, job_id):
+        with jobs_db() as other:
+            other.execute(
+                text(
+                    "UPDATE import_job SET status = 'failed', finished_at = now(),"
+                    " error = 'ditutup macet' WHERE job_id = :id"
+                ),
+                {"id": job_id},
+            )
+            other.commit()
+        return JobOutcome(5, 5)
+
+    finished = run(jobs_db, job, rec)
+    assert (finished.status, finished.error, finished.rows_written) == (
+        "failed",
+        "ditutup macet",
+        None,
+    )
+    assert len(rec.messages) == 1
+    assert "sudah ditutup sebagai macet" in rec.messages[0]
+    assert "IMPORT_STALE_MINUTES" in rec.messages[0]
+
+
 # --- tabel import_job (DIG-128) -----------------------------------------------------------
 
 
@@ -335,3 +363,23 @@ def test_job_monitoring_needs_data_quality_permission(client, session_factory, r
         token = make_token(db, f"pantau-{role}", [role])
     response = client.get("/api/v1/data/import-jobs", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == code
+
+
+def test_running_job_older_than_stale_limit_is_flagged(client, session_factory):
+    with session_factory() as db:
+        db.execute(text("TRUNCATE import_job"))
+        db.execute(
+            text(
+                "INSERT INTO import_job (source, trigger, status, started_at, finished_at) VALUES"
+                " ('trello', 'schedule', 'running', now() - interval '3 hours', NULL),"
+                " ('teamgit', 'schedule', 'running', now() - interval '5 minutes', NULL),"
+                " ('project_plan', 'manual', 'succeeded', now() - interval '3 hours', now())"
+            )
+        )
+        db.commit()
+
+    stale = {j["source"]: j["stale"] for j in client.get("/api/v1/data/import-jobs").json()}
+    assert stale == {"trello": True, "teamgit": False, "project_plan": False}
+
+    old = client.get("/api/v1/data/import-jobs", params={"source": "trello"}).json()[0]
+    assert client.get(f"/api/v1/data/import-jobs/{old['job_id']}").json()["stale"] is True

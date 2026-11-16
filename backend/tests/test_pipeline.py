@@ -17,7 +17,7 @@ from app.integrations.trello.client import (
 from app.pipeline import run as cli
 from app.pipeline.config import PipelineSettings
 from app.pipeline.jobs import PermanentJobError, import_trello, is_transient
-from app.pipeline.logging import JsonFormatter, TextFormatter
+from app.pipeline.logging import QUIET_LOGGERS, JsonFormatter, TextFormatter, configure_logging
 from app.pipeline.notify import MAX_MESSAGE, send_notification
 from app.pipeline.runner import JobAlreadyRunning, redact
 
@@ -208,3 +208,39 @@ def test_cli_exit_code(monkeypatch, outcome, code):
 def test_cli_rejects_unknown_source():
     with pytest.raises(SystemExit):
         cli.main(["jira"], session_factory=object())
+
+
+# --- URL webhook tidak boleh bocor lewat log httpx (review #34) --------------------------
+
+
+@pytest.fixture
+def restore_logging():
+    root = logging.getLogger()
+    saved = (root.handlers[:], root.level)
+    quiet = {name: logging.getLogger(name).level for name in QUIET_LOGGERS}
+    yield
+    root.handlers[:], level = saved
+    root.setLevel(level)
+    for name, value in quiet.items():
+        logging.getLogger(name).setLevel(value)
+
+
+@pytest.mark.parametrize("level", ["INFO", "DEBUG"])
+@pytest.mark.parametrize("fmt", ["json", "text"])
+def test_webhook_url_is_not_written_to_log(restore_logging, capsys, fmt, level):
+    configure_logging(fmt, level)
+    s = settings(notify_webhook_url=WEBHOOK)
+
+    assert send_notification(s, "berhasil", httpx.MockTransport(lambda r: httpx.Response(200)))
+
+    def unreachable(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError(f"tidak bisa ke {request.url}")
+
+    assert not send_notification(s, "gagal", httpx.MockTransport(unreachable))
+    logging.getLogger("httpx").warning("peringatan httpx tetap tampil")
+
+    output = capsys.readouterr().err
+    assert "notifikasi gagal" in output  # log benar-benar tertangkap
+    assert "peringatan httpx tetap tampil" in output
+    assert "hooks.example.test" not in output
+    assert "rahasia" not in output
