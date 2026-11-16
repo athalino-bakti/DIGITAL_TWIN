@@ -1,0 +1,3 @@
+# Skrip shell dijalankan di container Linux (ops/backup, DIG-218); tetap LF walau
+# di-checkout di Windows, supaya `sh` tidak gagal karena \r.
+*.sh text eol=lf

@@ -137,6 +137,10 @@ class TrelloClient:
                 raise TrelloError("Respons Trello bukan JSON yang sah") from exc
         raise TrelloError("Gagal menghubungi Trello")  # tidak tercapai
 
+    def fetch_me(self) -> dict[str, Any]:
+        """Akun pemilik token. Dipakai uji konektivitas (DIG-126) untuk memastikan kredensial."""
+        return self._get("/members/me", {"fields": "username"})
+
     def fetch_actions(self, board_id: str) -> list[dict[str, Any]]:
         """Seluruh action papan, terbaru lebih dulu (urutan sama dengan ekspor Trello)."""
         actions: list[dict[str, Any]] = []

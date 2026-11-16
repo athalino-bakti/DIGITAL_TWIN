@@ -178,6 +178,21 @@ td .status-pill.status-planning { margin-top: var(--space-2); }
 .cell-textarea:focus { outline: 2px solid var(--color-primary); outline-offset: -1px; border-color: var(--color-primary); }
 fieldset.field { border: 0; padding: 0; margin: 0; min-width: 0; }
 fieldset.field legend { font: var(--text-label); color: var(--color-heading); margin-bottom: var(--space-3); padding: 0; }
+
+/* --- Pengalihan task (DIG-160) --- */
+.takeover-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-4); }
+.takeover-list > li { border: 1px solid var(--color-border); border-radius: var(--radius-control); padding: var(--space-4) var(--space-5); }
+.takeover-list > li.is-open { border-color: var(--color-primary); }
+.takeover-task { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
+.takeover-task > div { display: flex; flex-direction: column; min-width: 0; }
+.takeover-form { margin-top: var(--space-5); padding-top: var(--space-5); border-top: 1px solid var(--color-border); }
+.candidate-list { display: flex; flex-direction: column; gap: var(--space-3); }
+.candidate { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-3) var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-control); cursor: pointer; }
+.candidate:hover, .candidate.is-selected { border-color: var(--color-primary); background: var(--color-primary-light); }
+/* Lebih spesifik dari .field input supaya radio tidak ikut melebar seperti kolom teks. */
+.field .candidate input[type="radio"] { flex: none; width: 18px; height: 18px; margin: 2px 0 0; padding: 0; accent-color: var(--color-primary); }
+.candidate-text { display: flex; flex-direction: column; min-width: 0; }
+@media (max-width: 600px) { .takeover-task { flex-direction: column; align-items: stretch; } }
 .choice-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--space-3) var(--space-5); }
 .choice { padding: var(--space-3) var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-control); font-weight: 500; }
 .choice:has(input:checked) { border-color: var(--color-primary); background: var(--color-primary-light); }
@@ -200,6 +215,50 @@ fieldset.field legend { font: var(--text-label); color: var(--color-heading); ma
 .import-summary { padding: var(--space-3) var(--space-4); font: var(--text-body-sm); color: var(--color-body); background: rgba(39, 132, 103, .08); border-radius: var(--radius-control); }
 .import-summary strong { color: var(--color-success); }
 .import-errors { max-height: 280px; overflow: auto; border: 1px solid var(--color-border); border-radius: var(--radius-control); }
+
+/* --- Gantt rencana vs aktual (DIG-178, DIG-179) --- */
+.gantt { --gantt-label: 260px; position: relative; overflow-x: auto; border-top: 1px solid var(--color-border); }
+.gantt-row { display: flex; min-width: calc(var(--gantt-label) + var(--gantt-width)); }
+.gantt-label { position: sticky; left: 0; z-index: 2; flex: none; width: var(--gantt-label); display: flex; flex-direction: column; justify-content: center; min-width: 0; padding: var(--space-2) var(--space-4) var(--space-2) var(--space-6); background: var(--color-surface); border-right: 1px solid var(--color-border); }
+.gantt-track { position: relative; flex: none; width: var(--gantt-width); min-height: 34px; }
+.gantt-head { position: sticky; top: 0; z-index: 3; background: var(--color-bg); border-bottom: 1px solid var(--color-border); }
+.gantt-head .gantt-label { background: var(--color-bg); font: var(--text-caption); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--color-muted); }
+.gantt-month { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; padding-left: var(--space-3); font: var(--text-caption); font-weight: 600; color: var(--color-muted); border-left: 1px solid var(--color-border); white-space: nowrap; overflow: hidden; }
+.gantt-body { position: relative; }
+.gantt-backdrop { position: absolute; top: 0; bottom: 0; left: var(--gantt-label); width: var(--gantt-width); pointer-events: none; }
+.gantt-holiday { position: absolute; top: 0; bottom: 0; background: rgba(190, 80, 90, .10); pointer-events: auto; }
+.gantt-today { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--color-info); }
+.gantt-project { background: var(--color-bg); border-top: 1px solid var(--color-border); }
+.gantt-project .gantt-label { background: var(--color-bg); }
+.gantt-phase .gantt-label { padding-left: var(--space-7); }
+.gantt-task { border-top: 1px solid var(--color-bg); }
+.gantt-task .gantt-label { padding-left: calc(var(--space-7) + var(--space-5)); }
+.gantt-task-name { font: var(--text-body-sm); color: var(--color-heading); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gantt-label small { font: var(--text-caption); color: var(--color-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gantt-task.is-dropped .gantt-task-name { text-decoration: line-through; color: var(--color-muted); }
+.gantt-toggle { display: flex; align-items: center; gap: var(--space-3); width: 100%; padding: 0; font: var(--text-label); color: var(--color-heading); text-align: left; background: none; border: 0; cursor: pointer; }
+.gantt-caret { flex: none; width: 12px; color: var(--color-muted); }
+.gantt-toggle-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gantt-toggle:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; border-radius: 4px; }
+.gantt-bar { position: absolute; height: 8px; border-radius: 4px; min-width: 3px; }
+.gantt-bar.bar-project { top: 13px; background: var(--color-muted); opacity: .45; }
+.gantt-bar.bar-planned { top: 7px; background: rgba(72, 125, 184, .35); }
+.gantt-bar.bar-actual { top: 19px; background: var(--color-primary); }
+.gantt-bar.bar-actual.bar-late { background: var(--color-danger); }
+.gantt-bar.bar-open { background-image: repeating-linear-gradient(135deg, rgba(255, 255, 255, .45) 0 4px, transparent 4px 8px); border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.gantt-task.is-dropped .gantt-bar { opacity: .4; }
+.gantt-event { position: absolute; top: 11px; width: 10px; height: 10px; margin-left: -5px; transform: rotate(45deg); background: var(--color-info); border: 1.5px solid var(--color-surface); z-index: 1; }
+.gantt-event.event-blocker, .gantt-event.event-overrun { background: var(--color-warning); }
+.gantt-event.event-hotfix { background: var(--color-danger); }
+.gantt-launch { position: absolute; top: 6px; width: 0; height: 0; margin-left: -6px; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 10px solid var(--color-success); }
+.gantt-legend { padding: var(--space-5) var(--space-6); border-top: 1px solid var(--color-border); }
+.gantt-swatch-planned { background: rgba(72, 125, 184, .35); }
+.gantt-swatch-actual { background: var(--color-primary); }
+.gantt-swatch-late { background: var(--color-danger); }
+.gantt-swatch-open { background: var(--color-primary) repeating-linear-gradient(135deg, rgba(255, 255, 255, .45) 0 4px, transparent 4px 8px); }
+.gantt-swatch-today { background: var(--color-info); }
+.gantt-event.legend-event { position: static; display: inline-block; margin: 0 var(--space-3) 0 2px; vertical-align: middle; }
+@media (max-width: 720px) { .gantt { --gantt-label: 150px; } .gantt-label { padding-left: var(--space-4); } .gantt-phase .gantt-label { padding-left: var(--space-5); } .gantt-task .gantt-label { padding-left: var(--space-6); } }
 
 /* --- Footer --- */
 .main-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-5) var(--content-gutter); border-top: 1px solid var(--color-border); background: var(--color-surface); font: var(--text-body-sm); color: var(--color-muted); }
@@ -312,6 +371,51 @@ span.calendar-date, span.calendar-date:hover { cursor: default; background: none
 .dep-chip:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 .dep-warning { margin: 0; padding: var(--space-4) var(--space-7); font: var(--text-body-sm); color: #7d5215; background: #fbf3e6; border-bottom: 1px solid var(--color-border); }
 @media (max-width: 760px) { .dep-legend, .dep-detail { padding-left: var(--space-5); padding-right: var(--space-5); } .dep-detail .table-scroll { margin-left: calc(-1 * var(--space-5)); margin-right: calc(-1 * var(--space-5)); } }
+/* --- Riwayat perubahan D-10 (DIG-151, DIG-152) --- */
+.changes-task { width: 190px; }
+.changes-task-link { display: block; text-align: left; text-decoration: none; }
+.changes-task-link:hover .cell-title { text-decoration: underline; }
+.changes-task-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--space-4); padding: var(--space-5) var(--space-7); background: var(--color-bg); border-bottom: 1px solid var(--color-border); }
+.changes-task-head h3 { font: var(--text-title); color: var(--color-heading); }
+fieldset.change-effect { padding: var(--space-5); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-bg); }
+.change-effect legend small { font: var(--text-caption); color: var(--color-muted); margin-left: var(--space-2); }
+.change-effect .radio-row { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-5); min-height: 40px; align-items: center; }
+.change-effect .radio-row input { width: 16px; height: 16px; padding: 0; }
+@media (max-width: 760px) { .changes-task { width: 100%; } .changes-task-head { padding-left: var(--space-5); padding-right: var(--space-5); } }
+
+/* --- Process map (DIG-170, DIG-171) --- */
+.pm-toolbar { align-items: flex-start; }
+.pm-date { display: inline-flex; align-items: center; gap: var(--space-3); font: var(--text-label); color: var(--color-heading); }
+.pm-filter { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4) var(--space-7); padding: var(--space-4) var(--space-7); border-bottom: 1px solid var(--color-border); }
+.pm-filter label { display: flex; flex-direction: column; gap: var(--space-2); flex: 1 1 320px; max-width: 520px; font: var(--text-label); color: var(--color-heading); }
+.pm-filter input[type="range"] { width: 100%; accent-color: var(--color-primary); }
+.pm-canvas { overflow: auto; max-height: 70vh; background: var(--color-bg); border-bottom: 1px solid var(--color-border); transition: opacity .15s; }
+.pm-canvas.is-busy { opacity: .7; }
+/* Graf mengecil mengikuti lebar panel, paling kecil 80% atau 720px (diatur di komponen) supaya teks tetap terbaca; sisanya digulir. */
+.pm-svg { display: block; width: 100%; height: auto; margin: 0 auto; }
+.pm-edge path { fill: none; stroke: var(--color-info); stroke-opacity: .55; }
+.pm-edge.edge-back path { stroke-dasharray: 6 4; }
+.pm-edge.edge-terminal path { stroke: var(--color-muted); stroke-width: 1.25; stroke-dasharray: 3 3; }
+.pm-edge.is-touched path { stroke: var(--color-primary); stroke-opacity: 1; }
+.pm-arrow path { fill: var(--color-info); }
+.pm-arrow.arrow-terminal path { fill: var(--color-muted); }
+.pm-label-bg { fill: var(--color-surface); stroke: var(--color-border); }
+.pm-label { font: var(--text-caption); font-weight: 600; fill: var(--color-heading); }
+.pm-node { cursor: pointer; outline: none; }
+.pm-node rect { fill: var(--color-surface); stroke: var(--color-info); stroke-width: 1.5; }
+.pm-node:hover rect { stroke-width: 2.5; }
+.pm-node:focus-visible rect { stroke: var(--color-heading); stroke-width: 3; }
+.pm-node.is-selected rect { fill: var(--color-info); }
+.pm-node.is-selected text { fill: #fff; }
+.pm-node-name { font: var(--text-title); font-size: 13px; fill: var(--color-heading); }
+.pm-node-count { font: var(--text-caption); fill: var(--color-body); }
+.pm-terminal circle { fill: var(--color-surface); stroke: var(--color-muted); stroke-width: 2; }
+.pm-terminal.is-end circle { stroke-width: 4; }
+.pm-terminal text { font: var(--text-caption); fill: var(--color-muted); }
+.pm-svg.has-focus .pm-edge:not(.is-touched) { opacity: .2; }
+.pm-node.is-faded { opacity: .35; }
+.pm-hint { margin: 0; padding: var(--space-4) var(--space-7); font: var(--text-body-sm); color: var(--color-body); border-bottom: 1px solid var(--color-border); }
+@media (max-width: 760px) { .pm-filter, .pm-hint { padding-left: var(--space-5); padding-right: var(--space-5); } }
 
 /* --- Responsive --- */
 @media (max-width: 1100px) {
