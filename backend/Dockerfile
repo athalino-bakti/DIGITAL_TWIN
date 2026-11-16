@@ -26,6 +26,9 @@ COPY --from=build /opt/venv /opt/venv
 COPY alembic.ini ./
 COPY migrations ./migrations
 COPY app ./app
+# Generator data sintetis untuk mengisi staging (`python -m synthetic.load`, DIG-49);
+# perintah itu menolak berjalan bila APP_ENV=production.
+COPY synthetic ./synthetic
 
 # Berjalan sebagai user biasa; kode dan dependency milik root sehingga tidak bisa diubah proses API.
 USER jc

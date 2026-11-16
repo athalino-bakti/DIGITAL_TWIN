@@ -7,5 +7,4 @@
 .env
 .env.*
 tests/
-synthetic/
 synthetic-output/
