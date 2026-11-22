@@ -14,7 +14,6 @@ Data dibangun langsung dari generator (`synthetic.world`), sama persis dengan is
 """
 
 import argparse
-import os
 import sys
 from datetime import date
 
@@ -85,7 +84,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--as-of", type=date.fromisoformat, default=date(2026, 11, 6))
     args = parser.parse_args(argv)
 
-    if os.environ.get("APP_ENV", "development") == "production":
+    # Dibaca lewat pengaturan aplikasi (environment, .env, dan SECRETS_DIR), sama seperti API,
+    # supaya pengaman ini tetap berlaku walau perintah dijalankan langsung di server.
+    from app.core.config import get_settings
+
+    if get_settings().app_env == "production":
         print("ditolak: APP_ENV=production tidak boleh diisi data sintetis", file=sys.stderr)
         return 2
 
