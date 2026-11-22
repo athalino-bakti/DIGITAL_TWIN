@@ -51,10 +51,10 @@ describe('menu per peran (FR-12)', () => {
 });
 
 describe('tab Data per peran', () => {
-  const master = ['proyek', 'anggota', 'peran', 'kompleksitas', 'libur'];
+  const master = ['proyek', 'anggota', 'peran', 'task', 'kompleksitas', 'libur'];
 
   it('Kaur/Asman: master data, beban, dan ketersediaan, tanpa impor', () => {
-    expect(tabs(ROLE.kaur_asman)).toEqual(['proyek', 'anggota', 'peran', 'beban', 'perubahan', 'kompleksitas', 'ketersediaan', 'libur']);
+    expect(tabs(ROLE.kaur_asman)).toEqual(['proyek', 'anggota', 'peran', 'task', 'beban', 'perubahan', 'kompleksitas', 'ketersediaan', 'libur']);
   });
 
   it('anggota tim: master data saja', () => {

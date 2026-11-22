@@ -212,6 +212,16 @@ fieldset.field legend { font: var(--text-label); color: var(--color-heading); ma
 .status-pill.workload-waiting { background: rgba(173, 116, 42, .12); color: var(--color-warning); }
 .status-pill.workload-in_progress { background: var(--color-primary-light); color: var(--color-primary); }
 .status-pill.workload-resolved { background: rgba(39, 132, 103, .12); color: var(--color-success); }
+/* Status task D-05 (DIG-163): pill untuk baca, select untuk ubah status cepat. */
+.status-pill.task-in_progress, .status-select.task-in_progress, .status-pill.task-in_qa, .status-select.task-in_qa { background: var(--color-primary-light); color: var(--color-primary); }
+.status-pill.task-blocked, .status-select.task-blocked { background: rgba(190, 80, 90, .12); color: var(--color-danger); }
+.status-pill.task-on_hold, .status-select.task-on_hold { background: rgba(173, 116, 42, .12); color: var(--color-warning); }
+.status-pill.task-done, .status-select.task-done { background: rgba(39, 132, 103, .12); color: var(--color-success); }
+.status-pill.task-dropped, .status-select.task-dropped { background: var(--color-bg); color: var(--color-muted); text-decoration: line-through; }
+.status-select { font: var(--text-body-sm); font-weight: 500; height: 30px; padding: 0 var(--space-3); border: 1px solid transparent; border-radius: var(--radius-pill); background-color: var(--color-bg); color: var(--color-body); cursor: pointer; }
+.status-select:hover { border-color: var(--color-border); }
+.status-select:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+.status-select:disabled { opacity: .6; cursor: progress; }
 .import-summary { padding: var(--space-3) var(--space-4); font: var(--text-body-sm); color: var(--color-body); background: rgba(39, 132, 103, .08); border-radius: var(--radius-control); }
 .import-summary strong { color: var(--color-success); }
 .import-errors { max-height: 280px; overflow: auto; border: 1px solid var(--color-border); border-radius: var(--radius-control); }
