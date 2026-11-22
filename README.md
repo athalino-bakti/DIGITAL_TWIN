@@ -114,6 +114,8 @@ Per tujuan diperiksa DNS, port 443, HTTPS (termasuk sertifikat TLS), lalu kreden
 
 `python -m app.pipeline.run trello` menjalankan satu impor Trello dengan retry, mencatatnya di tabel `import_job`, dan mengirim notifikasi bila gagal. Contoh cron/systemd timer, konfigurasi, dan cara memantau ada di [docs/IMPORT_PIPELINE.md](docs/IMPORT_PIPELINE.md).
 
+Langkah impor dari sisi pengguna (unggah Project Plan, pemetaan list Trello, alias identitas, CSV beban non-proyek) dan tugas admin (akun, kredensial, jadwal, pemantauan) dirangkum di [docs/PANDUAN_IMPOR_DATA.md](docs/PANDUAN_IMPOR_DATA.md).
+
 ### Skema basis data vs Data Dictionary
 
 Dari `backend/`, setelah `alembic upgrade head`:
