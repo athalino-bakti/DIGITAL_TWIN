@@ -4,8 +4,8 @@ Jira: DIG-162 (AC DIG-36). Tabel internal J&C (docs/DATA_CONTRACT.md bagian 7.2)
 tWinner. Satu baris per kolom task yang diubah lewat aplikasi, supaya impor berikutnya tidak
 menimpanya tanpa konfirmasi.
 
-Revision ID: 0021
-Revises: 0020
+Revision ID: 0023
+Revises: 0022
 """
 
 from typing import Sequence, Union
@@ -13,8 +13,8 @@ from typing import Sequence, Union
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "0021"
-down_revision: Union[str, Sequence[str], None] = "0020"
+revision: str = "0023"
+down_revision: Union[str, Sequence[str], None] = "0022"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
