@@ -333,6 +333,16 @@ fieldset.change-effect { padding: var(--space-5); border: 1px solid var(--color-
 .change-effect .radio-row input { width: 16px; height: 16px; padding: 0; }
 @media (max-width: 760px) { .changes-task { width: 100%; } .changes-task-head { padding-left: var(--space-5); padding-right: var(--space-5); } }
 
+/* --- Impor Project Plan (DIG-115) --- */
+.plan-import-form { padding: var(--space-6) var(--space-7); border-bottom: 1px solid var(--color-border); }
+.plan-import-status { padding: var(--space-4) var(--space-7) 0; }
+.plan-import-summary { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-5) var(--space-7); }
+.plan-import-summary .form-alert ul { margin: var(--space-2) 0 0; padding-left: var(--space-6); }
+.plan-import-summary .plan-import-warning { margin: 0; }
+.inline-notice.warning { background: rgba(173, 116, 42, .12); color: var(--color-warning); }
+.plan-import-subtitle { margin: 0; font: var(--text-title); color: var(--color-heading); }
+.plan-import-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-5) var(--space-7); border-top: 1px solid var(--color-border); }
+
 /* --- Process map (DIG-170, DIG-171) --- */
 .pm-toolbar { align-items: flex-start; }
 .pm-date { display: inline-flex; align-items: center; gap: var(--space-3); font: var(--text-label); color: var(--color-heading); }

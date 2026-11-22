@@ -1,11 +1,11 @@
 import { Navigate, NavLink, useParams } from 'react-router-dom';
 import { useAuth } from '../../shared/auth/AuthProvider';
 import { allowed } from '../../shared/auth/permissions';
-import { ModulePlaceholder } from '../../shared/components/ModulePlaceholder';
 import { AvailabilityPanel } from './availability/AvailabilityPanel';
 import { HolidaysPanel } from './availability/HolidaysPanel';
 import { ChangeEventsPanel } from './changes/ChangeEventsPanel';
 import { ComplexityPanel } from './complexity/ComplexityPanel';
+import { ProjectPlanImportPanel } from './imports/ProjectPlanImportPanel';
 import { MyTasksPanel } from './my-tasks/MyTasksPanel';
 import { ProjectsPanel } from './projects/ProjectsPanel';
 import { ResourcesPanel } from './resources/ResourcesPanel';
@@ -32,7 +32,7 @@ export function DataPage() {
     {view === 'kompleksitas' && <ComplexityPanel />}
     {view === 'ketersediaan' && <AvailabilityPanel />}
     {view === 'libur' && <HolidaysPanel />}
-    {view === 'impor' && <ModulePlaceholder title="Impor dataset" description="Unggah Project Plan, ekspor Trello, dan riwayat commit akan tersedia di sini." areas={['Unggah dataset CSV', 'Kualitas data', 'Baris ditolak']} />}
+    {view === 'impor' && <ProjectPlanImportPanel />}
     {view === 'task-saya' && <MyTasksPanel />}
   </>;
 }
