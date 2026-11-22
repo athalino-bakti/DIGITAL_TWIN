@@ -67,6 +67,12 @@ EXPECTED = {
     # Pemantauan job impor terjadwal (DIG-128).
     ("GET", "/import-jobs"): Perm.DATA_QUALITY_READ,
     ("GET", "/import-jobs/{job_id}"): Perm.DATA_QUALITY_READ,
+    # Alias identitas (DIG-24): memuat username dan email anggota, jadi Administrator Data saja.
+    ("GET", "/resource-aliases"): Perm.MASTER_DATA_WRITE,
+    ("GET", "/resource-aliases/unmapped"): Perm.MASTER_DATA_WRITE,
+    ("POST", "/resource-aliases"): Perm.MASTER_DATA_WRITE,
+    ("PATCH", "/resource-aliases/{alias_id}"): Perm.MASTER_DATA_WRITE,
+    ("DELETE", "/resource-aliases/{alias_id}"): Perm.MASTER_DATA_WRITE,
     # Pemetaan list Trello (DIG-120): konfigurasi impor.
     ("GET", "/trello-lists"): Perm.IMPORT_RUN,
     ("PATCH", "/trello-lists/{board_id}/{list_id}"): Perm.IMPORT_RUN,
@@ -199,6 +205,13 @@ CASES = [
     ("anggota_tim", "post", "/overrun-detection", None, False),
     ("admin_data", "post", "/overrun-detection", None, False),
     ("system_analyst", "post", "/overrun-detection", None, True),
+    # DIG-24: alias identitas hanya untuk Administrator Data.
+    ("anggota_tim", "get", "/resource-aliases", None, False),
+    ("system_analyst", "get", "/resource-aliases/unmapped", None, False),
+    ("admin_data", "get", "/resource-aliases/unmapped", None, True),
+    ("kaur_asman", "post", "/resource-aliases", {}, False),
+    ("admin_data", "post", "/resource-aliases", {}, True),
+    ("admin_data", "delete", "/resource-aliases/999999", None, True),
 ]
 
 
