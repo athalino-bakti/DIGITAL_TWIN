@@ -47,6 +47,11 @@ from app.modules.data.event_log_router import router as event_log_router  # noqa
 
 router.include_router(event_log_router)
 
+# Unggah Project Plan CSV/XLSX ke staging (DIG-25) juga di modul terpisah.
+from app.modules.data.project_plan_router import router as project_plan_router  # noqa: E402
+
+router.include_router(project_plan_router)
+
 Db = Annotated[Session, Depends(get_db)]
 ProjectIdPath = Annotated[str, Path(pattern=PROJECT_ID_PATTERN, examples=["PRJ-001"])]
 ComplexityIdPath = Annotated[str, Path(pattern=COMPLEXITY_ID_PATTERN, examples=["CX-M"])]
