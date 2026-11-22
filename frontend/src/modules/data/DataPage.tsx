@@ -10,6 +10,7 @@ import { MyTasksPanel } from './my-tasks/MyTasksPanel';
 import { ProjectsPanel } from './projects/ProjectsPanel';
 import { ResourcesPanel } from './resources/ResourcesPanel';
 import { RolesPanel } from './resources/RolesPanel';
+import { TasksPanel } from './tasks/TasksPanel';
 import { dataViews } from './views';
 import { WorkloadPanel } from './workload/WorkloadPanel';
 
@@ -27,6 +28,7 @@ export function DataPage() {
     {view === 'proyek' && <ProjectsPanel />}
     {view === 'anggota' && <ResourcesPanel />}
     {view === 'peran' && <RolesPanel />}
+    {view === 'task' && <TasksPanel />}
     {view === 'beban' && <WorkloadPanel />}
     {view === 'perubahan' && <ChangeEventsPanel />}
     {view === 'kompleksitas' && <ComplexityPanel />}

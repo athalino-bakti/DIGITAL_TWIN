@@ -7,7 +7,7 @@ import app.modules.data.import_job_models  # noqa: F401  (mendaftarkan import_jo
 import app.modules.data.manual_change_models  # noqa: F401  (mendaftarkan task_manual_change)
 import app.modules.data.models  # noqa: F401  (mendaftarkan D-01 s.d. D-11 ke metadata)
 import app.modules.data.resource_alias_models  # noqa: F401  (mendaftarkan resource_alias)
-import app.modules.data.staging_models  # noqa: F401  (mendaftarkan staging Trello ke metadata)
+import app.modules.data.staging_models  # noqa: F401  (mendaftarkan staging Trello dan Project Plan)
 import app.modules.data.support_models  # noqa: F401  (mendaftarkan tabel pendukung 7.3)
 from app.db.base import Base
 from app.db.session import engine

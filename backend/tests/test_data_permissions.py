@@ -43,6 +43,10 @@ EXPECTED = {
     ("DELETE", "/resources/{resource_id}"): Perm.MASTER_DATA_WRITE,
     ("GET", "/roles"): Perm.MASTER_DATA_READ,
     ("PATCH", "/roles/{role_id}"): Perm.MASTER_DATA_WRITE,
+    # D-05 tasks (DIG-161).
+    ("GET", "/tasks"): Perm.MASTER_DATA_READ,
+    ("GET", "/tasks/{task_id}"): Perm.MASTER_DATA_READ,
+    ("PATCH", "/tasks/{task_id}/status"): Perm.MASTER_DATA_WRITE,
     ("GET", "/availability"): Perm.WORKLOAD_READ_ALL,
     ("POST", "/availability"): Perm.AVAILABILITY_WRITE,
     ("PATCH", "/availability/{availability_id}"): Perm.AVAILABILITY_WRITE,
@@ -73,6 +77,8 @@ EXPECTED = {
     ("POST", "/resource-aliases"): Perm.MASTER_DATA_WRITE,
     ("PATCH", "/resource-aliases/{alias_id}"): Perm.MASTER_DATA_WRITE,
     ("DELETE", "/resource-aliases/{alias_id}"): Perm.MASTER_DATA_WRITE,
+    # Unggah Project Plan ke staging (DIG-25), sama dengan impor lain.
+    ("POST", "/imports/project-plan"): Perm.IMPORT_RUN,
 }
 
 
@@ -181,6 +187,11 @@ CASES = [
     ("system_analyst", "get", "/availability/AVL-999/affected-tasks", None, True),
     ("anggota_tim", "get", "/holidays", None, True),
     ("anggota_tim", "delete", "/holidays/2026-12-25", None, False),
+    # D-05 status task (DIG-161).
+    ("anggota_tim", "get", "/tasks", None, True),
+    ("anggota_tim", "patch", "/tasks/TSK-9999/status", {}, False),
+    ("system_analyst", "patch", "/tasks/TSK-9999/status", {}, False),
+    ("admin_data", "patch", "/tasks/TSK-9999/status", {}, True),
     ("admin_data", "delete", "/holidays/2026-12-25", None, True),
     # D-08: beban non-proyek per orang (DIG-19), input dan impor oleh Administrator Data.
     ("anggota_tim", "get", "/workload-items", None, False),
@@ -192,6 +203,9 @@ CASES = [
     ("admin_data", "delete", "/workload-items/WLI-9999", None, True),
     ("kaur_asman", "post", "/workload-items/import", {"content": "", "dry_run": True}, False),
     ("admin_data", "post", "/workload-items/import", {"content": "", "dry_run": True}, True),
+    ("anggota_tim", "post", "/imports/project-plan", {}, False),
+    ("kaur_asman", "post", "/imports/project-plan", {}, False),
+    ("admin_data", "post", "/imports/project-plan", {}, True),
     # DIG-153: task saya untuk semua yang punya beban sendiri; mencatat hanya anggota tim.
     ("admin_data", "get", "/my-tasks", None, False),
     ("anggota_tim", "get", "/my-tasks", None, True),

@@ -6,8 +6,9 @@ berjalan, menulis ke staging, lalu commit sendiri. `job_id` disediakan untuk kol
 job yang menulisnya. Bila job melempar
 error, runner melakukan rollback dan memutuskan apakah dicoba ulang (`is_transient`).
 
-Saat ini baru sumber Trello lewat API. Project Plan (DIG-25) dan TeamGit (DIG-27) didaftarkan
-di JOBS begitu importernya ada.
+Sumber terjadwal di JOBS: Trello lewat API. Project Plan (DIG-25) tidak punya sumber yang bisa
+ditarik terjadwal; endpoint unggah menjalankan `run_job("project_plan", job_fn=...)` dengan isi
+berkas yang sudah diterima. TeamGit (DIG-27) didaftarkan begitu importernya ada.
 """
 
 from collections.abc import Callable
@@ -72,7 +73,7 @@ def import_trello(
     with client:
         for board in boards:
             parsed = parse_board_export(client.fetch_board_export(board))
-            saved = save_trello_import(db, parsed)
+            saved = save_trello_import(db, parsed, job_id)
             outcome.rows_read += len(parsed.actions)
             outcome.rows_written += saved.inserted
             outcome.details[board] = {
