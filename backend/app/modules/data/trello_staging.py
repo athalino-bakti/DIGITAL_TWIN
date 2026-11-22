@@ -21,12 +21,17 @@ class TrelloSaveSummary:
     lists_seen: int
 
 
-def save_trello_import(db: Session, result: TrelloParseResult) -> TrelloSaveSummary:
+def save_trello_import(
+    db: Session, result: TrelloParseResult, job_id: int | None = None
+) -> TrelloSaveSummary:
     """Tambahkan action baru ke staging dan daftarkan list papan ke trello_list_mapping.
 
     Action yang id-nya sudah ada (ekspor tumpang tindih atau impor ulang lewat API) tidak
     ditimpa: impor pertama yang menang. Untuk list, hanya nama yang diperbarui; status dan
     phase hasil pemetaan (DIG-120) tidak pernah diubah di sini.
+
+    `job_id` (DIG-113) diisikan ke `import_job_id` action yang baru disimpan; action yang sudah
+    ada tetap menunjuk job yang pertama menyimpannya.
     """
     inserted = 0
     if result.actions:
@@ -35,7 +40,8 @@ def save_trello_import(db: Session, result: TrelloParseResult) -> TrelloSaveSumm
             .on_conflict_do_nothing(index_elements=["action_id"])
             .returning(StagingTrelloAction.action_id)
         )
-        inserted = len(db.execute(statement, result.actions).all())
+        rows = [{**action, "import_job_id": job_id} for action in result.actions]
+        inserted = len(db.execute(statement, rows).all())
 
     if result.lists:
         statement = insert(TrelloListMapping).values(
