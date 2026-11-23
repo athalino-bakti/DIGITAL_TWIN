@@ -52,6 +52,11 @@ from app.modules.data.project_plan_router import router as project_plan_router  
 
 router.include_router(project_plan_router)
 
+# Laporan kualitas data dan baris ditolak per impor (DIG-146) juga di modul terpisah.
+from app.modules.data.quality_router import router as quality_router  # noqa: E402
+
+router.include_router(quality_router)
+
 Db = Annotated[Session, Depends(get_db)]
 ProjectIdPath = Annotated[str, Path(pattern=PROJECT_ID_PATTERN, examples=["PRJ-001"])]
 ComplexityIdPath = Annotated[str, Path(pattern=COMPLEXITY_ID_PATTERN, examples=["CX-M"])]
