@@ -57,6 +57,11 @@ from app.modules.data.audit_router import router as audit_router  # noqa: E402
 
 router.include_router(audit_router)
 
+# ETL staging ke tabel final (DIG-29) juga di modul terpisah.
+from app.modules.data.etl_router import router as etl_router  # noqa: E402
+
+router.include_router(etl_router)
+
 Db = Annotated[Session, Depends(get_db)]
 ProjectIdPath = Annotated[str, Path(pattern=PROJECT_ID_PATTERN, examples=["PRJ-001"])]
 ComplexityIdPath = Annotated[str, Path(pattern=COMPLEXITY_ID_PATTERN, examples=["CX-M"])]
