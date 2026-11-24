@@ -82,6 +82,11 @@ EXPECTED = {
     # Pemetaan list Trello (DIG-120): konfigurasi impor.
     ("GET", "/trello-lists"): Perm.IMPORT_RUN,
     ("PATCH", "/trello-lists/{board_id}/{list_id}"): Perm.IMPORT_RUN,
+    # Laporan kualitas data dan baris ditolak per impor (DIG-146).
+    ("GET", "/quality/summary"): Perm.DATA_QUALITY_READ,
+    ("GET", "/quality/summary.csv"): Perm.DATA_QUALITY_READ,
+    ("GET", "/quality/rejected-rows"): Perm.DATA_QUALITY_READ,
+    ("GET", "/quality/rejected-rows.csv"): Perm.DATA_QUALITY_READ,
 }
 
 
