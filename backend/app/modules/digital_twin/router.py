@@ -1,14 +1,16 @@
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.modules.auth.dependencies import require_permission
+from app.modules.auth import service as auth_service
+from app.modules.auth.dependencies import FORBIDDEN, CurrentUser, require_permission
 from app.modules.auth.permissions import Perm
-from app.modules.data.enums import PROJECT_ID_PATTERN, RESOURCE_ID_PATTERN
-from app.modules.digital_twin import summary_service, timeline_service
+from app.modules.data.enums import PROJECT_ID_PATTERN, RESOURCE_ID_PATTERN, ROLE_ID_PATTERN
+from app.modules.digital_twin import heatmap_service, summary_service, timeline_service
+from app.modules.digital_twin.heatmap_schemas import WorkloadHeatmap
 from app.modules.digital_twin.summary_schemas import BaselineSummary
 from app.modules.digital_twin.timeline_schemas import TimelineResponse
 
@@ -50,3 +52,43 @@ def summary(
     """Proyek aktif, proyek lewat target, resource overload (menunggu RLI), dan resource
     multi-role. Aturan tiap kartu ada di `summary_service`."""
     return summary_service.build_summary(db, as_of or date.today())
+
+
+@router.get(
+    "/workload-heatmap",
+    response_model=WorkloadHeatmap,
+    responses={403: {"description": "Tanpa izin workload:read_all maupun workload:read_own"}},
+    summary="Heatmap Resource Load Index per anggota per minggu (DIG-188)",
+)
+def workload_heatmap(
+    db: Db,
+    user: CurrentUser,
+    start: Annotated[
+        date | None, Query(description="Tanggal di minggu pertama, dibulatkan ke Senin")
+    ] = None,
+    weeks: Annotated[
+        int, Query(ge=1, le=heatmap_service.MAX_WEEKS)
+    ] = heatmap_service.DEFAULT_WEEKS,
+    role_id: Annotated[str | None, Query(pattern=ROLE_ID_PATTERN)] = None,
+    project_id: Annotated[str | None, Query(pattern=PROJECT_ID_PATTERN)] = None,
+    resource_id: Annotated[str | None, Query(pattern=RESOURCE_ID_PATTERN)] = None,
+    as_of: Annotated[
+        date | None, Query(description="Tanggal acuan task terbuka, bawaan hari ini")
+    ] = None,
+) -> WorkloadHeatmap:
+    """Pemegang `workload:read_all` melihat semua anggota. Pemegang `workload:read_own` saja
+    hanya melihat anggota yang tertaut ke akunnya; filter `role_id` dan `resource_id` diabaikan.
+    Formula RLI masih provisional (`formula_version`)."""
+    today = date.today()
+    as_of = as_of or today
+    start = start or heatmap_service.default_start(today)
+    permissions = auth_service.get_user_permissions(db, user.user_id)
+    if Perm.WORKLOAD_READ_ALL not in permissions:
+        if Perm.WORKLOAD_READ_OWN not in permissions:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, detail=FORBIDDEN)
+        if user.resource_id is None:
+            return heatmap_service.empty_heatmap(db, start, weeks, as_of)
+        role_id, resource_id = None, user.resource_id
+    return heatmap_service.build_heatmap(
+        db, start, weeks, as_of, role_id=role_id, project_id=project_id, resource_id=resource_id
+    )

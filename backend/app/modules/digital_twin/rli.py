@@ -209,6 +209,12 @@ def is_overloaded(cell: Cell) -> bool:
 # --- baca basis data -------------------------------------------------------------------
 
 
+def load_holidays(db: Session, first: date, last: date) -> set[date]:
+    return set(
+        db.scalars(select(Holiday.holiday_date).where(Holiday.holiday_date.between(first, last)))
+    )
+
+
 def load_inputs(
     db: Session,
     first: date,
@@ -233,14 +239,11 @@ def load_inputs(
         Member(r.resource_id, r.resource_name, r.primary_role_id, capacity, r.join_date)
         for r, capacity in db.execute(query)
     ]
-    inputs = Inputs(members)
+    inputs = Inputs(members, holidays=load_holidays(db, first, last))
     ids = [m.resource_id for m in members]
     if not ids:
         return inputs
 
-    inputs.holidays = set(
-        db.scalars(select(Holiday.holiday_date).where(Holiday.holiday_date.between(first, last)))
-    )
     for row in db.execute(
         select(Availability.resource_id, Availability.date_start, Availability.date_end).where(
             Availability.resource_id.in_(ids),
