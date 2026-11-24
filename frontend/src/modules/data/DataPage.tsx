@@ -9,6 +9,7 @@ import { ComplexityPanel } from './complexity/ComplexityPanel';
 import { ProjectPlanImportPanel } from './imports/ProjectPlanImportPanel';
 import { MyTasksPanel } from './my-tasks/MyTasksPanel';
 import { ProjectsPanel } from './projects/ProjectsPanel';
+import { QualityPanel } from './quality/QualityPanel';
 import { TrelloListsPanel } from './trello-lists/TrelloListsPanel';
 import { ResourcesPanel } from './resources/ResourcesPanel';
 import { RolesPanel } from './resources/RolesPanel';
@@ -36,6 +37,7 @@ export function DataPage() {
     {view === 'kompleksitas' && <ComplexityPanel />}
     {view === 'ketersediaan' && <AvailabilityPanel />}
     {view === 'libur' && <HolidaysPanel />}
+    {view === 'kualitas' && <QualityPanel />}
     {view === 'impor' && <ProjectPlanImportPanel />}
     {view === 'alias' && <AliasesPanel />}
     {view === 'trello' && <TrelloListsPanel />}

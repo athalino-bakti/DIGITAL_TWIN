@@ -5,10 +5,12 @@ Dari folder backend:
     python -m app.modules.data.quality.run --final-sources <folder> --as-of 2026-11-06
     python -m app.modules.data.quality.run --workbook <berkas.xlsx> --out <folder>
     python -m app.modules.data.quality.run --database --trello --currentness --as-of 2026-11-06
+    python -m app.modules.data.quality.run --trello --job-id 42
 
 Mencetak ringkasan per aturan, skor completeness, dan currentness. `--out` menulis
 temuan.csv, ringkasan.csv, baris_ditolak.csv, kelengkapan.csv, dan currentness.csv.
-Validator hanya membaca; basis data dipakai lewat DATABASE_URL tanpa ditulis.
+Validator hanya membaca, kecuali dengan `--job-id`: hasilnya disimpan ke data_quality_result
+dan rejected_row untuk import_job itu (DIG-145), menggantikan hasil sebelumnya.
 """
 
 import argparse
@@ -110,6 +112,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--as-of", type=date.fromisoformat, default=date.today())
     parser.add_argument("--source", help="nama sumber pada temuan (bawaan: jenis sasaran)")
     parser.add_argument("--out", type=Path, help="folder keluaran CSV")
+    parser.add_argument("--job-id", type=int, help="simpan hasil untuk import_job ini (DIG-145)")
     args = parser.parse_args(argv)
     if not (
         args.final_sources or args.workbook or args.database or args.trello or args.currentness
@@ -138,6 +141,14 @@ def main(argv: list[str] | None = None) -> int:
 
     report = merge(reports)
     print_report(report)
+    if args.job_id is not None:
+        from app.db.session import SessionLocal
+        from app.modules.data.quality.store import save_report
+
+        with SessionLocal() as db:
+            saved = save_report(db, args.job_id, report)
+            db.commit()
+        print(f"Disimpan untuk job {args.job_id}: {saved[0]} aturan, {saved[1]} temuan")
     if args.out:
         write_outputs(report, args.out)
         print(f"Keluaran ditulis ke {args.out}")

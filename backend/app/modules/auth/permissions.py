@@ -78,6 +78,7 @@ ROLES: dict[str, tuple[str, str, frozenset[Perm]]] = {
                 Perm.CHANGE_EVENT_WRITE,
                 Perm.AVAILABILITY_WRITE,
                 Perm.DATA_QUALITY_READ,
+                Perm.EVENT_LOG_EXPORT,
             }
         ),
     ),

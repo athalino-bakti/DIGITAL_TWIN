@@ -52,6 +52,11 @@ from app.modules.data.project_plan_router import router as project_plan_router  
 
 router.include_router(project_plan_router)
 
+# Laporan kualitas data dan baris ditolak per impor (DIG-146) juga di modul terpisah.
+from app.modules.data.quality_router import router as quality_router  # noqa: E402
+
+router.include_router(quality_router)
+
 # Jejak audit perubahan final sources (DIG-222) juga di modul terpisah.
 from app.modules.data.audit_router import router as audit_router  # noqa: E402
 

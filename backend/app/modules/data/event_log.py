@@ -35,8 +35,9 @@ from sqlalchemy.orm import Session
 
 from app.modules.data.enums import ChangeEventType
 from app.modules.data.event_log_models import EventLogEntry
-from app.modules.data.models import ChangeEvent, Task
+from app.modules.data.models import ChangeEvent, Resource, Task
 from app.modules.data.staging_models import StagingTrelloAction, TrelloListMapping
+from app.modules.data.xes import XesEvent
 
 WIB = timezone(timedelta(hours=7))
 _TASK_CODE = re.compile(r"^(TSK-[0-9]{4,})\b")
@@ -259,3 +260,40 @@ def list_event_log(
     if date_to is not None:
         query = query.where(EventLogEntry.event_time < day_start(date_to + timedelta(1)))
     return list(db.scalars(query))
+
+
+def xes_events(
+    db: Session,
+    project_id: str | None = None,
+    case_id: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+) -> list[XesEvent]:
+    """Event untuk ekspor XES (DIG-173), urut per case; org:role = peran utama anggota."""
+    # shortcut: baris dibaca sekaligus, hanya penulisan XML yang bertahap; pakai yield_per bila
+    # event_log melewati ratusan ribu baris.
+    entries = list_event_log(db, project_id, case_id, date_from, date_to)
+    ids = {e.resource_id for e in entries if e.resource_id}
+    roles = dict(
+        db.execute(
+            select(Resource.resource_id, Resource.primary_role_id).where(
+                Resource.resource_id.in_(ids)
+            )
+        ).all()
+    )
+    return [
+        XesEvent(
+            case_id=e.case_id,
+            activity=e.activity,
+            event_time=e.event_time,
+            project_id=e.project_id,
+            activity_kind=e.activity_kind,
+            resource_id=e.resource_id,
+            actor_name=e.actor_name,
+            role_id=roles.get(e.resource_id),
+            source=e.source,
+            source_ref=e.source_ref,
+            event_id=e.event_id,
+        )
+        for e in entries
+    ]
