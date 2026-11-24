@@ -58,11 +58,12 @@ export function HeatmapPanel() {
   const data = load.state === 'ready' ? load.data : null;
   const rows = useMemo(() => (data ? visibleRows(data.rows, data.categories, overloadOnly) : []), [data, overloadOnly]);
   const picked: { row: HeatmapRow; cell: HeatmapCell } | null = useMemo(() => {
-    if (!data || !selected) return null;
-    const row = data.rows.find((r) => r.resource_id === selected.resourceId);
+    // Hanya dari baris yang tampil: rincian hilang bila barisnya tersaring "Overload saja".
+    if (!selected) return null;
+    const row = rows.find((r) => r.resource_id === selected.resourceId);
     const cell = row && cellAt(row, selected.weekStart);
     return row && cell ? { row, cell } : null;
-  }, [data, selected]);
+  }, [rows, selected]);
 
   return (
     <section className="module-panel" aria-labelledby="heatmap-title">
