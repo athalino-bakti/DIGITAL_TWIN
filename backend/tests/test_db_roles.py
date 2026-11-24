@@ -18,6 +18,8 @@ from sqlalchemy.exc import ProgrammingError
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 TEST_DB_URL = os.getenv("MIGRATION_TEST_DATABASE_URL")
 DML = ("SELECT", "INSERT", "UPDATE", "DELETE")
+# Tabel yang sengaja hanya boleh dibaca dan ditambah oleh aplikasi (jejak audit DIG-222).
+APPEND_ONLY = {"audit_log": ("SELECT", "INSERT")}
 
 pytestmark = [
     pytest.mark.migration,
@@ -133,7 +135,7 @@ def test_jc_app_has_dml_on_every_final_source_table(migrated):
     missing = [
         f"{table}.{privilege}"
         for table in tables
-        for privilege in DML
+        for privilege in APPEND_ONLY.get(table, DML)
         if not scalar(
             migrated,
             "SELECT has_table_privilege('jc_app', :t, :p)",
@@ -151,6 +153,22 @@ def test_jc_app_can_actually_read_and_write_rows(migrated):
         "UPDATE holidays SET holiday_name = 'Hari Natal' WHERE holiday_date = '2026-12-25';"
         "SELECT count(*) FROM projects;"
         "DELETE FROM holidays WHERE holiday_date = '2026-12-25'",
+    )
+
+
+def test_audit_log_is_append_only_for_jc_app(migrated):
+    as_jc_app(
+        migrated,
+        "INSERT INTO audit_log (actor_label, action, entity, entity_id, source, after) "
+        "VALUES ('sistem', 'insert', 'holidays', '2026-12-25', 'form', '{}');"
+        "SELECT count(*) FROM audit_log",
+    )
+    for sql in ("UPDATE audit_log SET note = 'ubah'", "DELETE FROM audit_log"):
+        with pytest.raises(ProgrammingError, match="permission denied"):
+            as_jc_app(migrated, sql)
+    assert (
+        scalar(migrated, "SELECT has_table_privilege('jc_app', 'public.audit_log', 'TRUNCATE')")
+        is False
     )
 
 

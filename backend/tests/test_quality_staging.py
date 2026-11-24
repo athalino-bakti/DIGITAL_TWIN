@@ -47,7 +47,7 @@ def test_DQ_TRL_001_card_with_task_or_workload_code_passes(name):
 # Tabel yang merujuk import_job ikut dikosongkan, karena TRUNCATE menolak tabel yang dirujuk FK.
 CLEAR_JOBS = (
     "TRUNCATE staging_trello_action, staging_project_plan, data_quality_result, rejected_row, "
-    "import_job"
+    "audit_log, import_job"
 )
 ACTION = (
     "INSERT INTO staging_trello_action (action_id, action_type, action_date, board_id, card_id, "
