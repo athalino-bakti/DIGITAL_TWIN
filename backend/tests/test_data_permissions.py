@@ -82,6 +82,8 @@ EXPECTED = {
     ("POST", "/imports/project-plan"): Perm.IMPORT_RUN,
     # Jejak audit (DIG-222): bagian traceability laporan kualitas data.
     ("GET", "/audit-log"): Perm.DATA_QUALITY_READ,
+    # Ekspor 11 CSV final sources untuk tWinner (DIG-193).
+    ("GET", "/final-sources.zip"): Perm.DATA_QUALITY_READ,
     # Pemetaan list Trello (DIG-120): konfigurasi impor.
     ("GET", "/trello-lists"): Perm.IMPORT_RUN,
     ("PATCH", "/trello-lists/{board_id}/{list_id}"): Perm.IMPORT_RUN,

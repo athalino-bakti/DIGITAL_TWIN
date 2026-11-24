@@ -62,6 +62,11 @@ from app.modules.data.audit_router import router as audit_router  # noqa: E402
 
 router.include_router(audit_router)
 
+# Ekspor 11 CSV final sources untuk tWinner (DIG-193) juga di modul terpisah.
+from app.modules.data.final_sources_export import router as final_sources_router  # noqa: E402
+
+router.include_router(final_sources_router)
+
 Db = Annotated[Session, Depends(get_db)]
 ProjectIdPath = Annotated[str, Path(pattern=PROJECT_ID_PATTERN, examples=["PRJ-001"])]
 ComplexityIdPath = Annotated[str, Path(pattern=COMPLEXITY_ID_PATTERN, examples=["CX-M"])]
