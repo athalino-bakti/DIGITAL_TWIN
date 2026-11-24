@@ -1,6 +1,7 @@
 import { Navigate, NavLink, useParams } from 'react-router-dom';
 import { useAuth } from '../../shared/auth/AuthProvider';
 import { allowed } from '../../shared/auth/permissions';
+import { AliasesPanel } from './aliases/AliasesPanel';
 import { AvailabilityPanel } from './availability/AvailabilityPanel';
 import { HolidaysPanel } from './availability/HolidaysPanel';
 import { ChangeEventsPanel } from './changes/ChangeEventsPanel';
@@ -8,8 +9,10 @@ import { ComplexityPanel } from './complexity/ComplexityPanel';
 import { ProjectPlanImportPanel } from './imports/ProjectPlanImportPanel';
 import { MyTasksPanel } from './my-tasks/MyTasksPanel';
 import { ProjectsPanel } from './projects/ProjectsPanel';
+import { TrelloListsPanel } from './trello-lists/TrelloListsPanel';
 import { ResourcesPanel } from './resources/ResourcesPanel';
 import { RolesPanel } from './resources/RolesPanel';
+import { TasksPanel } from './tasks/TasksPanel';
 import { dataViews } from './views';
 import { WorkloadPanel } from './workload/WorkloadPanel';
 
@@ -27,12 +30,15 @@ export function DataPage() {
     {view === 'proyek' && <ProjectsPanel />}
     {view === 'anggota' && <ResourcesPanel />}
     {view === 'peran' && <RolesPanel />}
+    {view === 'task' && <TasksPanel />}
     {view === 'beban' && <WorkloadPanel />}
     {view === 'perubahan' && <ChangeEventsPanel />}
     {view === 'kompleksitas' && <ComplexityPanel />}
     {view === 'ketersediaan' && <AvailabilityPanel />}
     {view === 'libur' && <HolidaysPanel />}
     {view === 'impor' && <ProjectPlanImportPanel />}
+    {view === 'alias' && <AliasesPanel />}
+    {view === 'trello' && <TrelloListsPanel />}
     {view === 'task-saya' && <MyTasksPanel />}
   </>;
 }
