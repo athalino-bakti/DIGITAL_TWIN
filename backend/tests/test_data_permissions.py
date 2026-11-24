@@ -207,6 +207,9 @@ CASES = [
     ("admin_data", "get", "/workload-items", None, False),
     ("kaur_asman", "get", "/workload-items", None, True),
     ("system_analyst", "get", "/workload-items", None, True),
+    # Ekspor event log untuk System Analyst (DIG-39); anggota tim tetap ditolak.
+    ("system_analyst", "get", "/event-log", None, True),
+    ("anggota_tim", "get", "/event-log", None, False),
     ("system_analyst", "post", "/workload-items", {}, False),
     ("admin_data", "post", "/workload-items", {}, True),
     ("admin_data", "delete", "/workload-items/WLI-9999", None, True),
