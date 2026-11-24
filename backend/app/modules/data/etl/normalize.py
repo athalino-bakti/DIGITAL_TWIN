@@ -46,11 +46,13 @@ PHASE_BY_ROLE: dict[str, TaskPhase] = {
     "ROLE-TW": TaskPhase.DOCUMENTATION,
 }
 
-# Asumsi (keputusan Davi 24 Nov): Project Plan tidak membawa tipe dependensi, jadi bawaannya hard.
+# Kolom Bergantung Pada berisi "TSK-0001 (hard); TSK-0002 (soft)" (templat PuTI). Tipe yang tidak
+# ditulis dianggap hard (keputusan Davi 24 Nov).
 DEFAULT_DEPENDENCY = "hard"
 PROPAGATION = {"hard": "1.0", "soft": "0.3"}  # AC DIG-29: bila propagation_factor kosong
 
 _SPLIT = re.compile(r"[;,]")
+_DEPENDENCY = re.compile(r"^(?P<code>[^()\s]+)\s*(?:\((?P<type>[^()]*)\))?$")
 _DECIMAL = re.compile(r"^[0-9]+([.,][0-9]+)?$")
 _INTEGER = re.compile(r"^[0-9]+$")
 
@@ -75,6 +77,7 @@ class PlanRow:
     project_id: str
     values: Mapping[str, str | None]
     imported_at: datetime
+    file_name: str = ""
 
 
 @dataclass(frozen=True)
@@ -108,18 +111,20 @@ def _text(value: str | None) -> str:
     return (value or "").strip()
 
 
-def normalize_date(value: str | None) -> tuple[str, str | None]:
+def normalize_date(value: str | None, xlsx: bool = False) -> tuple[str, str | None]:
     """(tanggal ISO atau "", pesan masalah atau None).
 
-    Project Plan CSV memakai dd/mm/yyyy; unggahan XLSX menulis sel bertipe tanggal sebagai ISO
-    (IMPORT_PIPELINE.md). Keduanya dibaca ketat dengan `parse_date` milik validator DIG-141.
+    Project Plan memakai dd/mm/yyyy (validator DIG-141). Hanya untuk berkas XLSX, ISO juga
+    diterima karena unggahan menulis sel bertipe tanggal sebagai ISO (IMPORT_PIPELINE.md). ISO di
+    berkas CSV tetap ditolak, sama dengan validator.
     """
     text = _text(value)
     if not text:
         return "", None
-    parsed = parse_date(text, PLAN) or parse_date(text, ISO)
+    parsed = parse_date(text, PLAN) or (parse_date(text, ISO) if xlsx else None)
     if parsed is None:
-        return "", f"Tanggal '{text}' tidak berformat dd/mm/yyyy atau YYYY-MM-DD"
+        expected = "dd/mm/yyyy atau YYYY-MM-DD" if xlsx else "dd/mm/yyyy"
+        return "", f"Tanggal '{text}' tidak berformat {expected}"
     return parsed.isoformat(), None
 
 
@@ -172,14 +177,29 @@ def label_index(pairs: Iterable[tuple[str, str]]) -> dict[str, str]:
     return index
 
 
-def split_codes(value: str | None) -> list[str]:
-    """Kode task di kolom Bergantung Pada, dipisah ';' atau ','; urutan dipertahankan."""
-    codes: list[str] = []
+def split_dependencies(value: str | None) -> list[tuple[str, str, str | None]]:
+    """[(kode task, tipe, pesan masalah atau None)] dari kolom Bergantung Pada.
+
+    Dipisah ';' atau ','; urutan dipertahankan dan kode ganda dibuang. Tipe tanpa tulisan menjadi
+    hard; tipe yang bukan hard/soft dilaporkan dan dikosongkan agar ditolak validator.
+    """
+    found: list[tuple[str, str, str | None]] = []
+    seen: set[str] = set()
     for part in _SPLIT.split(_text(value)):
-        code = part.strip()
-        if code and code not in codes:
-            codes.append(code)
-    return codes
+        part = part.strip()
+        if not part:
+            continue
+        match = _DEPENDENCY.fullmatch(part)
+        if match is None:
+            found.append((part, "", f"Dependensi '{part}' tidak terbaca"))
+            continue
+        code, kind = match["code"], (match["type"] or "").strip().lower() or DEFAULT_DEPENDENCY
+        if code in seen:
+            continue
+        seen.add(code)
+        problem = None if kind in PROPAGATION else f"Tipe dependensi '{kind}' tidak dikenal"
+        found.append((code, kind if problem is None else "", problem))
+    return found
 
 
 def card_states(
@@ -238,6 +258,11 @@ def build_candidates(
                             _text(value), message)
                 )  # fmt: skip
 
+        xlsx = row.file_name.lower().endswith(".xlsx")
+
+        def read_date(value: str | None) -> tuple[str, str | None]:
+            return normalize_date(value, xlsx)
+
         checks = [
             ("required_role_id", "role_label", lambda v: lookup(v, roles, "Peran")),
             (
@@ -247,10 +272,10 @@ def build_candidates(
             ),
             ("priority_rank", "priority", normalize_integer),
             ("estimated_days", "estimated_days", normalize_decimal),
-            ("planned_start", "planned_start", normalize_date),
-            ("planned_finish", "planned_finish", normalize_date),
-            ("actual_start", "actual_start", normalize_date),
-            ("actual_finish", "actual_finish", normalize_date),
+            ("planned_start", "planned_start", read_date),
+            ("planned_finish", "planned_finish", read_date),
+            ("actual_start", "actual_start", read_date),
+            ("actual_finish", "actual_finish", read_date),
             ("status", "status_label", normalize_status),
         ]
         for column, staging_column, normalize in checks:
@@ -274,7 +299,8 @@ def build_candidates(
         values["dod_fulfilled"] = "false"  # tidak ada sumber; diisi lewat aplikasi
         result.tables["tasks"].append(SourceRow(row.row_number, task_id or None, values))
 
-        for depends_on in split_codes(raw.get("depends_on")):
+        for depends_on, kind, message in split_dependencies(raw.get("depends_on")):
+            report("task_dependencies", depends_on, message)
             result.tables["task_dependencies"].append(
                 SourceRow(
                     row.row_number,
@@ -283,8 +309,8 @@ def build_candidates(
                         "dependency_id": "",
                         "task_id": task_id,
                         "depends_on_task_id": depends_on,
-                        "dependency_type": DEFAULT_DEPENDENCY,
-                        "propagation_factor": PROPAGATION[DEFAULT_DEPENDENCY],
+                        "dependency_type": kind,
+                        "propagation_factor": PROPAGATION.get(kind, ""),
                     },
                 )
             )

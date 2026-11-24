@@ -113,7 +113,13 @@ def read_plan(db: Session, job_id: int) -> list[PlanRow]:
         .order_by(StagingProjectPlan.row_number)
     )
     return [
-        PlanRow(r.row_number, r.project_id, {c: getattr(r, c) for c in PLAN_COLUMNS}, r.imported_at)
+        PlanRow(
+            r.row_number,
+            r.project_id,
+            {c: getattr(r, c) for c in PLAN_COLUMNS},
+            r.imported_at,
+            r.file_name,
+        )
         for r in rows
     ]
 

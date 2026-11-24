@@ -18,7 +18,7 @@ from app.modules.data.etl.normalize import (
     normalize_decimal,
     normalize_integer,
     normalize_status,
-    split_codes,
+    split_dependencies,
 )
 
 ROLES = label_index([("ROLE-BE", "Back End Developer"), ("ROLE-FE", "Front End Developer"),
@@ -28,24 +28,25 @@ IMPORTED = datetime(2026, 11, 6, 3, 0, tzinfo=UTC)
 
 
 @pytest.mark.parametrize(
-    ("value", "expected"),
+    ("value", "xlsx", "expected"),
     [
-        ("05/10/2026", ("2026-10-05", None)),  # Project Plan CSV
-        ("2026-10-05", ("2026-10-05", None)),  # sel tanggal XLSX
-        (" 05/10/2026 ", ("2026-10-05", None)),
-        ("", ("", None)),
-        (None, ("", None)),
+        ("05/10/2026", False, ("2026-10-05", None)),  # Project Plan CSV
+        ("2026-10-05", True, ("2026-10-05", None)),  # sel tanggal XLSX
+        ("2026-10-05", False, ("", "Tanggal '2026-10-05' tidak berformat dd/mm/yyyy")),
+        (" 05/10/2026 ", False, ("2026-10-05", None)),
+        ("", False, ("", None)),
+        (None, True, ("", None)),
     ],
 )
-def test_dates_in_plan_or_iso_format(value, expected):
-    assert normalize_date(value) == expected
+def test_dates_in_plan_or_iso_format(value, xlsx, expected):
+    assert normalize_date(value, xlsx) == expected
 
 
 @pytest.mark.parametrize(
     "value", ["5/10/2026", "2026/10/05", "5 Okt 2026", "31/02/2026", "11/9/26"]
 )
 def test_ambiguous_or_invalid_dates_are_reported(value):
-    normalized, message = normalize_date(value)
+    normalized, message = normalize_date(value, xlsx=True)
     assert normalized == "" and message and value.strip() in message
 
 
@@ -106,9 +107,20 @@ def test_numbers(normalize, value, expected):
     assert normalize(value) == expected
 
 
-def test_split_codes():
-    assert split_codes("TSK-0001; TSK-0002,TSK-0001 ;") == ["TSK-0001", "TSK-0002"]
-    assert split_codes(None) == []
+def test_dependencies_with_type_from_the_template():
+    assert split_dependencies("TSK-0001 (hard); TSK-0002 (Soft),TSK-0001 (soft) ;") == [
+        ("TSK-0001", "hard", None),
+        ("TSK-0002", "soft", None),
+    ]
+    assert split_dependencies("TSK-0003") == [("TSK-0003", "hard", None)]  # tanpa tipe: hard
+    assert split_dependencies(None) == []
+
+
+def test_unknown_dependency_type_or_text_is_reported():
+    assert split_dependencies("TSK-0001 (wajib); setelah rapat") == [
+        ("TSK-0001", "", "Tipe dependensi 'wajib' tidak dikenal"),
+        ("setelah rapat", "", "Dependensi 'setelah rapat' tidak terbaca"),
+    ]
 
 
 def move(card, list_id, hour):
@@ -148,7 +160,7 @@ def plan_row(number=2, **overrides) -> PlanRow:
         "actual_start": "02/11/2026",
         "actual_finish": "",
         "status_label": "Dikerjakan",
-        "depends_on": "TSK-0002; TSK-0003",
+        "depends_on": "TSK-0002 (hard); TSK-0003 (soft)",
         "notes": "",
     } | overrides
     return PlanRow(number, "PRJ-001", values, IMPORTED)
@@ -181,8 +193,11 @@ def test_plan_row_becomes_task_dependency_and_assignment_candidates():
         "TSK-0002",
         "TSK-0003",
     ]
-    dependency = result.tables["task_dependencies"][0].values
-    assert (dependency["dependency_type"], dependency["propagation_factor"]) == ("hard", "1.0")
+    types = [
+        (d.values["dependency_type"], d.values["propagation_factor"])
+        for d in result.tables["task_dependencies"]
+    ]
+    assert types == [("hard", "1.0"), ("soft", "0.3")]
     (assignment,) = result.tables["assignments"]
     assert (assignment.values["pic"], assignment.values["resource_id"]) == ("sari", "")
     assert assignment.values["assigned_date"] == "2026-11-02"
