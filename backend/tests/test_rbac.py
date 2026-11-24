@@ -235,8 +235,8 @@ ACCESS_CASES = [
     ("system_analyst", "/probe/change-events", "post", True),
     ("system_analyst", "/probe/availability", "post", True),
     ("system_analyst", "/probe/master-data", "post", False),
-    # FR-07: ekspor event log hanya Administrator Data.
-    ("system_analyst", "/probe/event-log", "get", False),
+    # FR-07: ekspor event log untuk Administrator Data dan System Analyst (DIG-39).
+    ("system_analyst", "/probe/event-log", "get", True),
     ("admin_data", "/probe/event-log", "get", True),
     ("admin_data", "/probe/master-data", "post", True),
     # Pengelolaan akun milik Admin IT, bukan Administrator Data.

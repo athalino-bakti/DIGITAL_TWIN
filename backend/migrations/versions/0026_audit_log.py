@@ -3,11 +3,10 @@
 Jira: DIG-222 (story DIG-32). Tabel internal J&C (docs/DATA_CONTRACT.md bagian 7.2 dan 8), tidak
 dibaca tWinner. Append-only bagi aplikasi: role jc_app hanya SELECT dan INSERT.
 
-Nomor 0026 karena 0024 (#53) dan 0025 (#57) masih terbuka. Sementara menyambung ke 0023; sambung
-ulang `down_revision` ke head main setiap kali #53 atau #57 merge.
+Menyambung ke 0025 (#57), head main setelah #53 dan #57 merge.
 
 Revision ID: 0026
-Revises: 0023
+Revises: 0025
 """
 
 from typing import Sequence, Union
@@ -17,7 +16,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "0026"
-down_revision: Union[str, Sequence[str], None] = "0023"
+down_revision: Union[str, Sequence[str], None] = "0025"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
