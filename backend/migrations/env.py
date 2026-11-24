@@ -4,6 +4,7 @@ import app.modules.auth.models  # noqa: F401  (mendaftarkan app_user ke metadata
 import app.modules.auth.rbac_models  # noqa: F401  (mendaftarkan tabel RBAC ke metadata)
 import app.modules.data.event_log_models  # noqa: F401  (mendaftarkan event_log ke metadata)
 import app.modules.data.import_job_models  # noqa: F401  (mendaftarkan import_job ke metadata)
+import app.modules.data.manual_change_models  # noqa: F401  (mendaftarkan task_manual_change)
 import app.modules.data.models  # noqa: F401  (mendaftarkan D-01 s.d. D-11 ke metadata)
 import app.modules.data.resource_alias_models  # noqa: F401  (mendaftarkan resource_alias)
 import app.modules.data.staging_models  # noqa: F401  (mendaftarkan staging Trello dan Project Plan)
