@@ -1,5 +1,8 @@
 """DIG-146: ringkasan kualitas data per impor, baris ditolak, dan unduh CSV."""
 
+import csv
+import io
+
 import pytest
 from sqlalchemy import text
 
@@ -122,6 +125,32 @@ def test_csv_downloads(client, job_id):
         "utf-8-sig"
     )
     assert summary.splitlines()[1] == "DQ-TSK-001,tasks,completeness,tolak,40,1,0.975"
+
+
+def test_csv_cells_cannot_start_a_formula(client, session_factory):
+    values = ['=HYPERLINK("http://x")', "+1", "-2", "@SUM(A1)", "\tTAB", "\rCR"]
+    report = Report(
+        "project_plan",
+        findings=[
+            Finding("DQ-TSK-009", "consistency", "tolak", "project_plan", "tasks", 10 + i,
+                    value, "planned_finish", value, value)
+            for i, value in enumerate(values)
+        ],
+        summaries=[RuleSummary("=DQ", "project_plan", "tasks", "consistency", "tolak", "x", 40, 6)],
+    )  # fmt: skip
+    with session_factory() as db:
+        db.execute(text(CLEAR_JOBS))
+        job = add_job(db)
+        save_report(db, job, report)
+        db.commit()
+    body = client.get(f"{URL}/rejected-rows.csv", params={"job_id": job}).content
+    rows = list(csv.DictReader(io.StringIO(body.decode("utf-8-sig"), newline="")))
+    assert [(r["row_key"], r["value"], r["message"]) for r in rows] == [
+        ("'" + v, "'" + v, "'" + v) for v in values
+    ]
+    assert rows[0]["row_number"] == "10"  # angka tidak diberi awalan
+    summary = client.get(f"{URL}/summary.csv", params={"job_id": job}).content.decode("utf-8-sig")
+    assert summary.splitlines()[1].startswith("'=DQ,tasks,")
 
 
 @pytest.mark.parametrize(("role", "code"), [("system_analyst", 200), ("anggota_tim", 403)])
