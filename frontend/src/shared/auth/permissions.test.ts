@@ -6,7 +6,7 @@ import { allowed, can, PERM } from './permissions';
 // Matriks peran dari backend/app/modules/auth/permissions.py (seed migrasi 0016).
 const ROLE = {
   kaur_asman: ['master_data:read', 'baseline:read', 'workload:read_all', 'workload:read_own', 'change_event:write', 'availability:write'],
-  system_analyst: ['master_data:read', 'baseline:read', 'workload:read_all', 'workload:read_own', 'change_event:write', 'availability:write', 'data_quality:read'],
+  system_analyst: ['master_data:read', 'baseline:read', 'workload:read_all', 'workload:read_own', 'change_event:write', 'availability:write', 'data_quality:read', 'event_log:export'],
   anggota_tim: ['master_data:read', 'workload:read_own', 'change_event:write_own'],
   admin_data: ['master_data:read', 'master_data:write', 'import:run', 'data_quality:read', 'event_log:export'],
   admin_it: ['user:manage'],
