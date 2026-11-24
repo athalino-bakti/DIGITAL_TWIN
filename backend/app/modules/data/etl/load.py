@@ -43,8 +43,17 @@ from app.modules.data.etl.normalize import (
 from app.modules.data.import_job_models import ImportJob
 from app.modules.data.manual_change import merge_task_import, open_changes, settle
 from app.modules.data.models import Assignment, ComplexityLevel, Role, Task, TaskDependency
-from app.modules.data.quality.engine import RULES, TOLAK, Context, SourceRow
+from app.modules.data.quality.engine import (
+    RULES,
+    TOLAK,
+    Context,
+    Finding,
+    RuleSummary,
+    SourceRow,
+)
+from app.modules.data.quality.engine import Report as QualityReport
 from app.modules.data.quality.sources import read_database
+from app.modules.data.quality.store import save_report
 from app.modules.data.service import next_id
 from app.modules.data.staging_models import (
     StagingProjectPlan,
@@ -53,6 +62,7 @@ from app.modules.data.staging_models import (
 )
 
 LOADED = ("tasks", "task_dependencies", "assignments")
+SOURCE = "project_plan"
 PLAN_COLUMNS = (
     "task_code", "feature_name", "task_name", "role_label", "pic", "complexity_label",
     "priority", "estimated_days", "planned_start", "planned_finish", "actual_start",
@@ -212,19 +222,36 @@ def assign_ids(db: Session, candidates: Candidates) -> Candidates:
     return Candidates(tables=tables, problems=list(candidates.problems))
 
 
-def validate(db: Session, candidates: Candidates, report: EtlReport) -> set[int]:
-    """id() baris kandidat yang punya temuan `tolak` menurut aturan DIG-31."""
+def validate(
+    db: Session, candidates: Candidates, report: EtlReport
+) -> tuple[set[int], QualityReport]:
+    """(id() baris kandidat bertemuan `tolak`, laporan kualitas berbentuk `run_rules`).
+
+    Aturan DIG-31 dipanggil per baris, bukan lewat `run_rules`, karena `Finding` tidak membawa
+    identitas baris (assignment dari Trello tidak punya nomor baris maupun kunci).
+    """
     tables = {**read_database(db), **candidates.tables}
     context = Context(tables)
     rejected: set[int] = set()
+    quality = QualityReport(SOURCE)
     for rule in RULES.values():
         if rule.check is None or rule.table not in LOADED:
             continue
-        for hit in rule.check(tables[rule.table], context):
+        rows = tables[rule.table]
+        hits = list(rule.check(rows, context))
+        for hit in hits:
             report.findings[f"{rule.rule_id}:{rule.level}"] += 1
             if rule.level == TOLAK:
                 rejected.add(id(hit.row))
-    return rejected
+            quality.findings.append(
+                Finding(rule.rule_id, rule.characteristic, rule.level, SOURCE, rule.table,
+                        hit.row.number, hit.row.key, hit.column, hit.value, hit.message)
+            )  # fmt: skip
+        quality.summaries.append(
+            RuleSummary(rule.rule_id, SOURCE, rule.table, rule.characteristic, rule.level,
+                        rule.text, checked=len(rows), violated=len({id(h.row) for h in hits}))
+        )  # fmt: skip
+    return rejected, quality
 
 
 # --- upsert ---------------------------------------------------------------------------------
@@ -328,7 +355,9 @@ def run_project(db: Session, project_id: str) -> EtlReport:
     report.plan_rows = len(plan)
     candidates = assign_ids(db, build(db, plan))
     report.problems = [asdict(p) for p in candidates.problems]
-    rejected = validate(db, candidates, report)
+    rejected, quality = validate(db, candidates, report)
+    # Hasil validasi tampil di laporan kualitas (DIG-146) untuk job batch ini.
+    save_report(db, job_id, quality)
 
     accepted: dict[str, list[SourceRow]] = {}
     for table in LOADED:

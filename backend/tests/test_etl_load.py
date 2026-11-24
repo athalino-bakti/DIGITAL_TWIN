@@ -10,6 +10,7 @@ from app.modules.data.etl.load import run_project
 from app.modules.data.import_job_models import ImportJob
 from app.modules.data.manual_change_models import TaskManualChange
 from app.modules.data.models import Assignment, Task, TaskDependency
+from app.modules.data.quality_models import DataQualityResult, RejectedRow
 from app.modules.data.resource_alias_service import alias_key
 from app.modules.data.staging_models import StagingProjectPlan
 from tests.conftest import REQUIRES_DB
@@ -140,6 +141,12 @@ def test_first_run_loads_valid_rows_and_rejects_dirty_ones(db, setup):
     assert count(db, AuditLog) == 2 + 1 + 1
     assert {a.source for a in db.scalars(select(AuditLog))} == {"etl"}
     assert db.get(ImportJob, setup["job"]).details["etl"]["inserted"]["tasks"] == 2
+    # Hasil validasi tersimpan untuk laporan kualitas (DIG-146) pada job batch yang sama.
+    rejected = db.scalars(
+        select(RejectedRow).where(RejectedRow.job_id == setup["job"], RejectedRow.level == "tolak")
+    ).all()
+    assert {r.row_key for r in rejected if r.table_name == "tasks"} == {"TSK-0003"}
+    assert count(db, DataQualityResult) > 0
 
 
 def test_second_run_changes_nothing(db, setup):
