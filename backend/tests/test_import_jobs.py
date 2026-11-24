@@ -30,7 +30,9 @@ SECRET = "token-rahasia-uji-0123456789"
 @pytest.fixture
 def jobs_db(session_factory):
     with session_factory() as session:
-        session.execute(text("TRUNCATE import_job, staging_trello_action, trello_list_mapping"))
+        session.execute(
+            text("TRUNCATE import_job, staging_trello_action, trello_list_mapping CASCADE")
+        )
         session.commit()
     return session_factory
 
@@ -320,7 +322,10 @@ def test_trello_job_writes_staging(jobs_db, monkeypatch):
     assert detail["already_present"] == first.rows_read
     with jobs_db() as db:
         stored = db.scalar(text("SELECT count(*) FROM staging_trello_action"))
+        owners = set(db.scalars(text("SELECT DISTINCT import_job_id FROM staging_trello_action")))
     assert stored == first.rows_written
+    # DIG-113: setiap action menunjuk job yang pertama menyimpannya, bukan job impor ulang.
+    assert owners == {first.job_id}
 
 
 # --- endpoint pemantauan (DIG-128) ------------------------------------------------------------
@@ -335,7 +340,7 @@ def seed_jobs(factory):
 
 def test_list_jobs_newest_first_with_filters(client, session_factory):
     with session_factory() as db:
-        db.execute(text("TRUNCATE import_job"))
+        db.execute(text("TRUNCATE import_job CASCADE"))
         db.commit()
     ok, failed = seed_jobs(session_factory)
 
@@ -367,7 +372,7 @@ def test_job_monitoring_needs_data_quality_permission(client, session_factory, r
 
 def test_running_job_older_than_stale_limit_is_flagged(client, session_factory):
     with session_factory() as db:
-        db.execute(text("TRUNCATE import_job"))
+        db.execute(text("TRUNCATE import_job CASCADE"))
         db.execute(
             text(
                 "INSERT INTO import_job (source, trigger, status, started_at, finished_at) VALUES"

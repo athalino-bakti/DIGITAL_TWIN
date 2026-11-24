@@ -18,9 +18,10 @@ atau sudah blocked; task not_started dan on_hold ditolak 409 (review Bagas di PR
 tidak ada blocker yang tercatat tanpa pernah tampil dan bisa ditutup.
 
 Satu task hanya punya satu blocker aktif dari modul ini: blocker baru ditolak selama task
-blocked dan masih punya blocker terbuka. Saat blocker ditandai selesai, task kembali
-in_progress bila blocker itu yang terbaru di antara blocker terbuka task tersebut. Blocker
-lama dari data impor yang tidak pernah ditutup tidak menahan task tetap blocked.
+blocked dan masih punya blocker terbuka. Saat blocker ditandai selesai, task kembali ke status
+sebelum blocker itu (in_progress atau in_qa, dari `task_manual_change`, DIG-162) bila blocker
+itu yang terbaru di antara blocker terbuka task tersebut. Blocker lama dari data impor yang
+tidak pernah ditutup tidak menahan task tetap blocked.
 """
 
 from datetime import date, timedelta
@@ -29,6 +30,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.modules.auth.models import AppUser
+from app.modules.data import manual_change
 from app.modules.data.change_event_detail_rules import check_detail_dates
 from app.modules.data.change_event_service import next_event_id, validate_event
 from app.modules.data.enums import ChangeEventType, TaskStatus
@@ -255,7 +257,13 @@ def record_event(
     before = task.status
     if event_type == ChangeEventType.BLOCKER:
         # Kejadian dan status task tersimpan bersama, atau tidak sama sekali.
+        snapshot = manual_change.snapshot(task)
         task.status = status_after_blocker(status)
+        # Status sebelum blocker disimpan, supaya bisa dikembalikan saat blocker selesai dan
+        # tidak tertimpa impor tanpa konfirmasi (DIG-162).
+        manual_change.record_task_changes(
+            db, task, snapshot, "blocker", values["event_id"], user.user_id
+        )
     commit(db)
     return result(event, None, task, before)
 
@@ -299,9 +307,13 @@ def resolve_event(
         and task.status == TaskStatus.BLOCKED
         and is_latest
     ):
-        # Status sebelum blocker tidak tersimpan di mana pun (belum ada audit_log, lihat
-        # DIG-162), jadi task kembali ke in_progress. Task blocked selalu punya actual_start.
-        task.status = TaskStatus.IN_PROGRESS
+        # Kembali ke status sebelum blocker ini (in_progress atau in_qa). Blocker lama dari
+        # data impor tidak punya catatan, jadi task kembali in_progress; task blocked selalu
+        # punya actual_start.
+        snapshot = manual_change.snapshot(task)
+        previous = manual_change.status_before(db, task_id, "blocker", event_id)
+        task.status = TaskStatus(previous) if previous in BLOCKABLE else TaskStatus.IN_PROGRESS
+        manual_change.record_task_changes(db, task, snapshot, "blocker", event_id, user.user_id)
     commit(db)
     return result(event, resolved_date, task, before)
 

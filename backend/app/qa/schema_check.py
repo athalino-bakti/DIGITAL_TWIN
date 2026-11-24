@@ -140,13 +140,24 @@ def parse_contract(markdown: str) -> dict[str, TableSpec]:
                 if expression and name.startswith("ck_"):
                     current.checks[name] = expression
             continue
-        if "|" in line:  # baris tabel, dengan atau tanpa pipa di tepi
+        if "|" in line:  # mungkin baris tabel, dengan atau tanpa pipa di tepi
             column = _parse_column_row(line)
             if column is not None:
                 current.columns[column.name] = column
-            continue
-        in_rules = False  # paragraf lain menutup daftar aturan
+                continue
+            if _is_table_line(line):  # baris judul atau pemisah tabel
+                continue
+        in_rules = False  # paragraf lain (termasuk yang memuat |) menutup daftar aturan
     return tables
+
+
+def _is_table_line(line: str) -> bool:
+    """Baris judul atau pemisah tabel markdown, dengan atau tanpa pipa di tepi."""
+    stripped = line.strip()
+    if stripped.startswith("|"):
+        return True
+    first = stripped.split("|", 1)[0].strip()
+    return set(stripped) <= set("|-: ") or first == "Kolom"
 
 
 def _parse_column_row(line: str) -> Column | None:
@@ -251,6 +262,9 @@ def read_database(connection: Connection, tables: Iterable[str]) -> dict[str, Db
             " FROM pg_constraint con"
             " JOIN pg_class c ON c.oid = con.conrelid"
             " JOIN pg_namespace n ON n.oid = c.relnamespace"
+            # Hanya kolom pertama FK yang dibaca: FK multi-kolom belum didukung (D-01 sampai
+            # D-11 tidak punya). Bila nanti ada, aksi ON DELETE-nya hanya tercatat di kolom
+            # pertama.
             " LEFT JOIN pg_attribute a ON a.attrelid = con.conrelid AND a.attnum = con.conkey[1]"
             " WHERE n.nspname = :schema AND c.relname = ANY(:tables)"
             "   AND con.contype IN ('c', 'f')"

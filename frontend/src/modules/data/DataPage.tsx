@@ -9,8 +9,10 @@ import { ChangeEventsPanel } from './changes/ChangeEventsPanel';
 import { ComplexityPanel } from './complexity/ComplexityPanel';
 import { MyTasksPanel } from './my-tasks/MyTasksPanel';
 import { ProjectsPanel } from './projects/ProjectsPanel';
+import { TrelloListsPanel } from './trello-lists/TrelloListsPanel';
 import { ResourcesPanel } from './resources/ResourcesPanel';
 import { RolesPanel } from './resources/RolesPanel';
+import { TasksPanel } from './tasks/TasksPanel';
 import { dataViews } from './views';
 import { WorkloadPanel } from './workload/WorkloadPanel';
 
@@ -28,6 +30,7 @@ export function DataPage() {
     {view === 'proyek' && <ProjectsPanel />}
     {view === 'anggota' && <ResourcesPanel />}
     {view === 'peran' && <RolesPanel />}
+    {view === 'task' && <TasksPanel />}
     {view === 'beban' && <WorkloadPanel />}
     {view === 'perubahan' && <ChangeEventsPanel />}
     {view === 'kompleksitas' && <ComplexityPanel />}
@@ -35,6 +38,7 @@ export function DataPage() {
     {view === 'libur' && <HolidaysPanel />}
     {view === 'alias' && <AliasesPanel />}
     {view === 'impor' && <ModulePlaceholder title="Impor dataset" description="Unggah Project Plan, ekspor Trello, dan riwayat commit akan tersedia di sini." areas={['Unggah dataset CSV', 'Kualitas data', 'Baris ditolak']} />}
+    {view === 'trello' && <TrelloListsPanel />}
     {view === 'task-saya' && <MyTasksPanel />}
   </>;
 }

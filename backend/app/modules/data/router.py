@@ -47,6 +47,11 @@ from app.modules.data.event_log_router import router as event_log_router  # noqa
 
 router.include_router(event_log_router)
 
+# Unggah Project Plan CSV/XLSX ke staging (DIG-25) juga di modul terpisah.
+from app.modules.data.project_plan_router import router as project_plan_router  # noqa: E402
+
+router.include_router(project_plan_router)
+
 Db = Annotated[Session, Depends(get_db)]
 ProjectIdPath = Annotated[str, Path(pattern=PROJECT_ID_PATTERN, examples=["PRJ-001"])]
 ComplexityIdPath = Annotated[str, Path(pattern=COMPLEXITY_ID_PATTERN, examples=["CX-M"])]
@@ -422,6 +427,11 @@ def delete_holiday(db: Db, holiday_date: HolidayDatePath) -> Response:
 from app.modules.data.change_event_router import router as change_event_router  # noqa: E402
 
 router.include_router(change_event_router)
+
+# Pemetaan list Trello ke status dan phase (DIG-120), konfigurasi impor Trello.
+from app.modules.data.trello_list_mapping_router import router as trello_list_router  # noqa: E402
+
+router.include_router(trello_list_router)
 
 # "Task saya": blocker dan overrun oleh pelaksana task (DIG-153, DIG-154).
 from app.modules.data.my_task_router import router as my_task_router  # noqa: E402
