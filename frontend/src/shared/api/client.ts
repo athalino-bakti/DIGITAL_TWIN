@@ -69,15 +69,18 @@ type RequestOptions = { signal?: AbortSignal; auth?: boolean };
 async function request<T>(method: string, path: string, body?: unknown, { signal, auth = true }: RequestOptions = {}): Promise<T> {
   // POST /auth/login tidak mengirim token lama, jadi 401 di sana tidak pernah menghapus sesi.
   const token = auth ? getAccessToken() : null;
+  // FormData (unggah berkas) dikirim apa adanya; browser yang mengisi Content-Type multipart
+  // beserta boundary-nya.
+  const form = body instanceof FormData;
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method,
     signal,
     headers: {
       Accept: 'application/json',
-      ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+      ...(body === undefined || form ? {} : { 'Content-Type': 'application/json' }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: body === undefined ? undefined : form ? body : JSON.stringify(body),
   });
   // Token ditolak (kedaluwarsa, rusak, akun nonaktif): hapus sesi supaya diarahkan ke login.
   // 403 (login tapi tidak berizin) tidak menghapus sesi.
@@ -95,6 +98,11 @@ export function apiGet<T>(path: string, signal?: AbortSignal): Promise<T> {
 
 export function apiPost<T>(path: string, body: unknown, options?: { auth?: boolean }): Promise<T> {
   return request<T>('POST', path, body, options);
+}
+
+/** POST multipart/form-data, untuk endpoint yang menerima berkas (`UploadFile`). */
+export function apiPostForm<T>(path: string, form: FormData, signal?: AbortSignal): Promise<T> {
+  return request<T>('POST', path, form, { signal });
 }
 
 export function apiPatch<T>(path: string, body: unknown): Promise<T> {
