@@ -72,6 +72,13 @@
 .metric-card h2 { font: var(--text-caption); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--color-muted); margin-bottom: var(--space-4); }
 .metric-card strong { display: block; font: var(--text-h2); color: var(--color-heading); }
 .metric-card p { font: var(--text-body-sm); color: var(--color-muted); margin-top: var(--space-3); }
+/* Kartu ringkasan yang bisa diklik membuka daftar detail (DIG-176). */
+button.metric-card { width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+button.metric-card:hover { border-color: var(--metric-accent, var(--color-primary)); }
+button.metric-card:focus-visible { outline: 2px solid var(--metric-accent, var(--color-primary)); outline-offset: 2px; }
+button.metric-card.is-open { border-color: var(--metric-accent, var(--color-primary)); box-shadow: 0 0 0 1px var(--metric-accent, var(--color-primary)); }
+button.metric-card p::after { content: " \203A"; }
+.summary-detail { margin-bottom: var(--space-8); }
 
 .tabs { display: flex; gap: var(--space-8); border-bottom: 1px solid var(--color-border); margin-bottom: var(--space-7); overflow-x: auto; }
 .tab { display: flex; align-items: center; gap: var(--space-3); padding-bottom: var(--space-4); border-bottom: 2px solid transparent; font: var(--text-nav); color: var(--color-body); white-space: nowrap; }
