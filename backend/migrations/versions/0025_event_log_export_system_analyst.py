@@ -9,7 +9,7 @@ Nomor 0025 karena 0024 dipakai #53 (data_quality_result). Selama #53 belum merge
 menyambung ke 0023; setelah #53 merge, `down_revision` cukup diganti ke "0024".
 
 Revision ID: 0025
-Revises: 0023
+Revises: 0024
 """
 
 from typing import Sequence, Union
@@ -17,7 +17,7 @@ from typing import Sequence, Union
 from alembic import op
 
 revision: str = "0025"
-down_revision: Union[str, Sequence[str], None] = "0023"
+down_revision: Union[str, Sequence[str], None] = "0024"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

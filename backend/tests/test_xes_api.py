@@ -88,7 +88,7 @@ def test_empty_xes_is_still_a_valid_log(client, db):
     assert document.tag == "log" and document.findall("trace") == []
 
 
-@pytest.mark.parametrize(("role", "code"), [("admin_data", 200), ("system_analyst", 403)])
+@pytest.mark.parametrize(("role", "code"), [("admin_data", 200), ("system_analyst", 200)])
 def test_xes_needs_event_log_export(client, db, role, code):
     token = make_token(db, f"xes-{role}", [role])
     response = client.get(URL, headers={"Authorization": f"Bearer {token}"})
