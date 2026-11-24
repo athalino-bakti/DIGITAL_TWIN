@@ -79,6 +79,9 @@ EXPECTED = {
     ("DELETE", "/resource-aliases/{alias_id}"): Perm.MASTER_DATA_WRITE,
     # Unggah Project Plan ke staging (DIG-25), sama dengan impor lain.
     ("POST", "/imports/project-plan"): Perm.IMPORT_RUN,
+    # Pemetaan list Trello (DIG-120): konfigurasi impor.
+    ("GET", "/trello-lists"): Perm.IMPORT_RUN,
+    ("PATCH", "/trello-lists/{board_id}/{list_id}"): Perm.IMPORT_RUN,
 }
 
 
