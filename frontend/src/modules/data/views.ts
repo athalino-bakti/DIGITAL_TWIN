@@ -12,6 +12,7 @@ export const dataViews: readonly { key: string; label: string; permission: Permi
   { key: 'ketersediaan', label: 'Ketersediaan', permission: PERM.workloadReadAll },
   { key: 'libur', label: 'Hari libur', permission: PERM.masterDataRead },
   { key: 'impor', label: 'Impor dataset', permission: PERM.importRun },
+  { key: 'kualitas', label: 'Kualitas data', permission: PERM.dataQualityRead },
   { key: 'trello', label: 'Pemetaan Trello', permission: PERM.importRun },
   { key: 'task-saya', label: 'Task saya', permission: PERM.workloadReadOwn },
 ];
