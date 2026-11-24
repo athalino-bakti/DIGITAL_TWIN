@@ -60,6 +60,17 @@ def test_report_is_saved_per_rule_and_per_finding(db, job_id):
     assert levels["peringatan"].row_number is None
 
 
+def test_duplicate_rule_per_source_is_summed(db, job_id):
+    doubled = report()
+    doubled.summaries.append(
+        RuleSummary("DQ-TSK-009", "trello", "tasks", "consistency", "tolak", "Urutan", 10, 2)
+    )
+    assert save_report(db, job_id, doubled) == (2, 2)
+    db.commit()
+    rule = db.scalar(select(DataQualityResult).where(DataQualityResult.rule_id == "DQ-TSK-009"))
+    assert (rule.checked, rule.violated) == (30, 3)
+
+
 def test_saving_again_replaces_previous_result(db, job_id):
     save_report(db, job_id, report())
     db.commit()

@@ -1,9 +1,11 @@
 """Simpan hasil validator ke data_quality_result dan rejected_row (DIG-145)."""
 
+from dataclasses import replace
+
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
-from app.modules.data.quality.engine import Report
+from app.modules.data.quality.engine import Report, RuleSummary
 from app.modules.data.quality_models import DataQualityResult, RejectedRow
 
 
@@ -14,6 +16,18 @@ def save_report(db: Session, job_id: int, report: Report) -> tuple[int, int]:
     """
     db.execute(delete(DataQualityResult).where(DataQualityResult.job_id == job_id))
     db.execute(delete(RejectedRow).where(RejectedRow.job_id == job_id))
+    # merge() bisa memuat aturan yang sama dua kali untuk satu sumber; jumlahkan supaya
+    # unik (job_id, source, rule_id) tidak dilanggar.
+    summaries: dict[tuple[str, str], RuleSummary] = {}
+    for s in report.summaries:
+        key = (s.source, s.rule_id)
+        if key in summaries:
+            first = summaries[key]
+            summaries[key] = replace(
+                first, checked=first.checked + s.checked, violated=first.violated + s.violated
+            )
+        else:
+            summaries[key] = s
     db.add_all(
         DataQualityResult(
             job_id=job_id,
@@ -26,7 +40,7 @@ def save_report(db: Session, job_id: int, report: Report) -> tuple[int, int]:
             checked=s.checked,
             violated=s.violated,
         )
-        for s in report.summaries
+        for s in summaries.values()
     )
     db.add_all(
         RejectedRow(
@@ -44,4 +58,4 @@ def save_report(db: Session, job_id: int, report: Report) -> tuple[int, int]:
         )
         for f in report.findings
     )
-    return len(report.summaries), len(report.findings)
+    return len(summaries), len(report.findings)

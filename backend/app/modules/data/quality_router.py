@@ -155,10 +155,12 @@ def build_summary(db: Session, job: ImportJob | None, source: str) -> QualitySum
     )
     items = _group_rows(findings)
     # Baris yang diperiksa per tabel = jumlah periksa terbesar di antara aturan berbasis baris.
-    per_table: dict[str, int] = defaultdict(int)
+    # Kunci (source, tabel): tabel bernama sama dari dua sumber dihitung terpisah.
+    per_table: dict[tuple[str, str], int] = defaultdict(int)
     for r in results:
         if r.characteristic != "currentness":
-            per_table[r.table_name] = max(per_table[r.table_name], r.checked)
+            key = (r.source, r.table_name)
+            per_table[key] = max(per_table[key], r.checked)
     rows_checked = sum(per_table.values())
     rejected = sum(1 for i in items if i.level == "tolak")
     totals = {c: [0, 0] for c in CHARACTERISTICS}

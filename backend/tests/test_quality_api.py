@@ -79,6 +79,23 @@ def test_summary_counts_rows_and_characteristics(client, job_id):
     assert [r["rule_id"] for r in body["rules"]] == ["DQ-TSK-001", "DQ-TSK-009", "DQ-TSK-012"]
 
 
+def test_rows_checked_counts_same_table_per_source(client, session_factory):
+    report = Report(
+        "project_plan",
+        summaries=[
+            RuleSummary("DQ-TSK-001", "project_plan", "tasks", "completeness", "tolak", "x", 40, 0),
+            RuleSummary("DQ-TSK-001", "trello", "tasks", "completeness", "tolak", "x", 15, 0),
+        ],
+    )
+    with session_factory() as db:
+        db.execute(text(CLEAR_JOBS))
+        job = add_job(db)
+        save_report(db, job, report)
+        db.commit()
+    body = client.get(f"{URL}/summary", params={"job_id": job}).json()
+    assert body["rows_checked"] == 40 + 15
+
+
 def test_summary_without_validation_is_empty(client, job_id):
     body = client.get(f"{URL}/summary", params={"source": "trello"}).json()
     assert (body["job_id"], body["rows_checked"], body["pass_rate"]) == (None, 0, None)
