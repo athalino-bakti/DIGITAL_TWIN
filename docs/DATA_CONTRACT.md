@@ -293,7 +293,7 @@ Tabel pada bagian ini tidak termasuk final sources. J&C dapat mengubah strukturn
 
 | Objek | Isi | Jira |
 |---|---|---|
-| View Resource Load Index | Nilai RLI per anggota per minggu dari bobot task, beban non-proyek, dan kapasitas peran | DIG-187, DIG-192 |
+| View `resource_load_index` | Nilai RLI per anggota per minggu dari bobot task, beban non-proyek, dan kapasitas peran, beserta `formula_version`. Isinya snapshot `rli_snapshot` (internal J&C) yang dihitung ulang lewat `python -m app.modules.digital_twin.rli_snapshot`, dengan formula yang sama dengan heatmap DIG-188 | DIG-187, DIG-192 |
 | `resource_skills` | Tingkat penguasaan anggota per peran, termasuk lintas peran | DIG-63 |
 | `change_event_details` | Persetujuan CR dan waktu selesai blocker, overrun, hotfix | DIG-63 |
 
