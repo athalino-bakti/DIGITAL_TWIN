@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { saveSession } from '../auth/session';
-import { ApiError, apiGet, apiPost, isApiUnreachable } from './client';
+import { ApiError, apiGet, apiPost, apiPostForm, isApiUnreachable } from './client';
 
 function respond(status: number, body?: unknown) {
   const fetchMock = vi.fn(async () => new Response(body === undefined ? null : JSON.stringify(body), { status }));
@@ -29,6 +29,18 @@ describe('client API', () => {
     await expect(apiPost('/auth/login', {}, { auth: false })).rejects.toBeInstanceOf(ApiError);
     expect(headersOf(fetchMock).Authorization).toBeUndefined();
     expect(localStorage.getItem('dt-puti.session')).not.toBeNull();
+  });
+
+  it('FormData dikirim apa adanya tanpa Content-Type JSON', async () => {
+    saveSession('abc', 3600);
+    const fetchMock = respond(200, { ok: true });
+    const form = new FormData();
+    form.append('dry_run', 'true');
+    await apiPostForm('/data/imports/project-plan', form);
+    const init = (fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1];
+    expect(init.body).toBe(form);
+    expect(headersOf(fetchMock)['Content-Type']).toBeUndefined();
+    expect(headersOf(fetchMock).Authorization).toBe('Bearer abc');
   });
 
   it('401 dengan token menghapus sesi, 403 tidak', async () => {

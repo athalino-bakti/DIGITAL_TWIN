@@ -61,8 +61,8 @@ describe('tab Data per peran', () => {
     expect(tabs(ROLE.anggota_tim)).toEqual(master);
   });
 
-  it('admin data: master data, impor, kualitas data, dan pemetaan Trello', () => {
-    expect(tabs(ROLE.admin_data)).toEqual([...master, 'impor', 'kualitas', 'trello']);
+  it('admin data: master data, alias identitas, impor, kualitas data, dan pemetaan Trello', () => {
+    expect(tabs(ROLE.admin_data)).toEqual([...master, 'alias', 'impor', 'kualitas', 'trello']);
   });
 
   it('tab Kualitas data mengikuti izin data_quality:read (DIG-147)', () => {

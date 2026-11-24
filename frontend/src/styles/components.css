@@ -72,6 +72,13 @@
 .metric-card h2 { font: var(--text-caption); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--color-muted); margin-bottom: var(--space-4); }
 .metric-card strong { display: block; font: var(--text-h2); color: var(--color-heading); }
 .metric-card p { font: var(--text-body-sm); color: var(--color-muted); margin-top: var(--space-3); }
+/* Kartu ringkasan yang bisa diklik membuka daftar detail (DIG-176). */
+button.metric-card { width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+button.metric-card:hover { border-color: var(--metric-accent, var(--color-primary)); }
+button.metric-card:focus-visible { outline: 2px solid var(--metric-accent, var(--color-primary)); outline-offset: 2px; }
+button.metric-card.is-open { border-color: var(--metric-accent, var(--color-primary)); box-shadow: 0 0 0 1px var(--metric-accent, var(--color-primary)); }
+button.metric-card p::after { content: " \203A"; }
+.summary-detail { margin-bottom: var(--space-8); }
 
 .tabs { display: flex; gap: var(--space-8); border-bottom: 1px solid var(--color-border); margin-bottom: var(--space-7); overflow-x: auto; }
 .tab { display: flex; align-items: center; gap: var(--space-3); padding-bottom: var(--space-4); border-bottom: 2px solid transparent; font: var(--text-nav); color: var(--color-body); white-space: nowrap; }
@@ -284,6 +291,10 @@ fieldset.field legend { font: var(--text-label); color: var(--color-heading); ma
 .toolbar-filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-5); }
 .toolbar-select { height: 36px; padding: 0 var(--space-4); font: var(--text-body); color: var(--color-heading); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-control); }
 .toolbar-select:focus { outline: 2px solid var(--color-primary); outline-offset: -1px; }
+/* Alias identitas (DIG-112) */
+.alias-section-title { margin: 0; padding: var(--space-6) var(--space-7) var(--space-4); font: var(--text-title); color: var(--color-heading); }
+.alias-empty { padding: 0 var(--space-7) var(--space-4); font: var(--text-body-sm); color: var(--color-body); }
+.alias-add { white-space: nowrap; }
 /* Pemetaan list Trello (DIG-120) */
 .trello-board-title { margin: 0; padding: var(--space-6) var(--space-7) var(--space-4); font: var(--text-title); color: var(--color-heading); }
 .trello-board-title .cell-sub { display: inline; margin-left: var(--space-3); font-weight: 400; }
@@ -398,6 +409,16 @@ fieldset.change-effect { padding: var(--space-5); border: 1px solid var(--color-
 .change-effect .radio-row { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-5); min-height: 40px; align-items: center; }
 .change-effect .radio-row input { width: 16px; height: 16px; padding: 0; }
 @media (max-width: 760px) { .changes-task { width: 100%; } .changes-task-head { padding-left: var(--space-5); padding-right: var(--space-5); } }
+
+/* --- Impor Project Plan (DIG-115) --- */
+.plan-import-form { padding: var(--space-6) var(--space-7); border-bottom: 1px solid var(--color-border); }
+.plan-import-status { padding: var(--space-4) var(--space-7) 0; }
+.plan-import-summary { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-5) var(--space-7); }
+.plan-import-summary .form-alert ul { margin: var(--space-2) 0 0; padding-left: var(--space-6); }
+.plan-import-summary .plan-import-warning { margin: 0; }
+.inline-notice.warning { background: rgba(173, 116, 42, .12); color: var(--color-warning); }
+.plan-import-subtitle { margin: 0; font: var(--text-title); color: var(--color-heading); }
+.plan-import-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-5) var(--space-7); border-top: 1px solid var(--color-border); }
 
 /* --- Process map (DIG-170, DIG-171) --- */
 .pm-toolbar { align-items: flex-start; }
