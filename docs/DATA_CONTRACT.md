@@ -312,7 +312,7 @@ Tabel berikut hanya dipakai aplikasi J&C dan tidak dibaca tWinner.
 | `event_log` | Event log untuk *process mining* | DIG-164 |
 | `data_quality_result` | Hasil pemeriksaan kualitas data per aturan dan per sumber | DIG-145 |
 | `rejected_row` | Baris yang ditolak beserta alasannya | DIG-145 |
-| `audit_log` | Jejak perubahan data final sources: tabel, kunci, kolom, nilai lama, nilai baru, pengubah, waktu | DIG-63 |
+| `audit_log` | Jejak perubahan data final sources: tabel, kunci, kolom, nilai lama, nilai baru, pengubah, waktu. Satu baris per perubahan baris; kolom yang berubah ada di `before`/`after` (JSONB). Append-only bagi `jc_app` | DIG-63, DIG-222 |
 | Tabel pengguna dan izin aplikasi | Akun dan peran aplikasi (RBAC), terpisah dari D-03 `roles` | DIG-17, DIG-18 |
 
 ### 7.3 Struktur `resource_skills` dan `change_event_details`

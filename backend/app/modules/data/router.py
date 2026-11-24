@@ -52,6 +52,11 @@ from app.modules.data.project_plan_router import router as project_plan_router  
 
 router.include_router(project_plan_router)
 
+# Jejak audit perubahan final sources (DIG-222) juga di modul terpisah.
+from app.modules.data.audit_router import router as audit_router  # noqa: E402
+
+router.include_router(audit_router)
+
 Db = Annotated[Session, Depends(get_db)]
 ProjectIdPath = Annotated[str, Path(pattern=PROJECT_ID_PATTERN, examples=["PRJ-001"])]
 ComplexityIdPath = Annotated[str, Path(pattern=COMPLEXITY_ID_PATTERN, examples=["CX-M"])]

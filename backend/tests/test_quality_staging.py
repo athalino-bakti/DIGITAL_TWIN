@@ -52,7 +52,7 @@ ACTION = (
 
 @requires_db
 def test_trello_cards_use_the_latest_card_name(db):
-    db.execute(text("TRUNCATE staging_trello_action, staging_project_plan, import_job"))
+    db.execute(text("TRUNCATE staging_trello_action, staging_project_plan, audit_log, import_job"))
     board, first, second = "b" * 24, "1" * 24, "2" * 24
     for action_id, at, card_id, name in [
         ("a" * 24, "2026-10-01T09:00:00+07:00", first, "Analisis presensi"),
@@ -81,7 +81,7 @@ JOB = (
 
 @requires_db
 def test_DQ_CUR_001_currentness_per_source(db):
-    db.execute(text("TRUNCATE staging_trello_action, staging_project_plan, import_job"))
+    db.execute(text("TRUNCATE staging_trello_action, staging_project_plan, audit_log, import_job"))
     for source, status, at in [
         ("trello", "succeeded", "2026-11-01T02:00:00+07:00"),
         ("trello", "failed", "2026-11-05T02:00:00+07:00"),  # gagal: tidak dihitung
@@ -119,7 +119,7 @@ def test_DQ_CUR_001_currentness_per_source(db):
 
 @requires_db
 def test_DQ_CUR_001_recent_imports_pass(db):
-    db.execute(text("TRUNCATE staging_trello_action, staging_project_plan, import_job"))
+    db.execute(text("TRUNCATE staging_trello_action, staging_project_plan, audit_log, import_job"))
     for source in ("trello", "project_plan", "teamgit"):
         db.execute(
             text(JOB), {"source": source, "status": "succeeded", "at": "2026-11-06T08:00:00+07:00"}
