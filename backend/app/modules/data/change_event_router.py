@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.modules.auth.dependencies import require_permission
+from app.modules.auth.models import AppUser
 from app.modules.auth.permissions import Perm
 
 # Modul router Data diimpor sebagai objek modul dan `to_http` dipanggil saat request, karena
@@ -38,6 +39,8 @@ router = APIRouter()
 # Akses anggota tim ke task miliknya sendiri menyusul di DIG-94.
 EVENT_READ = [Depends(require_permission(Perm.WORKLOAD_READ_ALL))]
 EVENT_WRITE = [Depends(require_permission(Perm.CHANGE_EVENT_WRITE))]
+# Untuk endpoint yang perlu tahu siapa pencatatnya (jejak perubahan task, DIG-162).
+EventWriter = Annotated[AppUser, Depends(require_permission(Perm.CHANGE_EVENT_WRITE))]
 
 Db = Annotated[Session, Depends(get_db)]
 EventIdPath = Annotated[str, Path(pattern=EVENT_ID_PATTERN, examples=["EVT-001"])]
@@ -82,15 +85,14 @@ def get_change_event(db: Db, event_id: EventIdPath) -> ChangeEventRead:
 
 @router.post(
     "/change-events",
-    dependencies=EVENT_WRITE,
     response_model=ChangeEventRead,
     status_code=status.HTTP_201_CREATED,
     responses=CONFLICT,
     summary="Catat CR, perubahan prioritas, blocker, overrun, atau hotfix",
 )
-def create_change_event(db: Db, payload: ChangeEventCreate) -> ChangeEventRead:
+def create_change_event(db: Db, user: EventWriter, payload: ChangeEventCreate) -> ChangeEventRead:
     try:
-        return service.create_change_event(db, payload)
+        return service.create_change_event(db, payload, user.user_id)
     except (DataValidationError, ConflictError) as exc:
         raise data_routes.to_http(exc) from exc
 

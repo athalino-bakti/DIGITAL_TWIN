@@ -3,6 +3,7 @@ import { ModulePlaceholder } from '../../shared/components/ModulePlaceholder';
 import { DependencyPanel } from './dependency/DependencyPanel';
 import { ProcessMapPanel } from './process-map/ProcessMapPanel';
 import { TimelinePanel } from './timeline/TimelinePanel';
+import { SummaryCards } from './summary/SummaryCards';
 
 const views = {
   timeline: { label: 'Timeline', title: 'Timeline proyek', description: 'Jadwal dan ringkasan proyek akan ditampilkan setelah model baseline tersedia.', areas: ['Gantt proyek', 'Fase iterasi', 'Ringkasan proyek'] },
@@ -16,9 +17,7 @@ export function DigitalTwinPage() {
   if (!Object.hasOwn(views, view)) return <Navigate to="/digital-twin/timeline" replace />;
   const selected = views[view as keyof typeof views];
   return <>
-    <section className="metric-grid" aria-label="Ringkasan baseline">
-      {['Proyek aktif', 'Proyek lewat target', 'Resource overload', 'Resource multi-role'].map((label, index) => <article className={`metric-card metric-${index}`} key={label}><h2>{label}</h2><strong>—</strong><p>Data belum tersedia</p></article>)}
-    </section>
+    <SummaryCards />
     <nav className="tabs" aria-label="Tampilan Digital Twin">
       {Object.entries(views).map(([key, item]) => <NavLink key={key} to={`/digital-twin/${key}`} className={({ isActive }) => isActive ? 'tab active' : 'tab'}>{item.label}</NavLink>)}
     </nav>

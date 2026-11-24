@@ -8,7 +8,8 @@ from app.db.session import get_db
 from app.modules.auth.dependencies import require_permission
 from app.modules.auth.permissions import Perm
 from app.modules.data.enums import PROJECT_ID_PATTERN, RESOURCE_ID_PATTERN
-from app.modules.digital_twin import timeline_service
+from app.modules.digital_twin import summary_service, timeline_service
+from app.modules.digital_twin.summary_schemas import BaselineSummary
 from app.modules.digital_twin.timeline_schemas import TimelineResponse
 
 router = APIRouter(prefix="/digital-twin", tags=["Digital Twin"])
@@ -34,3 +35,18 @@ def timeline(
     """Task dikelompokkan per proyek (urut prioritas) lalu per phase, lengkap dengan penanda
     terlambat, kejadian perubahan (D-10), dan hari libur (D-11) dalam rentang tanggalnya."""
     return timeline_service.build_timeline(db, as_of or date.today(), project_id, resource_id)
+
+
+@router.get(
+    "/summary",
+    dependencies=BASELINE_READ,
+    response_model=BaselineSummary,
+    summary="Kartu ringkasan baseline beserta daftar detailnya (DIG-40)",
+)
+def summary(
+    db: Db,
+    as_of: Annotated[date | None, Query(description="Tanggal acuan, bawaan hari ini")] = None,
+) -> BaselineSummary:
+    """Proyek aktif, proyek lewat target, resource overload (menunggu RLI), dan resource
+    multi-role. Aturan tiap kartu ada di `summary_service`."""
+    return summary_service.build_summary(db, as_of or date.today())

@@ -61,8 +61,8 @@ describe('tab Data per peran', () => {
     expect(tabs(ROLE.anggota_tim)).toEqual(master);
   });
 
-  it('admin data: master data dan impor', () => {
-    expect(tabs(ROLE.admin_data)).toEqual([...master, 'impor']);
+  it('admin data: master data, alias identitas, impor, dan pemetaan Trello', () => {
+    expect(tabs(ROLE.admin_data)).toEqual([...master, 'alias', 'impor', 'trello']);
   });
 });
 

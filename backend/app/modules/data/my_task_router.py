@@ -106,7 +106,7 @@ def resolve_event(
     payload: MyTaskEventResolve,
 ) -> MyTaskEventResult:
     """Mengisi `resolved_date` di `change_event_details`. Bila blocker terakhir pada task itu
-    selesai, task kembali berstatus in_progress."""
+    selesai, task kembali ke status sebelum blocker (in_progress atau in_qa)."""
     try:
         return service.resolve_event(db, user, task_id, event_id, payload, date.today())
     except HANDLED as exc:
