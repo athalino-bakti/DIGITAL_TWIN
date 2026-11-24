@@ -173,6 +173,7 @@ def build(db: Session, plan: list[PlanRow]) -> Candidates:
 
 def assign_ids(db: Session, candidates: Candidates) -> Candidates:
     """Isi `dependency_id` dan `assignment_id`: ID lama untuk baris yang sama, sisanya ID baru."""
+    db.flush()  # SessionLocal tanpa autoflush: baris proyek sebelumnya harus terlihat di sini
     deps = {
         (d.task_id, d.depends_on_task_id): d.dependency_id
         for d in db.scalars(select(TaskDependency))
@@ -293,7 +294,10 @@ def upsert_tasks(db, rows, job_id, report, actor: AppUser | None = None) -> None
 
 
 def _upsert_simple(db, model, key_column, columns, entity, rows, job_id, report) -> None:
-    for row in rows:
+    db.flush()
+    # Baris dengan ID sama (misalnya baris Project Plan ganda) cukup dimuat sekali.
+    unique = list({row.values[key_column]: row for row in rows}.values())
+    for row in unique:
         key = row.values[key_column]
         incoming = typed(row.values, columns)
         existing = db.get(model, key)
@@ -349,6 +353,7 @@ def run_project(db: Session, project_id: str) -> EtlReport:
 
     job = db.get(ImportJob, job_id)
     job.details = {**(job.details or {}), "etl": report.as_dict()}
+    db.flush()
     return report
 
 

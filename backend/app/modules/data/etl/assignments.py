@@ -125,7 +125,12 @@ def merge_assignments(
     trello, problems = derive_assignments(events, index, roles)
     kept = [r for r in candidates.tables["assignments"] if r.values.get("task_id") not in trello]
     derived = [row for task_id in sorted(trello) if task_id in roles for row in trello[task_id]]
+    # PIC Project Plan yang tidak terpetakan tidak relevan bila assignment diambil dari Trello.
+    plan_problems = [
+        p for p in candidates.problems
+        if not (p.source == "project_plan" and p.column == "resource_id" and p.key in trello)
+    ]  # fmt: skip
     return Candidates(
         tables={**candidates.tables, "assignments": kept + derived},
-        problems=list(candidates.problems) + [p for p in problems if p.key in roles],
+        problems=plan_problems + [p for p in problems if p.key in roles],
     )
