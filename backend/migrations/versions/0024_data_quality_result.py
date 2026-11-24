@@ -4,7 +4,7 @@ Jira: DIG-145 (story DIG-32). Tabel internal J&C (docs/DATA_CONTRACT.md bagian 7
 dibaca tWinner. Keduanya menempel ke import_job dan ikut terhapus bersama job-nya (CASCADE).
 
 Revision ID: 0024
-Revises: 0022
+Revises: 0023
 """
 
 from typing import Sequence, Union
@@ -13,8 +13,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0024"
-# 0023 dipakai #45 (task_manual_change). Bila #45 merge lebih dulu, ganti ke "0023".
-down_revision: Union[str, Sequence[str], None] = "0022"
+down_revision: Union[str, Sequence[str], None] = "0023"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
