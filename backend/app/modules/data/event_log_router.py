@@ -11,6 +11,7 @@ from datetime import date, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
@@ -19,6 +20,7 @@ from app.modules.auth.dependencies import require_permission
 from app.modules.auth.permissions import Perm
 from app.modules.data import event_log as service
 from app.modules.data.enums import PROJECT_ID_PATTERN, TASK_ID_PATTERN
+from app.modules.data.xes import serialize
 
 router = APIRouter()
 Db = Annotated[Session, Depends(get_db)]
@@ -74,6 +76,39 @@ def list_event_log(
     date_from: date | None = None,
     date_to: date | None = None,
 ) -> list[EventLogRead]:
+    check_date_order(date_from, date_to)
+    return [
+        EventLogRead.model_validate(e)
+        for e in service.list_event_log(db, project_id, case_id, date_from, date_to)
+    ]
+
+
+@router.get(
+    "/event-log.xes",
+    dependencies=[Depends(require_permission(Perm.EVENT_LOG_EXPORT))],
+    response_class=StreamingResponse,
+    responses={200: {"content": {"application/xml": {}}, "description": "Berkas XES"}},
+    summary="Unduh event log sebagai XES (IEEE 1849), filter sama dengan GET /event-log",
+)
+def export_event_log_xes(
+    db: Db,
+    project_id: Annotated[str | None, Query(pattern=PROJECT_ID_PATTERN)] = None,
+    case_id: Annotated[str | None, Query(pattern=TASK_ID_PATTERN)] = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+) -> StreamingResponse:
+    """Satu trace per case (task), event urut waktu. Terbuka di pm4py dan ProM."""
+    check_date_order(date_from, date_to)
+    events = service.xes_events(db, project_id, case_id, date_from, date_to)
+    name = "_".join(["event_log", *(v for v in (project_id, case_id) if v)]) + ".xes"
+    return StreamingResponse(
+        serialize(events),
+        media_type="application/xml",
+        headers={"Content-Disposition": f'attachment; filename="{name}"'},
+    )
+
+
+def check_date_order(date_from: date | None, date_to: date | None) -> None:
     if date_from and date_to and date_from > date_to:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -85,7 +120,3 @@ def list_event_log(
                 }
             ],
         )
-    return [
-        EventLogRead.model_validate(e)
-        for e in service.list_event_log(db, project_id, case_id, date_from, date_to)
-    ]

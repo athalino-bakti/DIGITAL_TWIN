@@ -68,6 +68,7 @@ EXPECTED = {
     # Event log (DIG-37): membentuk ulang = pengolahan impor, membaca = ekspor (FR-07).
     ("POST", "/event-log/rebuild"): Perm.IMPORT_RUN,
     ("GET", "/event-log"): Perm.EVENT_LOG_EXPORT,
+    ("GET", "/event-log.xes"): Perm.EVENT_LOG_EXPORT,
     # Pemantauan job impor terjadwal (DIG-128).
     ("GET", "/import-jobs"): Perm.DATA_QUALITY_READ,
     ("GET", "/import-jobs/{job_id}"): Perm.DATA_QUALITY_READ,
@@ -82,6 +83,11 @@ EXPECTED = {
     # Pemetaan list Trello (DIG-120): konfigurasi impor.
     ("GET", "/trello-lists"): Perm.IMPORT_RUN,
     ("PATCH", "/trello-lists/{board_id}/{list_id}"): Perm.IMPORT_RUN,
+    # Laporan kualitas data dan baris ditolak per impor (DIG-146).
+    ("GET", "/quality/summary"): Perm.DATA_QUALITY_READ,
+    ("GET", "/quality/summary.csv"): Perm.DATA_QUALITY_READ,
+    ("GET", "/quality/rejected-rows"): Perm.DATA_QUALITY_READ,
+    ("GET", "/quality/rejected-rows.csv"): Perm.DATA_QUALITY_READ,
 }
 
 
@@ -201,6 +207,9 @@ CASES = [
     ("admin_data", "get", "/workload-items", None, False),
     ("kaur_asman", "get", "/workload-items", None, True),
     ("system_analyst", "get", "/workload-items", None, True),
+    # Ekspor event log untuk System Analyst (DIG-39); anggota tim tetap ditolak.
+    ("system_analyst", "get", "/event-log", None, True),
+    ("anggota_tim", "get", "/event-log", None, False),
     ("system_analyst", "post", "/workload-items", {}, False),
     ("admin_data", "post", "/workload-items", {}, True),
     ("admin_data", "delete", "/workload-items/WLI-9999", None, True),

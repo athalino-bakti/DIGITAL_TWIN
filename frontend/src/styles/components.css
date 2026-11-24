@@ -525,3 +525,14 @@ fieldset.change-effect { padding: var(--space-5); border: 1px solid var(--color-
 @media (max-width: 760px) {
   .user-name { display: none; }
 }
+
+/* Tab Kualitas data (DIG-147) */
+.field-inline { display: inline-flex; align-items: center; gap: var(--space-3); font: var(--text-label); color: var(--color-heading); }
+.quality-metrics { margin: var(--space-6) var(--space-7); }
+.quality-section { font: var(--text-h3); margin: var(--space-6) var(--space-7) var(--space-3); }
+.quality-empty { margin: 0 var(--space-7) var(--space-6); font: var(--text-body-sm); color: var(--color-muted); }
+.quality-findings { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+.quality-pager { justify-content: center; gap: var(--space-5); }
+@media (max-width: 900px) {
+  .quality-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

@@ -230,7 +230,7 @@ Satu pengguna boleh punya banyak peran aplikasi; izinnya gabungan dari semua per
 | `baseline:read` (FR-08 s.d. FR-11) | ✓ | ✓ |  |  |  |
 | `workload:read_all` | ✓ | ✓ |  |  |  |
 | `workload:read_own` | ✓ | ✓ | ✓ |  |  |
-| `event_log:export` (FR-07) |  |  |  | ✓ |  |
+| `event_log:export` (FR-07) |  | ✓ |  | ✓ |  |
 | `user:manage` |  |  |  |  | ✓ |
 
 - PuTI tidak punya jabatan Administrator Data atau Admin IT tersendiri (struktur tim A.2: Kaur/Asman, SA, TW, UI/UX, QA, FE, BE, DM). Peran `admin_data` dan `admin_it` diberikan sebagai peran kedua, biasanya ke SA sesuai Tabel 2.1 (atau ke Kaur bila perlu). Dengan `system_analyst` + `admin_data`, SA bisa melihat sekaligus menginput dan mengimpor beban non-proyek (D-08).
