@@ -61,8 +61,13 @@ describe('tab Data per peran', () => {
     expect(tabs(ROLE.anggota_tim)).toEqual(master);
   });
 
-  it('admin data: master data, alias identitas, impor, dan pemetaan Trello', () => {
-    expect(tabs(ROLE.admin_data)).toEqual([...master, 'alias', 'impor', 'trello']);
+  it('admin data: master data, alias identitas, impor, kualitas data, dan pemetaan Trello', () => {
+    expect(tabs(ROLE.admin_data)).toEqual([...master, 'alias', 'impor', 'kualitas', 'trello']);
+  });
+
+  it('tab Kualitas data mengikuti izin data_quality:read (DIG-147)', () => {
+    expect(tabs(ROLE.system_analyst)).toContain('kualitas');
+    for (const role of [ROLE.kaur_asman, ROLE.anggota_tim]) expect(tabs(role)).not.toContain('kualitas');
   });
 });
 
