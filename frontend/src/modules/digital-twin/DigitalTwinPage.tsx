@@ -1,6 +1,7 @@
 import { Navigate, NavLink, useParams } from 'react-router-dom';
 import { ModulePlaceholder } from '../../shared/components/ModulePlaceholder';
 import { DependencyPanel } from './dependency/DependencyPanel';
+import { HeatmapPanel } from './heatmap/HeatmapPanel';
 import { ProcessMapPanel } from './process-map/ProcessMapPanel';
 import { TimelinePanel } from './timeline/TimelinePanel';
 import { SummaryCards } from './summary/SummaryCards';
@@ -21,6 +22,6 @@ export function DigitalTwinPage() {
     <nav className="tabs" aria-label="Tampilan Digital Twin">
       {Object.entries(views).map(([key, item]) => <NavLink key={key} to={`/digital-twin/${key}`} className={({ isActive }) => isActive ? 'tab active' : 'tab'}>{item.label}</NavLink>)}
     </nav>
-    {view === 'timeline' ? <TimelinePanel /> : view === 'dependency' ? <DependencyPanel /> : view === 'process' ? <ProcessMapPanel /> : <ModulePlaceholder title={selected.title} description={selected.description} areas={selected.areas} />}
+    {view === 'timeline' ? <TimelinePanel /> : view === 'dependency' ? <DependencyPanel /> : view === 'process' ? <ProcessMapPanel /> : view === 'resource' ? <HeatmapPanel /> : <ModulePlaceholder title={selected.title} description={selected.description} areas={selected.areas} />}
   </>;
 }
