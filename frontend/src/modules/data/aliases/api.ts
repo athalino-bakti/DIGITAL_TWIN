@@ -30,9 +30,11 @@ export type ResourceAlias = {
   updated_at: string;
 };
 
+/** Untuk teamgit, `alias` sudah tersamar (DIG-95). Petakan lewat `alias_ref`, bukan `alias`. */
 export type UnmappedIdentity = {
   source: IdentitySource;
   alias_key: string;
+  alias_ref: string;
   alias: string;
   username: string | null;
   display_name: string | null;
@@ -44,6 +46,8 @@ export type AliasInput = {
   resource_id: string;
   source: IdentitySource;
   alias: string;
+  /** Dari daftar belum terpetakan; server mengambil nilai asli identitasnya sendiri. */
+  alias_ref?: string;
   username?: string | null;
   display_name?: string | null;
 };

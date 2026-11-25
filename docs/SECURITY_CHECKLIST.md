@@ -12,7 +12,7 @@ dicatat, **Belum** = perlu dikerjakan (lihat Jira).
 
 | Risiko | Status | Kontrol yang ada | Celah atau batasan |
 | --- | --- | --- | --- |
-| A01 Broken Access Control | Ada | Semua endpoint `/api/v1/data/*` wajib login dan izin; `tests/test_data_permissions.py` gagal bila ada endpoint data tanpa `require_permission` (DIG-226). Endpoint Digital Twin yang sedang di-review (#32, #33, #38) memakai `baseline:read`. Endpoint "Task saya" mengecek pelaksana aktif task (403 untuk task orang lain). Izin dibaca ulang setiap request. | Pembatasan data per peran pada endpoint beban dan ketersediaan masih DIG-94; matriks uji akses untuk semua endpoint di luar `/data` masih DIG-207. |
+| A01 Broken Access Control | Ada | Semua endpoint `/api/v1/data/*` wajib login dan izin; `tests/test_data_permissions.py` gagal bila ada endpoint data tanpa `require_permission` (DIG-226). Endpoint Digital Twin yang sedang di-review (#32, #33, #38) memakai `baseline:read`. Endpoint "Task saya" mengecek pelaksana aktif task (403 untuk task orang lain). Izin dibaca ulang setiap request. | Matriks uji akses untuk semua endpoint di luar `/data` masih DIG-207. Pembatasan data pribadi (DIG-19) dijelaskan di bagian "Data pribadi". |
 | A02 Cryptographic Failures | Sebagian | Password di-hash scrypt (N=2^15, r=8, p=3) dan di-hash ulang bila parameter naik. JWT HS256 dengan rahasia minimal 32 karakter; nilai development ditolak di luar `APP_ENV=development`. | HTTPS belum ada sampai server staging (DIG-206). HSTS sudah disiapkan (`STRICT_TRANSPORT_SECURITY`) tetapi baru boleh diisi setelah HTTPS. |
 | A03 Injection | Ada | Query lewat SQLAlchemy dengan parameter; tidak ada SQL dari string pengguna. Input divalidasi Pydantic (pola ID, panjang maksimal). Frontend React meng-escape teks; CSP `script-src 'self'` memblokir skrip sisipan. `src/security.test.ts` menolak `dangerouslySetInnerHTML`, `innerHTML`, `eval`, dan `<style>` di kode frontend. | `app/qa/schema_check.py` menjalankan ekspresi CHECK dari DATA_CONTRACT di tabel sementara; titik koma di luar teks berkutip ditolak dan transaksinya selalu di-rollback. Alat ini hanya untuk tim, bukan endpoint. |
 | A04 Insecure Design | Sebagian | Aturan bisnis diperiksa di service dan di constraint basis data (CHECK, FK, index unik parsial, exclusion constraint); pelanggaran bersamaan menjadi 409, bukan 500. Deteksi overrun otomatis terkunci di `OVERRUN_DETECTION_ENABLED=false`. | Belum ada audit log siapa mengubah apa (DIG-222). |
@@ -50,12 +50,20 @@ Cara memeriksa:
   CSP di atas; login, semua tab Data, tab Digital Twin, dan dialog Tambah proyek berjalan tanpa
   pelanggaran CSP maupun error di console.
 
+## Data pribadi (DIG-19)
+
+| Kriteria | Kontrol | Tes |
+| --- | --- | --- |
+| Heatmap seluruh anggota dan D-09 availability hanya untuk Kaur/Asman dan System Analyst | `GET /data/availability`, `/data/workload-items`, dan `/data/change-events` memakai `workload:read_all`. Heatmap tanpa `workload:read_all` hanya mengembalikan baris anggota yang tertaut ke akun; filter `role_id` dan `resource_id` diabaikan. | `tests/test_data_privacy.py` (matriks lima peran) |
+| Anggota tim hanya melihat task dan beban miliknya | `GET /data/tasks` dan `/data/tasks/{id}` tanpa `workload:read_all` atau `master_data:write` hanya berisi task yang pernah atau sedang ditugaskan ke anggota yang tertaut ke akun; task orang lain dijawab 404. Akun yang belum ditautkan tidak melihat task apa pun. "Task saya" dan heatmap mengikuti aturan yang sama. | `tests/test_data_privacy.py` |
+| Alamat surel commit tidak pernah ditampilkan | `app/core/privacy.py`: alias `teamgit` dikirim tersamar (`s***@puti.ac.id`) di semua respons `/data/resource-aliases`; identitas belum terpetakan diberi `alias_ref` (HMAC, tidak bisa dibalik) dan dipetakan lewat `alias_ref`, sehingga email asli tidak pernah sampai ke browser. Isi `before`, `after`, `note`, dan `entity_id` di `/data/audit-log` juga disamarkan. Nilai asli tetap tersimpan untuk pencocokan identitas. | `tests/test_data_privacy.py` |
+
+Aturan untuk endpoint baru: data yang memuat email author commit (mis. staging commit di DIG-27) wajib melewati `mask_email` atau `mask_emails_deep` sebelum dikirim, dan pemetaan identitasnya memakai `alias_ref`.
+
 ## Tindak lanjut
 
 | Butir | Jira |
 | --- | --- |
-| Filter data per peran pada endpoint beban dan ketersediaan | DIG-94 |
-| Masking alamat surel pada respons API | DIG-95 |
 | Matriks uji akses per peran untuk semua endpoint | DIG-207 |
 | HTTPS dan HSTS di staging | DIG-206 |
 | Audit log perubahan data, dan log login gagal serta penolakan izin | DIG-222 |

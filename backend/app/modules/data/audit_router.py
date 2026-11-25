@@ -9,9 +9,10 @@ from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 from sqlalchemy.orm import Session
 
+from app.core.privacy import mask_emails_deep
 from app.db.session import get_db
 from app.modules.auth.dependencies import require_permission
 from app.modules.auth.permissions import Perm
@@ -36,6 +37,12 @@ class AuditRead(BaseModel):
     before: dict[str, Any] | None
     after: dict[str, Any] | None
     note: str | None
+
+    @field_validator("before", "after", "note", "entity_id")
+    @classmethod
+    def hide_email(cls, value: Any) -> Any:
+        """Email (mis. alias teamgit) di isi audit tidak dikirim apa adanya (DIG-95)."""
+        return mask_emails_deep(value)
 
 
 class AuditPage(BaseModel):
