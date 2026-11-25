@@ -82,6 +82,9 @@ EXPECTED = {
     ("POST", "/imports/project-plan"): Perm.IMPORT_RUN,
     # Jejak audit (DIG-222): bagian traceability laporan kualitas data.
     ("GET", "/audit-log"): Perm.DATA_QUALITY_READ,
+    # Ekspor 11 CSV final sources untuk tWinner (DIG-193).
+    # Memuat D-08 dan D-09 seluruh anggota, jadi juga butuh workload:read_all (DIG-19).
+    ("GET", "/final-sources.zip"): {Perm.DATA_QUALITY_READ, Perm.WORKLOAD_READ_ALL},
     # Pemetaan list Trello (DIG-120): konfigurasi impor.
     ("GET", "/trello-lists"): Perm.IMPORT_RUN,
     ("PATCH", "/trello-lists/{board_id}/{list_id}"): Perm.IMPORT_RUN,
@@ -149,7 +152,9 @@ def test_every_data_endpoint_requires_a_permission():
 def test_data_endpoints_use_the_agreed_permission():
     actual = data_routes()
     assert set(actual) == set(EXPECTED), "endpoint data baru wajib dicatat di EXPECTED"
-    assert actual == {key: {perm} for key, perm in EXPECTED.items()}
+    assert actual == {
+        key: perm if isinstance(perm, set) else {perm} for key, perm in EXPECTED.items()
+    }
 
 
 # --- lewat HTTP -----------------------------------------------------------------------

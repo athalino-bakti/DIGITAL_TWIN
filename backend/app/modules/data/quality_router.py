@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.modules.auth.dependencies import require_permission
 from app.modules.auth.permissions import Perm
+from app.modules.data.csv_cells import safe_cell
 from app.modules.data.import_job_models import ImportJob
 from app.modules.data.quality_models import CHARACTERISTICS, DataQualityResult, RejectedRow
 
@@ -220,22 +221,11 @@ def _filtered_items(
     return [i for i in items if level is None or i.level == level]
 
 
-# Awalan yang membuat Excel/Sheets membaca sel sebagai formula (CSV/formula injection).
-_FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
-
-
-def _safe_cell(value):
-    """Sel teks yang bisa terbaca sebagai formula diawali `'`; angka dibiarkan."""
-    if isinstance(value, str) and value.startswith(_FORMULA_START):
-        return "'" + value
-    return value
-
-
 def _csv(name: str, header: list[str], rows: list[list]) -> Response:
     buffer = io.StringIO()
     writer = csv.writer(buffer, lineterminator="\n")
     writer.writerow(header)
-    writer.writerows([_safe_cell(cell) for cell in row] for row in rows)
+    writer.writerows([safe_cell(cell) for cell in row] for row in rows)
     # BOM supaya Excel membaca UTF-8 dengan benar.
     return Response(
         "﻿" + buffer.getvalue(),

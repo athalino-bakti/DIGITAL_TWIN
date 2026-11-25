@@ -11,6 +11,7 @@ import app.modules.data.quality_models  # noqa: F401  (mendaftarkan hasil kualit
 import app.modules.data.resource_alias_models  # noqa: F401  (mendaftarkan resource_alias)
 import app.modules.data.staging_models  # noqa: F401  (mendaftarkan staging Trello dan Project Plan)
 import app.modules.data.support_models  # noqa: F401  (mendaftarkan tabel pendukung 7.3)
+import app.modules.digital_twin.rli_snapshot  # noqa: F401  (mendaftarkan rli_snapshot ke metadata)
 from app.db.base import Base
 from app.db.session import engine
 

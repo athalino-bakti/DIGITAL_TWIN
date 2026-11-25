@@ -1,23 +1,11 @@
 """Penulis 11 CSV final sources sesuai Data Dictionary (DIG-81)."""
 
 import csv
-from datetime import date
 from pathlib import Path
 
+from app.modules.data.csv_cells import format_value
 from synthetic import reference as ref
 from synthetic.world import World
-
-
-def format_value(value: object) -> str:
-    if value is None:
-        return ""
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    if isinstance(value, date):
-        return value.isoformat()
-    if isinstance(value, float):
-        return f"{value:g}" if value != int(value) else f"{value:.1f}"
-    return str(value)
 
 
 def final_source_rows(world: World) -> dict[str, list[dict[str, object]]]:
