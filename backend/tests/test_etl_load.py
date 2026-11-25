@@ -34,13 +34,13 @@ ROW = {
 }
 
 
-def project(client) -> str:
+def project(client, name="SIKEP", rank=1) -> str:
     response = client.post(
         f"{DATA}/projects",
         json={
-            "project_name": "SIKEP",
+            "project_name": name,
             "process_owner": "Urusan Kepegawaian",
-            "priority_rank": 1,
+            "priority_rank": rank,
             "start_date": "2026-10-01",
             "target_launch_date": "2026-12-31",
             "status": "development",
@@ -196,6 +196,51 @@ def test_open_manual_change_is_not_overwritten(db, setup):
     assert report.conflicts == [
         {"task_id": "TSK-0001", "field": "status", "current": "blocked", "incoming": "in_progress"}
     ]
+
+
+def test_task_id_of_other_project_is_rejected_and_left_alone(client, db, setup):
+    run_project(db, setup["project"])
+    db.commit()
+    before = {
+        "task": {c.name: getattr(db.get(Task, "TSK-0001"), c.name) for c in Task.__table__.columns},
+        "deps": [(d.dependency_id, d.task_id, d.depends_on_task_id)
+                 for d in db.scalars(select(TaskDependency))],
+        "asgs": [(a.assignment_id, a.task_id, a.resource_id, a.assigned_date)
+                 for a in db.scalars(select(Assignment))],
+    }  # fmt: skip
+    other = project(client, "SIMPEG", rank=2)
+    # Proyek B menomori task-nya sendiri mulai TSK-0001, sama dengan kode milik proyek A.
+    rows = [
+        ROW | {"task_code": "TSK-0001", "task_name": "Login SIMPEG", "pic": "Sari Puspitasari",
+               "estimated_days": "5", "depends_on": "TSK-0009"},
+        ROW | {"task_code": "TSK-0009", "task_name": "Menu SIMPEG", "pic": ""},
+    ]  # fmt: skip
+    job = batch(db, other, rows)
+
+    for _ in range(2):  # jalan kedua tetap idempoten
+        report = run_project(db, other)
+        db.commit()
+        after_task = db.get(Task, "TSK-0001")
+        assert {c.name: getattr(after_task, c.name) for c in Task.__table__.columns} == (
+            before["task"]
+        )
+        assert [(d.dependency_id, d.task_id, d.depends_on_task_id)
+                for d in db.scalars(select(TaskDependency))] == before["deps"]  # fmt: skip
+        assert [(a.assignment_id, a.task_id, a.resource_id, a.assigned_date)
+                for a in db.scalars(select(Assignment))] == before["asgs"]  # fmt: skip
+        assert db.get(Task, "TSK-0009").project_id == other
+        assert report.rejected["tasks"] == 1
+        assert report.skipped_parent["task_dependencies"] == 1
+        assert report.skipped_parent["assignments"] == 1
+        assert report.findings["DQ-TSK-014:tolak"] == 1
+
+    (row,) = db.scalars(
+        select(RejectedRow).where(RejectedRow.job_id == job, RejectedRow.table_name == "tasks")
+    )
+    assert (row.row_key, row.row_number, row.rule_id, row.level) == (
+        "TSK-0001", 2, "DQ-TSK-014", "tolak"
+    )  # fmt: skip
+    assert setup["project"] in row.message
 
 
 def test_endpoint_runs_etl_and_needs_known_project(client, setup):

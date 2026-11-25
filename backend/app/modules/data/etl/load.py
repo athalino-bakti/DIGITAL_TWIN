@@ -52,6 +52,7 @@ from app.modules.data.quality.engine import (
     SourceRow,
 )
 from app.modules.data.quality.engine import Report as QualityReport
+from app.modules.data.quality.rules import EXISTING_TASKS
 from app.modules.data.quality.sources import read_database
 from app.modules.data.quality.store import save_report
 from app.modules.data.service import next_id
@@ -229,8 +230,11 @@ def validate(
 
     Aturan DIG-31 dipanggil per baris, bukan lewat `run_rules`, karena `Finding` tidak membawa
     identitas baris (assignment dari Trello tidak punya nomor baris maupun kunci).
+    Task yang sudah ada ikut di konteks (`EXISTING_TASKS`) supaya DQ-TSK-014 bisa menolak
+    `task_id` milik proyek lain sebelum upsert.
     """
-    tables = {**read_database(db), **candidates.tables}
+    database = read_database(db)
+    tables = {**database, **candidates.tables, EXISTING_TASKS: database["tasks"]}
     context = Context(tables)
     rejected: set[int] = set()
     quality = QualityReport(SOURCE)
@@ -300,6 +304,7 @@ def upsert_tasks(db, rows, job_id, report, actor: AppUser | None = None) -> None
             report.inserted["tasks"] += 1
             continue
         incoming.pop("dod_fulfilled")  # tidak ada sumber; nilai dari aplikasi dipertahankan
+        incoming.pop("project_id")  # ETL tidak memindahkan task; beda proyek ditolak DQ-TSK-014
         current = {c: getattr(task, c) for c in incoming}
         merge = merge_task_import(current, incoming, pending.get(task_id, {}))
         caught_up.extend(merge.caught_up)
@@ -367,7 +372,9 @@ def run_project(db: Session, project_id: str) -> EtlReport:
 
     upsert_tasks(db, accepted["tasks"], job_id, report)
     db.flush()
-    present = set(db.scalars(select(Task.task_id)))
+    # Hanya task proyek ini: dependensi dan assignment yang menunjuk task proyek lain (termasuk
+    # baris yang ditolak DQ-TSK-014) dilewati, bukan ditempelkan ke task milik proyek lain.
+    present = set(db.scalars(select(Task.task_id).where(Task.project_id == project_id)))
     deps = [
         r for r in accepted["task_dependencies"]
         if r.values["task_id"] in present and r.values["depends_on_task_id"] in present
