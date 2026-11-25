@@ -24,7 +24,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.modules.data.enums import TaskStatus
-from app.modules.data.models import Project, Task
+from app.modules.data.models import Assignment, Project, Task
 from app.modules.data.service import (
     DataValidationError,
     FieldError,
@@ -123,14 +123,30 @@ def _query():
     return select(Task, Project.project_name).join(Project, Project.project_id == Task.project_id)
 
 
+def _only_assigned_to(query, resource_id: str | None):
+    """Batasi ke task yang pernah atau sedang ditugaskan ke anggota ini (DIG-94).
+
+    Akun yang belum ditautkan ke data anggota (`resource_id` kosong) tidak melihat task apa pun.
+    """
+    owned = select(Assignment.task_id).where(Assignment.resource_id == resource_id)
+    return query.where(Task.task_id.in_(owned))
+
+
 def list_tasks(
     db: Session,
     project_id: str | None = None,
     status: list[TaskStatus] | None = None,
     required_role_id: str | None = None,
+    *,
+    own: bool = False,
+    resource_id: str | None = None,
 ) -> list[TaskRead]:
-    """Urut per proyek, lalu prioritas (1 lebih dulu), lalu jadwal rencana."""
+    """Urut per proyek, lalu prioritas (1 lebih dulu), lalu jadwal rencana.
+
+    `own=True` membatasi hasil ke task milik `resource_id` (Anggota Tim, DIG-94)."""
     query = _query().order_by(Task.project_id, Task.priority_rank, Task.planned_start, Task.task_id)
+    if own:
+        query = _only_assigned_to(query, resource_id)
     if project_id is not None:
         query = query.where(Task.project_id == project_id)
     if status:
@@ -140,8 +156,14 @@ def list_tasks(
     return [to_read(task, name) for task, name in db.execute(query)]
 
 
-def get_task(db: Session, task_id: str) -> TaskRead:
-    row = db.execute(_query().where(Task.task_id == task_id)).first()
+def get_task(
+    db: Session, task_id: str, *, own: bool = False, resource_id: str | None = None
+) -> TaskRead:
+    """Task milik anggota lain dilaporkan tidak ditemukan bila `own=True` (DIG-94)."""
+    query = _query().where(Task.task_id == task_id)
+    if own:
+        query = _only_assigned_to(query, resource_id)
+    row = db.execute(query).first()
     if row is None:
         raise TaskNotFoundError(task_id)
     return to_read(*row)
