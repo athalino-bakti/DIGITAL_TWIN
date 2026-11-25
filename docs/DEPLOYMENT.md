@@ -47,6 +47,7 @@ volume basis data.
 | `WEB_PORT` | `8080` | Port di host untuk frontend. |
 | `IMAGE_TAG` | `local` | Tag image `jc-api` dan `jc-web`. |
 | `STRICT_TRANSPORT_SECURITY` | kosong | Header HSTS dari nginx. Isi `max-age=31536000` hanya setelah situs dilayani lewat HTTPS. |
+| `DB_STATEMENT_TIMEOUT_MS`, `DB_IDLE_IN_TRANSACTION_TIMEOUT_MS` | `30000`, `300000` | Batas waktu query dan transaksi menganggur untuk service `api`. Pool koneksi (`DB_POOL_SIZE` dan lainnya) dijelaskan di `docs/DATABASE.md`. |
 
 API tidak membuka port ke host; semua request lewat nginx. Basis data juga hanya bisa dicapai
 dari jaringan internal compose.
