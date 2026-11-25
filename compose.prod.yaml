@@ -47,6 +47,10 @@ services:
       <<: *api-env
       # Hanya nginx di jaringan internal yang dipercaya mengirim X-Forwarded-For.
       FORWARDED_ALLOW_IPS: 172.30.0.0/24
+      # Batas waktu query dan transaksi menggantung untuk API saja; migrasi tidak dibatasi
+      # (docs/DATABASE.md, DIG-210).
+      DB_STATEMENT_TIMEOUT_MS: ${DB_STATEMENT_TIMEOUT_MS:-30000}
+      DB_IDLE_IN_TRANSACTION_TIMEOUT_MS: ${DB_IDLE_IN_TRANSACTION_TIMEOUT_MS:-300000}
     depends_on:
       migrate:
         condition: service_completed_successfully
