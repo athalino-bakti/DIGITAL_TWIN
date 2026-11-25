@@ -394,6 +394,27 @@ def estimate_in_range(rows, ctx):
             )
 
 
+# Kunci konteks berisi baris D-05 yang sudah ada di basis data. Hanya diisi ETL (DIG-134), yang
+# mengganti `tasks` di konteks dengan kandidat satu proyek; sasaran lain tidak memuatnya.
+EXISTING_TASKS = "tasks@existing"
+
+
+@rule("tasks", 14, "consistency", TOLAK, "task_id tidak dipakai task milik proyek lain")
+def task_id_of_other_project(rows, ctx):
+    owner = {r.key: r.values.get("project_id", "") for r in ctx.tables.get(EXISTING_TASKS, [])}
+    for row in rows:
+        project = row.values.get("project_id", "")
+        current = owner.get(row.key)
+        if current and project and current != project:
+            yield Hit(
+                row,
+                "task_id",
+                row.key,
+                f"{row.key} sudah dipakai task proyek {current}; baris proyek {project} "
+                f"tidak dimuat agar task {current} tidak tertimpa",
+            )
+
+
 # --------------------------------------------------------------------------- khusus tabel
 
 

@@ -10,7 +10,7 @@ from collections.abc import Callable
 import pytest
 
 from app.modules.data.quality import rules
-from app.modules.data.quality.engine import RULES, SourceRow
+from app.modules.data.quality.engine import RULES, Context, SourceRow
 from app.modules.data.quality.rules import PRIMARY_KEY, TABLES, validate_final_sources
 
 CLEAN: dict[str, list[dict[str, str]]] = {
@@ -314,7 +314,11 @@ def test_clean_dataset_has_no_findings():
     assert report.rejected_rows() == []
 
 
-@pytest.mark.parametrize("rule_id", ROW_RULES)
+# Hanya berlaku di ETL (konteks `EXISTING_TASKS`); diuji di test_task_id_of_other_project_*.
+ETL_ONLY = {"DQ-TSK-014"}
+
+
+@pytest.mark.parametrize("rule_id", [r for r in ROW_RULES if r not in ETL_ONLY])
 def test_rule_detects_violation(rule_id):
     data = copy.deepcopy(CLEAN)
     mutation(rule_id)(data, RULES[rule_id].table)
@@ -327,6 +331,18 @@ def test_rule_passes_clean_rows(rule_id):
 
 
 # --- perilaku khusus -------------------------------------------------------------------------
+
+
+def test_task_id_of_other_project_is_rejected_only_with_existing_tasks():
+    tables = to_tables(copy.deepcopy(CLEAN))
+    task = tables["tasks"][0]
+    other = SourceRow(None, task.key, {**task.values, "project_id": "PRJ-099"})
+    with_existing = {"tasks": tables["tasks"], rules.EXISTING_TASKS: [other]}
+    hits = list(RULES["DQ-TSK-014"].check(tables["tasks"], Context(with_existing)))
+    assert [(h.row.key, h.column) for h in hits] == [(task.key, "task_id")]
+    assert "PRJ-099" in hits[0].message
+    same = {"tasks": tables["tasks"], rules.EXISTING_TASKS: tables["tasks"]}
+    assert list(RULES["DQ-TSK-014"].check(tables["tasks"], Context(same))) == []
 
 
 def test_duplicate_key_rejects_later_rows_and_says_whether_identical():

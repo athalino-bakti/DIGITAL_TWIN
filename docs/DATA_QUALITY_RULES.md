@@ -59,7 +59,7 @@ Rincian aturan 010:
 
 ## Daftar aturan
 
-Kolom "Sasaran": CSV = CSV/workbook final sources, DB = tabel final sources, STG = staging, JOB = `import_job`. Semua aturan final sources berlaku untuk CSV dan DB.
+Kolom "Sasaran": CSV = CSV/workbook final sources, DB = tabel final sources, STG = staging, JOB = `import_job`, ETL = kandidat ETL DIG-134 dibandingkan dengan isi basis data. Semua aturan final sources berlaku untuk CSV dan DB.
 
 | rule_id | Tabel.kolom | Aturan | Karakteristik | Tingkat | Dasar | Constraint DB | Sasaran | Tiket |
 |---|---|---|---|---|---|---|---|---|
@@ -105,6 +105,7 @@ Kolom "Sasaran": CSV = CSV/workbook final sources, DB = tabel final sources, STG
 | DQ-TSK-011 | tasks.actual_finish | `actual_finish` butuh `actual_start` | consistency | tolak | kontrak §6, AC | ya | CSV, DB | DIG-141 |
 | DQ-TSK-012 | tasks.planned_start, planned_finish | Tidak jatuh di D-11 holidays | consistency | peringatan | AC, keputusan Davi | tidak | CSV, DB | DIG-141 |
 | DQ-TSK-013 | tasks.estimated_days | Dalam `min_days` s.d. `max_days` kompleksitasnya | consistency | peringatan | AC | tidak | CSV, DB | DIG-141 |
+| DQ-TSK-014 | tasks.task_id | `task_id` belum dipakai task milik proyek lain di basis data | consistency | tolak | review #61, kontrak §6 (`task_id` PK global) | tidak | ETL | DIG-134 |
 | DQ-DEP-001 | task_dependencies.* wajib | Kolom wajib tidak kosong | completeness | tolak | DD | ya | CSV, DB | DIG-140 |
 | DQ-DEP-002 | task_dependencies.dependency_id | Format `DEP-001` | consistency | tolak | kontrak §5 | ya | CSV, DB | DIG-140 |
 | DQ-DEP-003 | task_dependencies.dependency_type | Enum hard/soft | consistency | tolak | kontrak §6 | ya | CSV, DB | DIG-140 |
@@ -160,6 +161,7 @@ Kolom "Sasaran": CSV = CSV/workbook final sources, DB = tabel final sources, STG
 ## Perilaku penting
 
 - **Rujukan FK** diperiksa terhadap seluruh ID di dataset yang sama, termasuk baris yang ditolak. Penolakan tidak berantai. ETL DIG-134 yang memutuskan nasib baris yang merujuk baris tertolak.
+- **`task_id` lintas proyek (TSK-014)**: hanya berlaku di ETL, karena konteksnya kandidat satu proyek ditambah task yang sudah ada. Task milik proyek lain tidak diubah, dan dependensi serta assignment yang menunjuk `task_id` itu dilewati (`skipped_parent`). ETL tidak pernah mengubah `project_id` task yang sudah ada.
 - **Baris ganda (005)**: kemunculan pertama dipertahankan, kemunculan berikutnya ditolak. Pesan menyebut apakah isinya identik, yaitu bentuk cacat `duplikat` dari generator.
 - **Siklus (012/013)**: graf memakai dependency hard dan soft, karena `propagate_delay` di modul CPM juga memakai keduanya. Per siklus, edge dengan `dependency_id` terbesar (paling akhir ditambahkan) ditolak, lalu diulang sampai graf bebas siklus. Edge lain di siklus yang sama mendapat peringatan.
 - **Tanggal** dibaca ketat per format sumber (`quality.dates`): ISO untuk final sources, `dd/mm/yyyy` untuk Project Plan. Nilai yang bisa ditebak tetapi bukan format sumbernya (`01/12/2026`, `28 Sep 2026`, `2026/09/09`) tetap pelanggaran. Aturan tanggal turunan (009, 011, 012, 013) dilewati bila tanggalnya sendiri tidak terbaca, karena pelanggarannya sudah tercatat di 007.
