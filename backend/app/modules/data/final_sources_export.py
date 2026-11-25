@@ -2,7 +2,11 @@
 
 Cadangan bagi tWinner bila akses basis data langsung belum tersedia (DATA_CONTRACT bagian 4
 butir 4). Nama berkas `<tabel>.csv`, header dan urutan kolom sama dengan Data Dictionary dan
-`puti_datasets.xlsx` (urutan kolom tabel sama dengan migrasi). Izin `data_quality:read`.
+`puti_datasets.xlsx` (urutan kolom tabel sama dengan migrasi).
+
+Izin `data_quality:read` + `workload:read_all` (System Analyst): berkas memuat D-08 beban kerja
+dan D-09 ketidakhadiran seluruh anggota, yang menurut DIG-19 hanya untuk pemegang
+`workload:read_all`. Administrator Data tidak memegangnya.
 
 Nilai ditulis mentah, tanpa `safe_cell`: berkas ini dibaca program tWinner, dan awalan `'`
 akan mengubah datanya. Sanitasi formula tetap ada di CSV laporan kualitas untuk pengguna.
@@ -55,7 +59,7 @@ def table_csv(db: Session, name: str) -> str:
 
 @router.get(
     "/final-sources.zip",
-    dependencies=[Depends(require_permission(Perm.DATA_QUALITY_READ))],
+    dependencies=[Depends(require_permission(Perm.DATA_QUALITY_READ, Perm.WORKLOAD_READ_ALL))],
     response_class=Response,
     responses={200: {"content": {"application/zip": {}}}},
     summary="Ekspor 11 CSV final sources D-01 s.d. D-11 (DIG-193)",

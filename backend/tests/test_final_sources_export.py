@@ -66,9 +66,14 @@ def test_formula_like_text_is_exported_raw(client, db, exported):
     assert names[task_id] == "=SUM(A1)"
 
 
-def test_requires_data_quality_read(client, db):
+@pytest.mark.parametrize(
+    ("role", "status"),
+    [("system_analyst", 200), ("admin_data", 403), ("kaur_asman", 403), ("anggota_tim", 403)],
+)
+def test_only_system_analyst_can_export(client, db, role, status):
+    # Berisi D-08 dan D-09 seluruh anggota: butuh data_quality:read + workload:read_all (DIG-19).
     from tests.conftest import make_token
 
-    token = make_token(db, "anggota", ["anggota_tim"])
+    token = make_token(db, f"u-{role}", [role])
     response = client.get(URL, headers={"Authorization": f"Bearer {token}"})
-    assert response.status_code == 403
+    assert response.status_code == status
