@@ -3,6 +3,9 @@
 Cadangan bagi tWinner bila akses basis data langsung belum tersedia (DATA_CONTRACT bagian 4
 butir 4). Nama berkas `<tabel>.csv`, header dan urutan kolom sama dengan Data Dictionary dan
 `puti_datasets.xlsx` (urutan kolom tabel sama dengan migrasi). Izin `data_quality:read`.
+
+Nilai ditulis mentah, tanpa `safe_cell`: berkas ini dibaca program tWinner, dan awalan `'`
+akan mengubah datanya. Sanitasi formula tetap ada di CSV laporan kualitas untuk pengguna.
 """
 
 import csv
@@ -19,7 +22,7 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.modules.auth.dependencies import require_permission
 from app.modules.auth.permissions import Perm
-from app.modules.data.csv_cells import format_value, safe_cell
+from app.modules.data.csv_cells import format_value
 
 # Urutan D-01 s.d. D-11.
 FINAL_SOURCES = (
@@ -46,7 +49,7 @@ def table_csv(db: Session, name: str) -> str:
     writer = csv.writer(buffer, lineterminator="\n")
     writer.writerow(table.columns.keys())
     rows = db.execute(select(table).order_by(*table.primary_key.columns))
-    writer.writerows([format_value(safe_cell(value)) for value in row] for row in rows)
+    writer.writerows([format_value(value) for value in row] for row in rows)
     return buffer.getvalue()
 
 

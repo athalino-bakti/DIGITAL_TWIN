@@ -55,14 +55,15 @@ def test_content_equals_the_generator_csv(exported, tmp_path):
         assert sorted(read(exported, name)[1:]) == sorted(expected[1:]), name
 
 
-def test_formula_like_text_is_sanitized(client, db, exported):
+def test_formula_like_text_is_exported_raw(client, db, exported):
     task_id = db.scalar(text("SELECT task_id FROM tasks ORDER BY task_id LIMIT 1"))
     db.execute(text("UPDATE tasks SET task_name = '=SUM(A1)' WHERE task_id = :t"), {"t": task_id})
     db.commit()
     archive = zipfile.ZipFile(io.BytesIO(client.get(URL).content))
     header, *rows = read(archive, "tasks")
     names = {row[0]: row[header.index("task_name")] for row in rows}
-    assert names[task_id] == "'=SUM(A1)"
+    # ZIP dibaca program tWinner: nilai mentah, tanpa awalan ' (DATA_CONTRACT bagian 4).
+    assert names[task_id] == "=SUM(A1)"
 
 
 def test_requires_data_quality_read(client, db):
