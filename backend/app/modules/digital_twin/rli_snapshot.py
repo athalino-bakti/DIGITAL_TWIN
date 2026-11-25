@@ -72,7 +72,9 @@ def refresh(db: Session, as_of: date) -> int:
         for row in heatmap.rows
         for cell in row.cells
     ]
-    db.execute(delete(RliSnapshot))  # jc_app tidak punya TRUNCATE
+    # DELETE, bukan TRUNCATE: jc_app hanya diberi SELECT/INSERT/UPDATE/DELETE (migrasi 0014,
+    # docs/DATABASE_ROLES.md, tes test_jc_app_cannot_truncate).
+    db.execute(delete(RliSnapshot))
     if rows:
         db.execute(insert(RliSnapshot), rows)
     return len(rows)
