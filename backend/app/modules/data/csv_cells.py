@@ -23,5 +23,6 @@ def format_value(value: object) -> str:
     if isinstance(value, date):
         return value.isoformat()
     if isinstance(value, float):
-        return f"{value:g}" if value != int(value) else f"{value:.1f}"
+        # repr = representasi terpendek yang dibaca balik persis; :g memotong ke 6 digit.
+        return repr(value) if value != int(value) else f"{value:.1f}"
     return str(value)
