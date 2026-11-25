@@ -106,7 +106,7 @@ export function AliasesPanel() {
                     item={item}
                     resources={data.resources}
                     onMap={(resource_id) => run(
-                      () => createAlias({ resource_id, source: item.source, alias: item.alias, username: item.username, display_name: item.display_name }),
+                      () => createAlias({ resource_id, source: item.source, alias: item.alias, alias_ref: item.alias_ref, username: item.username, display_name: item.display_name }),
                       `${identityLabel(item)} dipetakan ke ${names.get(resource_id) ?? resource_id}.`,
                     )}
                   />

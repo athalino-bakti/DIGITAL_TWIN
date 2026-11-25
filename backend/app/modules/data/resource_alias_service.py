@@ -9,6 +9,7 @@ Daftar belum terpetakan dihitung saat request dari staging. Tiap sumber punya sa
 tanpa mengubah endpoint.
 """
 
+import hmac
 import re
 from collections.abc import Callable, Iterable
 from datetime import datetime
@@ -17,6 +18,7 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.privacy import alias_ref, mask_email
 from app.modules.data.enums import IdentitySource
 from app.modules.data.event_log import _assigned_member
 from app.modules.data.models import Resource
@@ -105,14 +107,32 @@ def _ensure_alias_free(db: Session, source: str, key: str) -> None:
         raise ConflictError(f"Alias {source} ini sudah dipetakan ke {owner}", field="alias")
 
 
+def _resolve_ref(db: Session, source: IdentitySource, ref: str) -> str:
+    """Nilai asli identitas belum terpetakan yang `alias_ref`-nya cocok (DIG-95)."""
+    collect = COLLECTORS.get(source)
+    for alias, _username, _display_name, _seen in collect(db) if collect else ():
+        try:
+            key = alias_key(source, alias)
+        except ValueError:
+            continue
+        if hmac.compare_digest(alias_ref(source, key), ref):
+            return alias
+    raise DataValidationError(
+        [FieldError("alias_ref", "Identitas tidak ditemukan atau sudah dipetakan", "alias_ref")]
+    )
+
+
 def create_alias(db: Session, payload: ResourceAliasCreate, user_id: int) -> ResourceAliasRead:
+    data = payload.model_dump(exclude={"alias_ref"})
+    if payload.alias_ref is not None:
+        data["alias"] = _resolve_ref(db, payload.source, payload.alias_ref)
     try:
-        key = alias_key(payload.source, payload.alias)
+        key = alias_key(payload.source, data["alias"])
     except ValueError as exc:
         raise DataValidationError([FieldError("alias", str(exc), "alias_format")]) from exc
     _ensure_resource(db, payload.resource_id)
     _ensure_alias_free(db, payload.source, key)
-    alias = ResourceAlias(**payload.model_dump(), alias_key=key, mapped_by_user_id=user_id)
+    alias = ResourceAlias(**data, alias_key=key, mapped_by_user_id=user_id)
     db.add(alias)
     commit(db)  # balapan dua permintaan pada alias yang sama tetap menjadi 409
     db.refresh(alias)
@@ -205,11 +225,13 @@ def list_unmapped(db: Session, source: IdentitySource | None = None) -> list[Unm
             item["last"] = max(item["last"], seen)
             item["username"] = item["username"] or username
             item["display_name"] = item["display_name"] or display_name
+        hidden = current is IdentitySource.TEAMGIT  # email tidak dikirim apa adanya (DIG-95)
         result += [
             UnmappedIdentity(
                 source=current,
-                alias_key=key,
-                alias=item["alias"],
+                alias_key=alias_ref(current, key) if hidden else key,
+                alias_ref=alias_ref(current, key),
+                alias=mask_email(item["alias"]) if hidden else item["alias"],
                 username=item["username"],
                 display_name=item["display_name"],
                 occurrences=item["n"],
